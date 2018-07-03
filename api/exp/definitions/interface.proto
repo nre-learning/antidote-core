@@ -1,0 +1,35 @@
+syntax = "proto3";
+package arachnid.api.exp;
+
+
+// The Interface service definition.
+service Interfaces {   
+  // Get all Interface with filter - A server-to-client streaming RPC.
+  // rpc GetInterface(InterfaceFilter) returns (stream Group) {}
+
+  // Get Interface - simple RPC
+  rpc GetInterface(InterfaceFilter) returns (Interface) {}
+
+  // Get Interface with filter - simple RPC
+  rpc ListInterfaces(InterfaceFilter) returns (InterfaceList) {}
+
+  // Create a new Interface - A simple RPC 
+  rpc CreateInterface (Interface) returns (InterfaceResponse) {}
+}
+
+// Request message for creating a new Interface
+message Interface {
+  int32 id = 1;  // Unique ID number for a Interface.
+  string name  = 2;
+}
+
+message InterfaceList{
+    repeated Interface interfaces = 1;
+}
+message InterfaceResponse {
+  int32 id = 1;
+  bool success = 2;
+}
+message InterfaceFilter {    
+  string hostname = 1;
+}
