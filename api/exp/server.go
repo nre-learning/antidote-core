@@ -1,28 +1,33 @@
 package api
 
-// pb "github.com/nre-learning/syringe/api/exp/generated"
+import (
+	"net"
 
-// const (
-// 	port = ":50099"
-// )
+	log "github.com/Sirupsen/logrus"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
+	labs "github.com/nre-learning/syringe/labs"
+	grpc "google.golang.org/grpc"
+)
 
-// func StartAPI() error {
+const (
+	port = ":50099"
+)
 
-// 	lis, err := net.Listen("tcp", port)
-// 	if err != nil {
-// 		log.Errorf("failed to listen: %v", err)
-// 	}
-// 	// Creates a new gRPC server
-// 	s := grpc.NewServer()
-// 	pb.RegisterNodesServer(s, &server{nodes: map[int32]*pb.Node{}})
+func StartAPI(l []*labs.Lab) error {
 
-// 	defer s.Stop()
-// 	return s.Serve(lis)
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Errorf("failed to listen: %v", err)
+	}
 
-// }
+	s := grpc.NewServer()
+	pb.RegisterLabsServer(s, &server{labs: l})
 
-// type server struct {
+	defer s.Stop()
+	return s.Serve(lis)
 
-// 	// storing data in memory for now
-// 	nodes map[int32]*pb.Node
-// }
+}
+
+type server struct {
+	labs []*labs.Lab
+}

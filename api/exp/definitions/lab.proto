@@ -1,0 +1,35 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+
+// The Labs service definition.
+service Labs {
+
+  // Request a lab is created, or request the UUID of one that already exists for these parameters.
+  rpc RequestLab(LabParams) returns (LabUUID) {}
+
+  // Retrieve details about a lab
+  rpc GetLab(LabUUID) returns (Lab) {}
+}
+
+message Lab {
+  int32 LabUUID = 1;
+  int32 labId = 2;
+  repeated LabDevice devices  = 3;
+  bool ready = 4;
+}
+
+message LabDevice {
+  string name  = 1;
+  int32 port  = 2;
+}
+
+message LabParams {
+  int32 labId = 1;
+}
+
+message LabUUID {
+  int32 id = 1;
+}
+
+

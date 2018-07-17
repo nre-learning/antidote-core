@@ -16,6 +16,7 @@ test:
 update:
 	glide up -v
 
+# You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.
 gengo:
 	rm -rf pkg/client/clientset && \
 	vendor/k8s.io/code-generator/generate-groups.sh all \

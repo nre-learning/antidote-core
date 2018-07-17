@@ -10,6 +10,8 @@ type Network struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`
 	Spec               NetworkSpec `json:"spec"`
+	Args               string      `json:"args"`
+	Kind               string      `json:"kind"`
 }
 type NetworkSpec struct {
 	Group   string       `json:"group"`
