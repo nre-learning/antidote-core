@@ -1,6 +1,7 @@
 syntax = "proto3";
 package syringe.api.exp;
 
+import "google/api/annotations.proto";
 
 // The Labs service definition.
 service Labs {
@@ -9,7 +10,11 @@ service Labs {
   rpc RequestLab(LabParams) returns (LabUUID) {}
 
   // Retrieve details about a lab
-  rpc GetLab(LabUUID) returns (Lab) {}
+  rpc GetLab(LabUUID) returns (Lab) {
+    option (google.api.http) = {
+      get: "/exp/lab/{id}"
+    };
+  }
 }
 
 message Lab {

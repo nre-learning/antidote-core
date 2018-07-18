@@ -37,6 +37,13 @@ func main() {
 
 	*/
 
+	go api.StartAPI(activeLabs)
+
+	c := make(chan struct{})
+	<-c
+
+	// ---------------------------------
+
 	var kubeconfig *string
 	if home := homeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -58,10 +65,6 @@ func main() {
 		log.Errorf("Problem starting lab scheduler: %s", err)
 	}
 
-	go api.StartAPI(activeLabs)
-
-	c := make(chan struct{})
-	<-c
 }
 
 func homeDir() string {
