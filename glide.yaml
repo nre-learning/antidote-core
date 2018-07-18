@@ -8,7 +8,8 @@ import:
 - package: k8s.io/code-generator
 - package: k8s.io/gengo
 - package: k8s.io/kube-openapi/pkg/util/proto
-
+- package: google.golang.org/grpc
+  version: v1.13.0
 # vendor/k8s.io/code-generator/generate-groups.sh all \
 # github.com/nre-learning/syringe/pkg/client \
 # github.com/nre-learning/syringe/pkg/apis \

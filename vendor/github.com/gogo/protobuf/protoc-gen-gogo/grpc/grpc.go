@@ -36,6 +36,7 @@ package grpc
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -128,16 +129,16 @@ func (g *grpc) GenerateImports(file *generator.FileDescriptor) {
 	if len(file.FileDescriptorProto.Service) == 0 {
 		return
 	}
-	imports := generator.NewPluginImports(g.gen)
-	for _, i := range []string{contextPkgPath, grpcPkgPath} {
-		imports.NewImport(i).Use()
-	}
-	imports.GenerateImports(file)
+	g.P("import (")
+	g.P(contextPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, contextPkgPath)))
+	g.P(grpcPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, grpcPkgPath)))
+	g.P(")")
+	g.P()
 }
 
 // reservedClientName records whether a client name is reserved on the client side.
 var reservedClientName = map[string]bool{
-	// TODO: do we need any in gRPC?
+// TODO: do we need any in gRPC?
 }
 
 func unexport(s string) string { return strings.ToLower(s[:1]) + s[1:] }
