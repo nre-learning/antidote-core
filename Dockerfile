@@ -31,20 +31,30 @@ RUN go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 RUN go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
 RUN go get -u github.com/golang/protobuf/protoc-gen-go
 
+EXPOSE 8086
+
 # RUN echo $GOPATH/bin
 # RUN ls -lhs $GOPATH/bin
 
 # Install syringe
 COPY . $GOPATH/src/github.com/nre-learning/syringe
-RUN cd $GOPATH/src/github.com/nre-learning/syringe && make
+RUN cd $GOPATH/src/github.com/nre-learning/syringe && make compiledocker
 
 RUN ls -lha /go/bin/
 
-ENTRYPOINT ["/go/bin/syringed"]
+CMD ["syringed"]
+
+# ENTRYPOINT ["/go/bin/syringed"]
 
 # WIP multi-stage build for slimmer image
 
+FROM scratch
+COPY --from=build-env /go/bin/syringed /usr/bin/syringed
+CMD ["/usr/bin/syringed"]
+
 # FROM alpine:3.8
+# RUN apk add --no-cache bash
+# ENV SHELL=/bin/bash
 # WORKDIR /app
 # RUN mkdir -p /app
 # COPY --from=build-env /go/bin/syringed /usr/bin
@@ -52,7 +62,6 @@ ENTRYPOINT ["/go/bin/syringed"]
 
 
 # RUN echo $PATH
-# RUN apk add --update bash
 
 # RUN touch /entrypoint.sh
 # RUN echo "/app/syringed" >> /entrypoint.sh

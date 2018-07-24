@@ -9,6 +9,7 @@ import (
 
 	cli "github.com/codegangsta/cli"
 	grpc "google.golang.org/grpc"
+
 	// log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
@@ -53,13 +54,13 @@ func main() {
 
 		// TODO(mierdin) need to document usage of c.Args().First()
 		{
-			Name:    "lab",
-			Aliases: []string{"labs"},
-			Usage:   "Work with Syringe Labs",
+			Name:    "livelab",
+			Aliases: []string{"livelabs"},
+			Usage:   "Work with Syringe livelabs",
 			Subcommands: []cli.Command{
 				{
 					Name:  "get",
-					Usage: "Retrieve a single lab",
+					Usage: "Retrieve a single livelab",
 					Action: func(c *cli.Context) {
 						var (
 							serverAddr = flag.String("server_addr", "127.0.0.1:50099", "The server address in the format of host:port")
@@ -71,17 +72,72 @@ func main() {
 							fmt.Println(err)
 						}
 						defer conn.Close()
-						client := pb.NewLabsClient(conn)
+						client := pb.NewLiveLabsClient(conn)
 
-						labUUID, _ := strconv.Atoi(
-							c.Args().First(),
-						)
-
-						labdetails, err := client.GetLab(context.Background(), &pb.LabUUID{Id: int32(labUUID)})
+						liveLabDetails, err := client.GetLiveLab(context.Background(), &pb.LabUUID{Id: c.Args().First()})
 						if err != nil {
 							fmt.Println(err)
 						}
-						fmt.Println(labdetails)
+						fmt.Println(liveLabDetails)
+					},
+				},
+				{
+					Name:  "request",
+					Usage: "Request a new livelab",
+					Action: func(c *cli.Context) {
+						var (
+							serverAddr = flag.String("server_addr", "127.0.0.1:50099", "The server address in the format of host:port")
+						)
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLabsClient(conn)
+
+						labId, _ := strconv.Atoi(c.Args()[0])
+
+						liveLabDetails, err := client.RequestLiveLab(context.Background(), &pb.LabParams{
+							LabId:     int32(labId),
+							SessionId: c.Args()[1],
+						})
+
+						if err != nil {
+							fmt.Println(err)
+						}
+						fmt.Println(liveLabDetails.Id)
+
+					},
+				},
+				{
+					Name:  "delete",
+					Usage: "Delete an existing livelab",
+					Action: func(c *cli.Context) {
+						var (
+							serverAddr = flag.String("server_addr", "127.0.0.1:50099", "The server address in the format of host:port")
+						)
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLabsClient(conn)
+
+						labId, _ := strconv.Atoi(c.Args()[0])
+
+						_, err = client.DeleteLiveLab(context.Background(), &pb.LabParams{
+							LabId:     int32(labId),
+							SessionId: c.Args()[1],
+						})
+
+						if err != nil {
+							fmt.Println(err)
+						}
+						fmt.Println("Deleted.")
 
 					},
 				},

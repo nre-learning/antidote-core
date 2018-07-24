@@ -22,3 +22,4 @@ Also we may want to do some preprovisioning
 Syringe provides this functionality. It will accept lab definitions and take care of scheduling them
 
 This will be a public-facing API, so it needs to be secured, and rate-limited. Need to track RPS as well as unique users (either via cookie and/or IP)
+Actually you can use your nginx ingress definition for this.

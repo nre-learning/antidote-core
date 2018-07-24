@@ -1,4 +1,4 @@
-package labs
+package scheduler
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/kubernetes.com/v1"
 	"github.com/nre-learning/syringe/pkg/client"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -33,25 +34,32 @@ func (ls *LabScheduler) createNetworkCrd() error {
 	return nil
 }
 
-func (ls *LabScheduler) createNetwork(labId, labInstanceId string) (*crd.Network, error) {
+func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest) (*crd.Network, error) {
+
+	// type Connection struct {
+	// 	A string `json:"a" yaml:"a"`
+	// 	B string `json:"b" yaml:"b"`
+	// }
+
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.Config)
 	if err != nil {
 		panic(err)
 	}
 
-	// Create a CRD client interface
-	crdclient := client.CrdClient(crdcs, scheme, "default")
+	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
 
-	netName := labId + labInstanceId + "net"
+	// Create a CRD client interface
+	crdclient := client.CrdClient(crdcs, scheme, nsName)
 
 	// Create a new Network object and write to k8s
 	network := &crd.Network{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: netName,
+			Name:      netName,
+			Namespace: nsName,
 			Labels: map[string]string{
-				"labId":          labId,
-				"labInstanceId":  labInstanceId,
+				"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
+				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 			},
 		},
@@ -61,20 +69,42 @@ func (ls *LabScheduler) createNetwork(labId, labInstanceId string) (*crd.Network
 
 	result, err := crdclient.Create(network)
 	if err == nil {
-		log.Infof("Created network: %s", result.ObjectMeta.Name)
+		log.WithFields(log.Fields{
+			"namespace": nsName,
+		}).Infof("Created network: %s", result.ObjectMeta.Name)
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
 
-		// In this case we are returning what we tried to create. This means that when this lab is cleaned up,
-		// syringe will delete the network that already existed.
-		return network, err
+		result, err := crdclient.Get(network.ObjectMeta.Name)
+		if err != nil {
+			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
+			return nil, err
+		}
+		return result, nil
 	} else {
+		log.Errorf("Problem creating network %s: %s", netName, err)
 		return nil, err
 	}
 	return result, err
 }
 
-func (ls *LabScheduler) deleteNetwork(name string) error {
+// getMemberNetworks gets the names of all networks a device belongs to based on definition.
+func getMemberNetworks(device *def.Device, connections []*def.Connection) []string {
+	// We want the management network to be first always.
+	memberNets := []string{
+		"mgmt-net",
+	}
+	for c := range connections {
+		connection := connections[c]
+		if connection.A == device.Name || connection.B == device.Name {
+			netName := fmt.Sprintf("%s-%s-net", connection.A, connection.B)
+			memberNets = append(memberNets, netName)
+		}
+	}
+	return memberNets
+}
+
+func (ls *LabScheduler) deleteNetwork(name, ns string) error {
 
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.Config)
@@ -83,7 +113,7 @@ func (ls *LabScheduler) deleteNetwork(name string) error {
 	}
 
 	// Create a CRD client interface
-	crdclient := client.CrdClient(crdcs, scheme, "default")
+	crdclient := client.CrdClient(crdcs, scheme, ns)
 
 	err = crdclient.Delete(name, &meta_v1.DeleteOptions{})
 	if err != nil {

@@ -3,38 +3,73 @@ package syringe.api.exp;
 
 import "google/api/annotations.proto";
 
-// The Labs service definition.
-service Labs {
+// The LiveLabs service definition.
+service LiveLabs {
 
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
-  rpc RequestLab(LabParams) returns (LabUUID) {}
-
-  // Retrieve details about a lab
-  rpc GetLab(LabUUID) returns (Lab) {
+  rpc RequestLiveLab(LabParams) returns (LabUUID) {
     option (google.api.http) = {
-      get: "/exp/lab/{id}"
+      post: "/exp/livelab"
+      body: "*"
     };
   }
+
+  // Delete a running livelab
+  rpc DeleteLiveLab(LabParams) returns (LiveLab) {
+    option (google.api.http) = {
+      delete: "/exp/livelab"
+      body: "*"
+    };
+  }
+
+  // Retrieve details about a lab
+  rpc GetLiveLab(LabUUID) returns (LiveLab) {
+    option (google.api.http) = {
+      get: "/exp/livelab/{id}"
+    };
+  }
+
+  // TODO(mierdin): Need to add instrumentation requests, so we can get visibility into the list of livelabs, labdefs, etc.
 }
 
-message Lab {
-  int32 LabUUID = 1;
-  int32 labId = 2;
-  repeated LabDevice devices  = 3;
-  bool ready = 4;
+// A provisioned lab without the scheduler details. The server will translate from an underlying type
+// (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
+message LiveLab {
+  string LabUUID = 1;
+  int32 LabId = 2;
+  repeated LabEndpoint Endpoints  = 3;
+  bool Ready = 4;
 }
 
-message LabDevice {
-  string name  = 1;
-  int32 port  = 2;
+message LabEndpoint {
+  string Name  = 1;
+
+  enum EndpointType {
+    UNKNOWN = 0;       // In proto3, zero value fields are indistinguishable from unset fields, by design. They are not sent on the wire either. So let's set this aside.
+    DEVICE = 1;        // A network device. Expected to be reachable via SSH or API on the listed port
+    NOTEBOOK = 2;      // Jupyter server
+    BLACKBOX = 3;      // Some kind of entity that the user doesn't have access to (i.e. for troubleshooting)
+    LINUX = 4;         // Linux container we want to provide access to for tools
+    CONFIGURATOR = 5;  // Configurator container that's responsible for bootstrapping the lab devices
+  }
+  EndpointType Type = 2;
+
+  // Port for normal operations. If type "device", used for SSH. If type "notebook", loads up in an iframe.
+  int32 Port  = 3;
+
+  // Extra port for API interactions.
+  // Note that this mostly doesn't matter, as this is only in case we want to allow API interactions from outside
+  // the cluster via NodePort. Most of the time we'll use the standard ports using in-cluster traffic.
+  int32 Api_port  = 4;
 }
 
 message LabParams {
   int32 labId = 1;
+  string sessionId = 2;
 }
 
 message LabUUID {
-  int32 id = 1;
+  string id = 1;
 }
 
 

@@ -6,13 +6,13 @@ clean:
 	rm -f $(GOPATH)/bin/syringed
 	rm -f $(GOPATH)/bin/syrctl
 
-compile:
+compiledocker:
 	rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 
 	protoc -I/usr/local/include -I. \
 	-I$$GOPATH/src \
 	-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	--grpc-gateway_out=logtostderr=true:. \
+	--grpc-gateway_out=logtostderr=true,allow_delete_body=true:. \
 	api/exp/definitions/*.proto
 
 	mv api/exp/definitions/lab.pb.gw.go api/exp/generated/
@@ -25,15 +25,41 @@ compile:
 	protoc -I/usr/local/include -I. \
 	  -I$$GOPATH/src \
 	  -I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	  --swagger_out=logtostderr=true:. \
+	  --swagger_out=logtostderr=true,allow_delete_body=true:. \
 	  api/exp/definitions/*.proto
 
 	mv api/exp/definitions/lab.swagger.json api/exp/generated/
+	go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
 
+compile:
+	rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
+
+	protoc -I/usr/local/include -I. \
+	-I$$GOPATH/src \
+	-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+	--grpc-gateway_out=logtostderr=true,allow_delete_body=true:. \
+	api/exp/definitions/*.proto
+
+	mv api/exp/definitions/lab.pb.gw.go api/exp/generated/
+
+	protoc -I api/exp/definitions/ \
+	api/exp/definitions/*.proto \
+		-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+	--go_out=plugins=grpc:api/exp/generated/
+
+	protoc -I/usr/local/include -I. \
+	  -I$$GOPATH/src \
+	  -I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+	  --swagger_out=logtostderr=true,allow_delete_body=true:. \
+	  api/exp/definitions/*.proto
+
+	mv api/exp/definitions/lab.swagger.json api/exp/generated/
+	# go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
 	go install ./cmd/...
 
 docker:
 	docker build -t antidotelabs/syringe .
+	docker push antidotelabs/syringe
 
 test: 
 	go test ./... -cover
