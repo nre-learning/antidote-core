@@ -93,10 +93,6 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 				{
 					Name:  podName,
 					Image: image,
-					SecurityContext: &corev1.SecurityContext{
-						Privileged:               &b,
-						AllowPrivilegeEscalation: &b,
-					},
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: typePortMap[etype.String()],
@@ -109,6 +105,20 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 
 	// TODO(mierdin): Need to get this from env
 	lessonsPath := "/home/mierdin/antidote/lessons"
+
+	if etype.String() == "DEVICE" {
+		pod.Spec.Containers[0].Env = []corev1.EnvVar{
+			{
+				Name:  "CSRX_ROOT_PASSWORD",
+				Value: "Password1!",
+			},
+		}
+
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &b,
+			AllowPrivilegeEscalation: &b,
+		}
+	}
 
 	if etype.String() == "NOTEBOOK" {
 		pod.Spec.Volumes = []corev1.Volume{

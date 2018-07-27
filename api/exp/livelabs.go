@@ -12,17 +12,27 @@ import (
 func (s *server) RequestLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LabUUID, error) {
 
 	// TODO(mierdin): need to perform some basic security checks here. Need to check incoming IP address
-	// and do some rate-limiting if possible.
+	// and do some rate-limiting if possible. Alternatively you could perform this on the Ingress
+
+	if lp.SessionId == "" {
+		msg := "Session ID cannot be nil"
+		log.Error(msg)
+		return nil, errors.New(msg)
+	}
 
 	// Identify lab definition - return error if doesn't exist by ID
-	// var labDef *def.LabDefinition
 	if _, ok := s.scheduler.LabDefs[lp.LabId]; !ok {
+		log.Errorf("Couldn't find lab ID %s", lp.LabId)
 		return &pb.LabUUID{}, errors.New("Failed to find referenced Lab ID")
 	}
 
-	// 2 -check to see if it already exists in memory. If it does, don't send provision request.
+	// Check to see if it already exists in memory. If it does, don't send provision request.
 	// Just look it up and send UUID
+	log.Infof("Looking up session %s", lp.SessionId)
 	if labUuid, ok := s.sessions[lp.SessionId]; ok {
+
+		log.Info("Found session")
+		log.Info(s.sessions[lp.SessionId])
 		return &pb.LabUUID{Id: labUuid}, nil
 	}
 
@@ -89,40 +99,8 @@ func (s *server) GetLiveLab(ctx context.Context, uuid *pb.LabUUID) (*pb.LiveLab,
 		return nil, errors.New(msg)
 	}
 
-	// log.Info(uuid.Id)
-
-	// labMap := map[int]*pb.LiveLab{
-	// 	1: &pb.LiveLab{
-	// 		LabUUID: 1,
-	// 		LabId:   1,
-	// 		Endpoints: []*pb.LabEndpoint{
-	// 			{
-	// 				Name:    "csrx1",
-	// 				Type:    pb.LabEndpoint_DEVICE,
-	// 				Port:    30005,
-	// 				ApiPort: 30005,
-	// 			},
-	// 			{
-	// 				Name:    "csrx2",
-	// 				Type:    pb.LabEndpoint_DEVICE,
-	// 				Port:    30006,
-	// 				ApiPort: 30006,
-	// 			},
-	// 			{
-	// 				Name:    "csrx3",
-	// 				Type:    pb.LabEndpoint_DEVICE,
-	// 				Port:    30007,
-	// 				ApiPort: 30007,
-	// 			},
-	// 			{
-	// 				Name: "j1",
-	// 				Type: pb.LabEndpoint_NOTEBOOK,
-	// 				Port: 30008,
-	// 			},
-	// 		},
-	// 		Ready: true,
-	// 	},
-	// }
+	log.Debug("CURRENT LIVELABS")
+	log.Debug(s.liveLabs)
 
 	log.Infof("About to return %s", s.liveLabs[uuid.Id])
 	return s.liveLabs[uuid.Id], nil

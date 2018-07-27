@@ -94,28 +94,15 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 	// 	return err
 	// }
 
-	// TODO(mierdin): Add listen on channel for schedule responses and populate map with relevant info in a loop here
-
 	for {
 		result := <-ls.Results
 
 		log.Infof("Received result message: %s", result)
 
-		// type LabScheduleResult struct {
-		// 	Success   bool
-		// 	Operation OperationType
-		// 	Message   string
-		// 	KubeLab   *KubeLab
-		// 	Uuid      string
-		// }
-
 		if result.Success {
 			if result.Operation == scheduler.OperationType_CREATE {
 				apiServer.liveLabs[result.Uuid] = result.KubeLab.ToLiveLab()
 			} else if result.Operation == scheduler.OperationType_DELETE {
-
-				// TODO(mierdin): need to test this, and also make sure we call the deleteNamespace function for this.
-				// also delete from sessions
 				delete(apiServer.liveLabs, result.Uuid)
 			} else {
 				log.Error("FOO")

@@ -123,6 +123,8 @@ func (ls *LabScheduler) createNamespace(req *LabScheduleRequest) (*corev1.Namesp
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
 
+	log.Infof("Creating namespace: %s", req.Session)
+
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,

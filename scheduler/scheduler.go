@@ -63,6 +63,9 @@ func (ls *LabScheduler) Start() error {
 	for {
 		newRequest := <-ls.Requests
 
+		log.Debug("Scheduler received new request")
+		log.Debug(newRequest)
+
 		if newRequest.Operation == OperationType_CREATE {
 			newKubeLab, err := ls.createKubeLab(newRequest)
 			if err != nil {
