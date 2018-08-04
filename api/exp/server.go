@@ -102,6 +102,7 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 		if result.Success {
 			if result.Operation == scheduler.OperationType_CREATE {
 				apiServer.liveLabs[result.Uuid] = result.KubeLab.ToLiveLab()
+				apiServer.liveLabs[result.Uuid].LabGuide = result.LabDef.LabGuide
 			} else if result.Operation == scheduler.OperationType_DELETE {
 				delete(apiServer.liveLabs, result.Uuid)
 			} else {

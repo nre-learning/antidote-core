@@ -38,7 +38,8 @@ message LiveLab {
   string LabUUID = 1;
   int32 LabId = 2;
   repeated LabEndpoint Endpoints  = 3;
-  bool Ready = 4;
+  string LabGuide = 4;
+  bool Ready = 5;
 }
 
 message LabEndpoint {

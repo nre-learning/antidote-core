@@ -51,13 +51,17 @@ func main() {
 
 	// Get lab definitions
 	fileList := []string{}
+	log.Debugf("Searching %s for lab definitions", searchDir)
 	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
+		log.Debugf("Searching: %s", path)
 		syringeFileLocation := fmt.Sprintf("%s/syringe.yaml", path)
 		if _, err := os.Stat(syringeFileLocation); err == nil {
+			log.Debugf("Found lab definition at: %s", syringeFileLocation)
 			fileList = append(fileList, syringeFileLocation)
 		}
 		return nil
 	})
+	fileList = append(fileList, "/lessons/lesson-1/syringe.yaml")
 	labDefs, err := def.ImportLabDefs(fileList)
 	if err != nil {
 		log.Warn(err)

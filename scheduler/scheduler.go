@@ -30,6 +30,7 @@ type LabScheduleRequest struct {
 
 type LabScheduleResult struct {
 	Success   bool
+	LabDef    *def.LabDefinition
 	Operation OperationType
 	Message   string
 	KubeLab   *KubeLab
@@ -72,6 +73,7 @@ func (ls *LabScheduler) Start() error {
 				log.Errorf("Error creating lab: %s", err)
 				ls.Results <- &LabScheduleResult{
 					Success:   false,
+					LabDef:    newRequest.LabDef,
 					KubeLab:   nil,
 					Uuid:      "",
 					Operation: newRequest.Operation,
@@ -79,6 +81,7 @@ func (ls *LabScheduler) Start() error {
 			}
 			ls.Results <- &LabScheduleResult{
 				Success:   true,
+				LabDef:    newRequest.LabDef,
 				KubeLab:   newKubeLab,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
@@ -90,6 +93,7 @@ func (ls *LabScheduler) Start() error {
 				log.Errorf("Error creating lab: %s", err)
 				ls.Results <- &LabScheduleResult{
 					Success:   false,
+					LabDef:    newRequest.LabDef,
 					KubeLab:   nil,
 					Uuid:      "",
 					Operation: newRequest.Operation,
@@ -97,6 +101,7 @@ func (ls *LabScheduler) Start() error {
 			}
 			ls.Results <- &LabScheduleResult{
 				Success:   true,
+				LabDef:    newRequest.LabDef,
 				KubeLab:   nil,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
@@ -136,48 +141,52 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 		return nil, err
 	}
 
-	// Create networks from connections property
-	for c := range req.LabDef.Connections {
-		connection := req.LabDef.Connections[c]
-		newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
-		if err != nil {
-			log.Error(err)
+	// Only bother making connections and device pod/services if we're not using the
+	// shared topology
+	if !kl.CreateRequest.LabDef.SharedTopology {
+
+		// Create networks from connections property
+		for c := range req.LabDef.Connections {
+			connection := req.LabDef.Connections[c]
+			newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+			if err != nil {
+				log.Error(err)
+			}
+
+			// log.Infof("About to add %v at index %s", &newNet, &newNet.ObjectMeta.Name)
+
+			kl.Networks[newNet.ObjectMeta.Name] = newNet
 		}
 
-		// log.Infof("About to add %v at index %s", &newNet, &newNet.ObjectMeta.Name)
+		// type LabDefinition struct {
+		// 	LabName     string        `json:"labName" yaml:"labName"`
+		// 	LabID       int32         `json:"labID" yaml:"labID"`
+		// 	Devices     []*Device     `json:"devices" yaml:"devices"`
+		// 	Connections []*Connection `json:"connections" yaml:"connections"`
+		// }
 
-		kl.Networks[newNet.ObjectMeta.Name] = newNet
+		// Create pods and services for devices
+		for d := range req.LabDef.Devices {
+
+			// Create pods from devices property
+			device := req.LabDef.Devices[d]
+			newPod, _ := ls.createPod(
+				device.Name,
+				device.Image,
+				pb.LabEndpoint_DEVICE,
+				getMemberNetworks(device, req.LabDef.Connections),
+				req,
+			)
+			kl.Pods[newPod.ObjectMeta.Name] = newPod
+
+			// Create service for this pod
+			newSvc, _ := ls.createService(
+				newPod,
+				req,
+			)
+			kl.Services[newSvc.ObjectMeta.Name] = newSvc
+		}
 	}
-
-	// type LabDefinition struct {
-	// 	LabName     string        `json:"labName" yaml:"labName"`
-	// 	LabID       int32         `json:"labID" yaml:"labID"`
-	// 	Devices     []*Device     `json:"devices" yaml:"devices"`
-	// 	Connections []*Connection `json:"connections" yaml:"connections"`
-	// }
-
-	// Create pods and services for devices
-	for d := range req.LabDef.Devices {
-
-		// Create pods from devices property
-		device := req.LabDef.Devices[d]
-		newPod, _ := ls.createPod(
-			device.Name,
-			device.Image,
-			pb.LabEndpoint_DEVICE,
-			getMemberNetworks(device, req.LabDef.Connections),
-			req,
-		)
-		kl.Pods[newPod.ObjectMeta.Name] = newPod
-
-		// Create service for this pod
-		newSvc, _ := ls.createService(
-			newPod,
-			req,
-		)
-		kl.Services[newSvc.ObjectMeta.Name] = newSvc
-	}
-
 	if req.LabDef.Notebook {
 
 		notebookPod, _ := ls.createPod(
@@ -277,8 +286,30 @@ func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
 	ret := pb.LiveLab{
 		LabUUID:   kl.CreateRequest.Uuid,
 		LabId:     kl.CreateRequest.LabDef.LabID,
-		Endpoints: []*pb.LabEndpoint{}, //TODO(mierdin): obviously need to populate this
-		Ready:     true,                //TODO(mierdin): will need to get a health check before validating this, or validate async
+		Endpoints: []*pb.LabEndpoint{},
+		Ready:     false, // Set to false for now, will update elsewhere in a health check
+	}
+
+	if kl.CreateRequest.LabDef.SharedTopology {
+		ret.Endpoints = []*pb.LabEndpoint{
+			{
+				Name: "vqfx1",
+				Type: pb.LabEndpoint_DEVICE,
+				Port: 30011,
+			}, {
+				Name: "vqfx2",
+				Type: pb.LabEndpoint_DEVICE,
+				Port: 30012,
+			}, {
+				Name: "vqfx3",
+				Type: pb.LabEndpoint_DEVICE,
+				Port: 30013,
+			}, { // TODO(mierdin): Need to figure out how to make the notebook dynamic
+				Name: "notebook",
+				Type: pb.LabEndpoint_NOTEBOOK,
+				Port: 30014,
+			},
+		}
 	}
 
 	for s := range kl.Services {

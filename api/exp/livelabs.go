@@ -3,6 +3,10 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"strconv"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -45,7 +49,7 @@ func (s *server) RequestLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LabU
 		}
 	}
 
-	// What if one session has multiple UUIDs? Might happen as they transition between labs
+	// What if one session has multiple UUIDs? Might happen as they transition between lessons
 	// At the very least you should store a second map inside this map, which contains a map of lab IDs for a given session, and then map those to UUIDs
 	//
 	// TODO(mierdin): consider not having any tables in memory at all. Just make everything function off of namespace names
@@ -99,9 +103,50 @@ func (s *server) GetLiveLab(ctx context.Context, uuid *pb.LabUUID) (*pb.LiveLab,
 		return nil, errors.New(msg)
 	}
 
+	log.Infof("Looking up livelab %s", uuid.Id)
+	if _, ok := s.liveLabs[uuid.Id]; !ok {
+		return nil, errors.New("livelab not found")
+	}
+
 	log.Debug("CURRENT LIVELABS")
 	log.Debug(s.liveLabs)
 
-	log.Infof("About to return %s", s.liveLabs[uuid.Id])
+	log.Debugf("About to return %s", s.liveLabs[uuid.Id])
+
+	// Return immediately without health check if we already know it's running
+	if s.liveLabs[uuid.Id].Ready {
+		return s.liveLabs[uuid.Id], nil
+	}
+
+	// For now, I'm doing a health check synchronous with the client calling getLiveLab. This will obviously incur a performance
+	// hit the first few calls, but I'm mitigating this by updating the livelab in memory with the result, so that eventually,
+	// after subsequent calls, the below conditional will return True and we won't have to check the status again.
+	// Obviously this isn't ideal for making sure the lab is STILL running after a while, only that it's initially running.
+	s.liveLabs[uuid.Id].Ready = isReady(s.liveLabs[uuid.Id])
 	return s.liveLabs[uuid.Id], nil
+
+}
+
+func isReady(ll *pb.LiveLab) bool {
+	for d := range ll.Endpoints {
+		ep := ll.Endpoints[d]
+		if isReachable(ep.Port) {
+			log.Debugf("%s health check passed")
+		} else {
+			log.Debugf("%s health check failed")
+			return false
+		}
+	}
+	return true
+}
+
+func isReachable(port int32) bool {
+	intPort := strconv.Itoa(int(port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 1*time.Second)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+
+	return true
 }
