@@ -7,7 +7,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/nre-learning/syringe/def"
-	crd "github.com/nre-learning/syringe/pkg/apis/kubernetes.com/v1"
+	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/nre-learning/syringe/pkg/client"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +34,7 @@ func (ls *LabScheduler) createNetworkCrd() error {
 	return nil
 }
 
-func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest) (*crd.Network, error) {
+func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
 
 	// type Connection struct {
 	// 	A string `json:"a" yaml:"a"`
@@ -52,8 +52,34 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest) (
 	// Create a CRD client interface
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
 
+	var networkArgs string
+	if deviceNetwork {
+
+		networkName := fmt.Sprintf("%s-%s", nsName, netName)
+
+		networkArgs = fmt.Sprintf(`{
+			"name": "%s",
+			"type": "bridge",
+			"plugin": "bridge",
+			"bridge": "%s",
+			"forceAddress": false,
+			"hairpinMode": false,
+			"delegate": {
+					"hairpinMode": false
+			},
+			"ipam": {
+			  "type": "host-local",
+			  "subnet": %s
+			}
+		}`, networkName, networkName, subnet)
+
+	} else {
+		networkArgs = fmt.Sprintf(`{ "name": "%s", "type": "weave-net", "hairpinMode": false, "delegate": { "hairpinMode": false } }`, netName)
+	}
+
 	// Create a new Network object and write to k8s
-	network := &crd.Network{
+	network := &crd.NetworkAttachmentDefinition{
+		// apiVersion: "k8s.cni.cncf.io/v1",
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      netName,
 			Namespace: nsName,
@@ -63,9 +89,34 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest) (
 				"syringeManaged": "yes",
 			},
 		},
-		Kind: "Network",
-		Args: fmt.Sprintf("[ { 'name': '%s', 'type': 'weave-net', 'hairpinMode': false, 'delegate': { 'hairpinMode': false } } ]", netName),
+		Kind: "NetworkAttachmentDefinition",
+		Spec: crd.NetworkSpec{
+			Config: networkArgs,
+		},
 	}
+
+	// ---
+	// apiVersion: "k8s.cni.cncf.io/v1"
+	// kind: NetworkAttachmentDefinition
+	// metadata:
+	//   name: 12-net
+	//   # namespace: lab0
+	// spec:
+	//   config: '{
+	// 			  "name": "12-net",
+	// 			  "type": "bridge",
+	// 			  "plugin": "bridge",
+	// 			  "bridge": "12-bridge",
+	// 			  "forceAddress": false,
+	// 			  "hairpinMode": false,
+	// 			  "delegate": {
+	// 					  "hairpinMode": false
+	// 			  },
+	// 			  "ipam": {
+	// 				"type": "host-local",
+	// 				"subnet": "10.10.12.0/24"
+	// 			  }
+	// }'
 
 	result, err := crdclient.Create(network)
 	if err == nil {

@@ -26,7 +26,7 @@ func (s *server) RequestLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LabU
 
 	// Identify lab definition - return error if doesn't exist by ID
 	if _, ok := s.scheduler.LabDefs[lp.LabId]; !ok {
-		log.Errorf("Couldn't find lab ID %s", lp.LabId)
+		log.Errorf("Couldn't find lab ID %d", lp.LabId)
 		return &pb.LabUUID{}, errors.New("Failed to find referenced Lab ID")
 	}
 
@@ -131,9 +131,9 @@ func isReady(ll *pb.LiveLab) bool {
 	for d := range ll.Endpoints {
 		ep := ll.Endpoints[d]
 		if isReachable(ep.Port) {
-			log.Debugf("%s health check passed")
+			log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
 		} else {
-			log.Debugf("%s health check failed")
+			log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
 			return false
 		}
 	}

@@ -36,8 +36,9 @@ type Device struct {
 }
 
 type Connection struct {
-	A string `json:"a" yaml:"a"`
-	B string `json:"b" yaml:"b"`
+	A      string `json:"a" yaml:"a"`
+	B      string `json:"b" yaml:"b"`
+	Subnet string `json:"subnet" yaml:"subnet"`
 }
 
 func ImportLabDefs(fileList []string) (map[int32]*LabDefinition, error) {

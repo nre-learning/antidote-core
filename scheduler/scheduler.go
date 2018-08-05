@@ -9,7 +9,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	"github.com/nre-learning/syringe/def"
-	crd "github.com/nre-learning/syringe/pkg/apis/kubernetes.com/v1"
+	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 )
@@ -129,14 +129,14 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 	kl := &KubeLab{
 		Namespace:      ns,
 		CreateRequest:  req,
-		Networks:       map[string]*crd.Network{},
+		Networks:       map[string]*crd.NetworkAttachmentDefinition{},
 		Pods:           map[string]*corev1.Pod{},
 		Services:       map[string]*corev1.Service{},
 		LabConnections: map[string]string{},
 	}
 
 	// Create management network for "misc" stuff like notebooks
-	_, err = ls.createNetwork("mgmt-net", req)
+	_, err = ls.createNetwork("mgmt-net", req, false, "")
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 		// Create networks from connections property
 		for c := range req.LabDef.Connections {
 			connection := req.LabDef.Connections[c]
-			newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+			newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
 			if err != nil {
 				log.Error(err)
 			}
@@ -274,7 +274,7 @@ func getSSHServicePort(svc *corev1.Service) (string, error) {
 type KubeLab struct {
 	Namespace      *corev1.Namespace
 	CreateRequest  *LabScheduleRequest // The request that originally resulted in this KubeLab
-	Networks       map[string]*crd.Network
+	Networks       map[string]*crd.NetworkAttachmentDefinition
 	Pods           map[string]*corev1.Pod
 	Services       map[string]*corev1.Service
 	LabConnections map[string]string
@@ -295,19 +295,15 @@ func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
 			{
 				Name: "vqfx1",
 				Type: pb.LabEndpoint_DEVICE,
-				Port: 30011,
+				Port: 30021,
 			}, {
 				Name: "vqfx2",
 				Type: pb.LabEndpoint_DEVICE,
-				Port: 30012,
+				Port: 30022,
 			}, {
 				Name: "vqfx3",
 				Type: pb.LabEndpoint_DEVICE,
-				Port: 30013,
-			}, { // TODO(mierdin): Need to figure out how to make the notebook dynamic
-				Name: "notebook",
-				Type: pb.LabEndpoint_NOTEBOOK,
-				Port: 30014,
+				Port: 30023,
 			},
 		}
 	}

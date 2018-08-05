@@ -34,6 +34,9 @@ compiledocker:
 compile:
 	rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 
+	# Generate go-client code for working with CRD
+	# vendor/k8s.io/code-generator/generate-groups.sh all github.com/nre-learning/syringe/pkg/client github.com/nre-learning/syringe/pkg/apis kubernetes.com:v1
+
 	protoc -I/usr/local/include -I. \
 	-I$$GOPATH/src \
 	-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \

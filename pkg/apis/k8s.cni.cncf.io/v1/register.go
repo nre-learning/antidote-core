@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	kcom "github.com/nre-learning/syringe/pkg/apis/kubernetes.com"
+	kcom "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -33,7 +33,7 @@ func init() {
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Network{},
+		&NetworkAttachmentDefinition{},
 		&NetworkList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

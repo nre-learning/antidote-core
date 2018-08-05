@@ -63,7 +63,7 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
-				"networks": string(netAnnotationsJson),
+				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJson),
 			},
 		},
 		Spec: corev1.PodSpec{

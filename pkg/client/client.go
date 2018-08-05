@@ -1,7 +1,7 @@
 package client
 
 import (
-	crd "github.com/nre-learning/syringe/pkg/apis/kubernetes.com/v1"
+	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -24,16 +24,16 @@ type crdclient struct {
 	codec  runtime.ParameterCodec
 }
 
-func (f *crdclient) Create(obj *crd.Network) (*crd.Network, error) {
-	var result crd.Network
+func (f *crdclient) Create(obj *crd.NetworkAttachmentDefinition) (*crd.NetworkAttachmentDefinition, error) {
+	var result crd.NetworkAttachmentDefinition
 	err := f.cl.Post().
 		Namespace(f.ns).Resource(f.plural).
 		Body(obj).Do().Into(&result)
 	return &result, err
 }
 
-func (f *crdclient) Update(obj *crd.Network) (*crd.Network, error) {
-	var result crd.Network
+func (f *crdclient) Update(obj *crd.NetworkAttachmentDefinition) (*crd.NetworkAttachmentDefinition, error) {
+	var result crd.NetworkAttachmentDefinition
 	err := f.cl.Put().
 		Namespace(f.ns).Resource(f.plural).
 		Body(obj).Do().Into(&result)
@@ -47,8 +47,8 @@ func (f *crdclient) Delete(name string, options *meta_v1.DeleteOptions) error {
 		Error()
 }
 
-func (f *crdclient) Get(name string) (*crd.Network, error) {
-	var result crd.Network
+func (f *crdclient) Get(name string) (*crd.NetworkAttachmentDefinition, error) {
+	var result crd.NetworkAttachmentDefinition
 	err := f.cl.Get().
 		Namespace(f.ns).Resource(f.plural).
 		Name(name).Do().Into(&result)
