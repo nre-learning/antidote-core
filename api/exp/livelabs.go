@@ -33,11 +33,17 @@ func (s *server) RequestLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LabU
 	// Check to see if it already exists in memory. If it does, don't send provision request.
 	// Just look it up and send UUID
 	log.Infof("Looking up session %s", lp.SessionId)
-	if labUuid, ok := s.sessions[lp.SessionId]; ok {
+	if _, ok := s.sessions[lp.SessionId]; ok {
+		if labUuid, ok := s.sessions[lp.SessionId][lp.LabId]; ok {
 
-		log.Info("Found session")
-		log.Info(s.sessions[lp.SessionId])
-		return &pb.LabUUID{Id: labUuid}, nil
+			log.Info("Found session")
+			log.Info(s.sessions[lp.SessionId])
+			return &pb.LabUUID{Id: labUuid}, nil
+		}
+	} else {
+
+		// Doesn't exist, prep it with a map value
+		s.sessions[lp.SessionId] = map[int32]string{}
 	}
 
 	// Generate UUID, make sure it doesn't conflict with another (unlikely but easy to check)
@@ -56,7 +62,7 @@ func (s *server) RequestLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LabU
 	// and literally store all state in kubernetes
 	//
 	// Ensure sessions table is updated with the new session
-	s.sessions[lp.SessionId] = newUuid
+	s.sessions[lp.SessionId][lp.LabId] = newUuid
 
 	// 3 - if doesn't already exist, put together schedule request and send to channel
 	s.scheduler.Requests <- &scheduler.LabScheduleRequest{
@@ -81,13 +87,17 @@ func (s *server) DeleteLiveLab(ctx context.Context, lp *pb.LabParams) (*pb.LiveL
 		return &pb.LiveLab{}, errors.New("No existing session found to delete")
 	}
 
+	if _, ok := s.sessions[lp.SessionId][lp.LabId]; !ok {
+		return &pb.LiveLab{}, errors.New("Session exists but isn't currently using the requested lab ID")
+	}
+
 	// Delete the session
 	delete(s.sessions, lp.SessionId)
 
 	s.scheduler.Requests <- &scheduler.LabScheduleRequest{
 		LabDef:    s.scheduler.LabDefs[lp.LabId],
 		Operation: scheduler.OperationType_DELETE,
-		Uuid:      s.sessions[lp.SessionId],
+		Uuid:      s.sessions[lp.SessionId][lp.LabId],
 		Session:   lp.SessionId,
 	}
 

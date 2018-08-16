@@ -31,7 +31,7 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 
 	apiServer := &server{
 		liveLabs:  make(map[string]*pb.LiveLab),
-		sessions:  make(map[string]string),
+		sessions:  make(map[string]map[int32]string),
 		scheduler: ls,
 	}
 
@@ -125,8 +125,8 @@ type server struct {
 
 	scheduler *scheduler.LabScheduler
 
-	// map of session IDs to liveLab UUID
-	sessions map[string]string
+	// map of session IDs maps containing lab ID and corresponding lab UUID
+	sessions map[string]map[int32]string
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

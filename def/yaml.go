@@ -52,7 +52,8 @@ FILES:
 
 		yamlDef, err := ioutil.ReadFile(file)
 		if err != nil {
-			return map[int32]*LabDefinition{}, err
+			log.Errorf("Encountered problem %s", err)
+			continue FILES
 		}
 
 		var labDef LabDefinition
