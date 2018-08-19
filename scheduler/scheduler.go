@@ -11,6 +11,9 @@ import (
 	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -108,10 +111,6 @@ func (ls *LabScheduler) Start() error {
 			}
 		}
 
-		// log.Infof("Created lab:\n%+v\n", newKubeLab)
-		// log.Infof(newKubeLab.LabConnections["csrx1"])
-		// lab1.TearDown()
-
 		log.Debug("Result sent. Now waiting for next schedule request...")
 	}
 
@@ -141,6 +140,9 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 		return nil, err
 	}
 
+	// Create our configmap for the initContainer for cloning the antidote repo
+	ls.createGitConfigMap(ns.ObjectMeta.Name)
+
 	// Only bother making connections and device pod/services if we're not using the
 	// shared topology
 	if !kl.CreateRequest.LabDef.SharedTopology {
@@ -157,13 +159,6 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 
 			kl.Networks[newNet.ObjectMeta.Name] = newNet
 		}
-
-		// type LabDefinition struct {
-		// 	LabName     string        `json:"labName" yaml:"labName"`
-		// 	LabID       int32         `json:"labID" yaml:"labID"`
-		// 	Devices     []*Device     `json:"devices" yaml:"devices"`
-		// 	Connections []*Connection `json:"connections" yaml:"connections"`
-		// }
 
 		// Create pods and services for devices
 		for d := range req.LabDef.Devices {
@@ -206,49 +201,8 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 		kl.Services[notebookSvc.ObjectMeta.Name] = notebookSvc
 	}
 
-	// log.Info("Creating service: csrx1")
-	// service1, _ := ls.createService("csrx1svc", "1", "1")
-
-	// service1Port, _ := getSSHServicePort(service1)
-
-	// return &KubeLab{
-	// 	Networks: map[string]*crd.Network{
-	// 		network1.ObjectMeta.Name: &network1
-	// 	},
-	// 	Pods: []string{
-	// 		pod1.ObjectMeta.Name,
-	// 	},
-	// 	Services: []string{
-	// 		service1.ObjectMeta.Name,
-	// 	},
-	// 	LabConnections: map[string]string{
-	// 		"csrx1": service1Port,
-	// 	},
-	// }, nil
 	return kl, nil
 }
-
-// func (ls *LabScheduler) TearDown(l *KubeLab) error {
-
-// 	// TODO(mierdin): Make sure the relevant maps here and in the API are updated when this happens.
-
-// 	for n := range l.Services {
-// 		ls.deleteService(l.Services[n])
-// 	}
-
-// 	for n := range l.Pods {
-// 		ls.deletePod(l.Pods[n])
-// 	}
-
-// 	for n := range l.Networks {
-// 		ls.deleteNetwork(l.Networks[n])
-// 	}
-
-// 	// TODO(mierdin): Delete namespace
-
-// 	return nil
-
-// }
 
 func getSSHServicePort(svc *corev1.Service) (string, error) {
 	for p := range svc.Spec.Ports {
@@ -331,34 +285,53 @@ func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
 		ret.Endpoints = append(ret.Endpoints, endpoint)
 	}
 
-	// message LiveLab {
-	// 	string LabUUID = 1;
-	// 	int32 labId = 2;
-	// 	repeated LabEndpoint endpoints  = 3;
-	// 	bool ready = 4;
-	//   }
-
-	// type KubeLab struct {
-	// 	Networks       []string
-	// 	Pods           []string
-	// 	Services       []string
-	// 	LabConnections map[string]string
-	// }
-
-	// message LabEndpoint {
-	// 	string name  = 1;
-
-	// 	enum EndpointType {
-	// 	  DEVICE = 0;        // A network device. Expected to be reachable via SSH or API on the listed port
-	// 	  NOTEBOOK = 1;      // Jupyter server
-	// 	  BLACKBOX = 2;      // Some kind of entity that the user doesn't have access to (i.e. for troubleshooting)
-	// 	  LINUX = 3;         // Linux container we want to provide access to for tools
-	// 	  CONFIGURATOR = 4;  // Configurator container that's responsible for bootstrapping the lab devices
-	// 	}
-	// 	EndpointType type = 2;
-	// 	int32 port  = 3;
-	// 	int32 api_port  = 4;
-	//   }
-
 	return &ret
+}
+
+func (ls *LabScheduler) createGitConfigMap(nsName string) error {
+
+	coreclient, err := corev1client.NewForConfig(ls.Config)
+	if err != nil {
+		panic(err)
+	}
+
+	gitScript := `#!/bin/sh -e
+REPO=$1
+REF=$2
+DIR=$3
+# Init Containers will re-run on Pod restart. Remove the directory's contents
+# and reprovision when this happens.
+if [ -d "$DIR" ]; then
+	rm -rf $( find $DIR -mindepth 1 )
+fi
+git clone $REPO $DIR
+cd $DIR
+git reset --hard $REF`
+
+	svc := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "git-clone",
+			Namespace: nsName,
+			Labels: map[string]string{
+				"syringeManaged": "yes",
+			},
+		},
+		Data: map[string]string{
+			"git-clone.sh": gitScript,
+		},
+	}
+
+	result, err := coreclient.ConfigMaps(nsName).Create(svc)
+	if err == nil {
+		log.Infof("Created configmap: %s", result.ObjectMeta.Name)
+
+	} else if apierrors.IsAlreadyExists(err) {
+		log.Warnf("ConfigMap %s already exists.", "git-clone")
+		return nil
+	} else {
+		log.Errorf("Error creating configmap: %s", err)
+		return err
+	}
+
+	return nil
 }

@@ -3,7 +3,6 @@ package scheduler
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -27,8 +26,7 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 	if err != nil {
 		panic(err)
 	}
-	// podName := fmt.Sprintf("%s-%s-%s-pod", req.LabDef.LabID, req.Session, req.LabDef.LabName)
-	// netName := fmt.Sprintf("%s-%s-net", req.LabDef.LabID, req.Session)
+
 	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
 
 	b := true
@@ -47,9 +45,8 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 		"DEVICE":   22,
 		"NOTEBOOK": 8888,
 	}
-	// typeFileMap := map[string]string{
-	// 	"NOTEBOOK": "lesson.ipynb",
-	// }
+
+	defaultGitFileMode := int32(0755)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +65,9 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 		},
 		Spec: corev1.PodSpec{
 
-			// Currently tying the lab pods to the same host since I'm running into a temporary issue with multi-host weave networks
+			// All syringe-created pods are assigned to the same host for a given namespace. This keeps things much simplier, since each
+			// network just uses linux bridges local to that host. Multi-host networking is a bit hit-or-miss when used with multus, so
+			// this just keeps things simpler.
 			// https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
@@ -89,22 +88,76 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 					},
 				},
 			},
+
+			InitContainers: []corev1.Container{
+				{
+					Name:  "git-clone",
+					Image: "alpine/git",
+					Command: []string{
+						"/usr/local/git/git-clone.sh",
+					},
+					Args: []string{
+						"https://github.com/nre-learning/antidote.git",
+						"master",
+						"/antidote",
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "git-clone",
+							ReadOnly:  false,
+							MountPath: "/usr/local/git",
+						},
+						{
+							Name:      "git-volume",
+							ReadOnly:  false,
+							MountPath: "/antidote",
+						},
+					},
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  podName,
 					Image: image,
+
+					// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
+					ImagePullPolicy: "Always",
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: typePortMap[etype.String()],
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "git-volume",
+							ReadOnly:  false,
+							MountPath: "/antidote",
+						},
+					},
+				},
+			},
+
+			Volumes: []corev1.Volume{
+				{
+					Name: "git-volume",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "git-clone",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "git-clone",
+							},
+							DefaultMode: &defaultGitFileMode,
 						},
 					},
 				},
 			},
 		},
 	}
-
-	// TODO(mierdin): Need to get this from env
-	lessonsPath := "/home/mierdin/antidote/lessons"
 
 	if etype.String() == "DEVICE" {
 		pod.Spec.Containers[0].Env = []corev1.EnvVar{
@@ -117,26 +170,6 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &b,
 			AllowPrivilegeEscalation: &b,
-		}
-	}
-
-	if etype.String() == "NOTEBOOK" {
-		pod.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "notebook",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{
-						Path: fmt.Sprintf("%s/lesson-%s/lesson.ipynb", lessonsPath, strconv.Itoa(int(req.LabDef.LabID))),
-					},
-				},
-			},
-		}
-		pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      "notebook",
-				ReadOnly:  true,
-				MountPath: "/home/jovyan/work/lesson.ipynb",
-			},
 		}
 	}
 
@@ -162,46 +195,3 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 	}
 	return result, err
 }
-
-// ---
-// apiVersion: v1
-// kind: Pod
-// metadata:
-//   name: csrx1
-//   # namespace: lesson1-abcdef
-//   labels:
-//     antidote_lab: "1"
-//     lab_instance: "1"
-//     podname: "csrx1"
-//   annotations:
-//     networks: '[
-//         { "name": "weave-lab1" },
-//         { "name": "weave-lab1" },
-//         { "name": "weave-lab1" }
-//     ]'
-// spec:
-
-//   # Currently tying the lab pods to the same host since I'm running into a temporary issue with multi-host weave networks
-//   # https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-//   affinity:
-//       podAffinity:
-//         requiredDuringSchedulingIgnoredDuringExecution:
-//         - labelSelector:
-//             matchExpressions:
-//             - key: antidote_lab
-//               operator: In
-//               values:
-//               - "1"
-//           topologyKey: kubernetes.io/hostname
-//   containers:
-//   - name: csrx1
-//     image:
-//     securityContext:
-//       privileged: true
-//       allowPrivilegeEscalation: true
-//     env:
-//     - name: CSRX_ROOT_PASSWORD
-//       value: Password1!
-//     ports:
-//     - containerPort: 22
-//     - containerPort: 830

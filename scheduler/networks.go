@@ -36,11 +36,6 @@ func (ls *LabScheduler) createNetworkCrd() error {
 
 func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
 
-	// type Connection struct {
-	// 	A string `json:"a" yaml:"a"`
-	// 	B string `json:"b" yaml:"b"`
-	// }
-
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.Config)
 	if err != nil {
@@ -52,12 +47,9 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 	// Create a CRD client interface
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
 
-	var networkArgs string
-	if deviceNetwork {
+	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
-		networkName := fmt.Sprintf("%s-%s", nsName, netName)
-
-		networkArgs = fmt.Sprintf(`{
+	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
 			"type": "bridge",
 			"plugin": "bridge",
@@ -72,10 +64,6 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 			  "subnet": %s
 			}
 		}`, networkName, networkName, subnet)
-
-	} else {
-		networkArgs = fmt.Sprintf(`{ "name": "%s", "type": "weave-net", "hairpinMode": false, "delegate": { "hairpinMode": false } }`, netName)
-	}
 
 	// Create a new Network object and write to k8s
 	network := &crd.NetworkAttachmentDefinition{
@@ -94,29 +82,6 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 			Config: networkArgs,
 		},
 	}
-
-	// ---
-	// apiVersion: "k8s.cni.cncf.io/v1"
-	// kind: NetworkAttachmentDefinition
-	// metadata:
-	//   name: 12-net
-	//   # namespace: lab0
-	// spec:
-	//   config: '{
-	// 			  "name": "12-net",
-	// 			  "type": "bridge",
-	// 			  "plugin": "bridge",
-	// 			  "bridge": "12-bridge",
-	// 			  "forceAddress": false,
-	// 			  "hairpinMode": false,
-	// 			  "delegate": {
-	// 					  "hairpinMode": false
-	// 			  },
-	// 			  "ipam": {
-	// 				"type": "host-local",
-	// 				"subnet": "10.10.12.0/24"
-	// 			  }
-	// }'
 
 	result, err := crdclient.Create(network)
 	if err == nil {
@@ -142,9 +107,11 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 // getMemberNetworks gets the names of all networks a device belongs to based on definition.
 func getMemberNetworks(device *def.Device, connections []*def.Connection) []string {
 	// We want the management network to be first always.
-	memberNets := []string{
-		"mgmt-net",
-	}
+	// EDIT: Commented out since the management network is provided implicitly for now. We may want to move to an explicit model soon.
+	// memberNets := []string{
+	// 	"mgmt-net",
+	// }
+	memberNets := []string{}
 	for c := range connections {
 		connection := connections[c]
 		if connection.A == device.Name || connection.B == device.Name {

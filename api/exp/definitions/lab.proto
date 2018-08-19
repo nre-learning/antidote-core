@@ -45,6 +45,7 @@ message LiveLab {
 message LabEndpoint {
   string Name  = 1;
 
+  // This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc.
   enum EndpointType {
     UNKNOWN = 0;       // In proto3, zero value fields are indistinguishable from unset fields, by design. They are not sent on the wire either. So let's set this aside.
     DEVICE = 1;        // A network device. Expected to be reachable via SSH or API on the listed port
