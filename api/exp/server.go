@@ -21,8 +21,7 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-// func StartAPI(l []*labs.Lab) error {
-func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
+func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
@@ -30,9 +29,9 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 	}
 
 	apiServer := &server{
-		liveLabs:  make(map[string]*pb.LiveLab),
-		sessions:  make(map[string]map[int32]string),
-		scheduler: ls,
+		liveLessons: make(map[string]*pb.LiveLesson),
+		sessions:    make(map[string]map[int32]string),
+		scheduler:   ls,
 	}
 
 	// go func() {
@@ -43,7 +42,7 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 	// }()
 
 	s := grpc.NewServer()
-	pb.RegisterLiveLabsServer(s, apiServer)
+	pb.RegisterLiveLessonsServiceServer(s, apiServer)
 	defer s.Stop()
 
 	// Start grpc server
@@ -56,7 +55,7 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 
 	gwmux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err = gw.RegisterLiveLabsHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	err = gw.RegisterLiveLessonsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -101,10 +100,14 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 
 		if result.Success {
 			if result.Operation == scheduler.OperationType_CREATE {
-				apiServer.liveLabs[result.Uuid] = result.KubeLab.ToLiveLab()
-				apiServer.liveLabs[result.Uuid].LabGuide = result.LabDef.LabGuide
+				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
+
+				// Need to get labguide from stage information
+				// apiServer.liveLessons[result.Uuid].LabGuide = result.LessonDef.LabGuide
 			} else if result.Operation == scheduler.OperationType_DELETE {
-				delete(apiServer.liveLabs, result.Uuid)
+				delete(apiServer.liveLessons, result.Uuid)
+			} else if result.Operation == scheduler.OperationType_MODIFY {
+				// TODO
 			} else {
 				log.Error("FOO")
 			}
@@ -120,12 +123,12 @@ func StartAPI(ls *scheduler.LabScheduler, grpcPort, httpPort int) error {
 // this will keep our state.
 type server struct {
 
-	// in-memory map of livelabs, indexed by UUID
-	liveLabs map[string]*pb.LiveLab
+	// in-memory map of liveLessons, indexed by UUID
+	liveLessons map[string]*pb.LiveLesson
 
-	scheduler *scheduler.LabScheduler
+	scheduler *scheduler.LessonScheduler
 
-	// map of session IDs maps containing lab ID and corresponding lab UUID
+	// map of session IDs maps containing lesson ID and corresponding lesson UUID
 	sessions map[string]map[int32]string
 }
 

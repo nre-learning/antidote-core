@@ -14,7 +14,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ls *LabScheduler) createNetworkCrd() error {
+func (ls *LessonScheduler) createNetworkCrd() error {
 
 	// create clientset and create our CRD, this only need to run once
 	clientset, err := apiextcs.NewForConfig(ls.Config)
@@ -34,7 +34,7 @@ func (ls *LabScheduler) createNetworkCrd() error {
 	return nil
 }
 
-func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
+func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
 
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.Config)
@@ -42,7 +42,7 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
 	// Create a CRD client interface
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
@@ -72,7 +72,7 @@ func (ls *LabScheduler) createNetwork(netName string, req *LabScheduleRequest, d
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 			},
@@ -122,7 +122,7 @@ func getMemberNetworks(device *def.Device, connections []*def.Connection) []stri
 	return memberNets
 }
 
-func (ls *LabScheduler) deleteNetwork(name, ns string) error {
+func (ls *LessonScheduler) deleteNetwork(name, ns string) error {
 
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.Config)

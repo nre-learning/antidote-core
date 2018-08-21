@@ -12,7 +12,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func (ls *LabScheduler) deletePod(name string) error {
+func (ls *LessonScheduler) deletePod(name string) error {
 	return nil
 }
 
@@ -20,14 +20,14 @@ type networkAnnotation struct {
 	Name string `json:"name"`
 }
 
-func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_EndpointType, networks []string, req *LabScheduleRequest) (*corev1.Pod, error) {
+func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
 	b := true
 
@@ -41,11 +41,6 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 		log.Error(err)
 	}
 
-	typePortMap := map[string]int32{
-		"DEVICE":   22,
-		"NOTEBOOK": 8888,
-	}
-
 	defaultGitFileMode := int32(0755)
 
 	pod := &corev1.Pod{
@@ -53,7 +48,7 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 			Name:      podName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"endpointType":   etype.String(),
 				"podName":        podName,
@@ -61,6 +56,11 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 			},
 			Annotations: map[string]string{
 				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJson),
+
+				// k8s.v1.cni.cncf.io/networks: '[
+				// 	{ "name": "12-net" },
+				// 	{ "name": "23-net" }
+				// ]'
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -75,7 +75,7 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
+									"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 									"sessionId":      req.Session,
 									"syringeManaged": "yes",
 								},
@@ -162,8 +162,9 @@ func (ls *LabScheduler) createPod(podName, image string, etype pb.LabEndpoint_En
 	if etype.String() == "DEVICE" {
 		pod.Spec.Containers[0].Env = []corev1.EnvVar{
 			{
-				Name:  "CSRX_ROOT_PASSWORD",
-				Value: "Password1!",
+				//TODO(mierdin): need to change the image to not require this
+				Name:  "VQFX_HOSTNAME",
+				Value: podName,
 			},
 		}
 

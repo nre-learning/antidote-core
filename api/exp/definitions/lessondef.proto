@@ -1,0 +1,25 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service LessonDefService {
+
+  // Retrieve all LessonDefs
+  rpc ListLessonDefs(google.protobuf.Empty) returns (LessonDefs) {
+    option (google.api.http) = {
+      get: "/exp/lessondef/all"
+    };
+  }
+}
+
+message LessonDefs {
+  repeated LessonDef lessondefs = 1;
+}
+
+message LessonDef {
+  string LessonId = 1;
+}
+
+

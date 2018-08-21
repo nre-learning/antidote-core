@@ -11,11 +11,11 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func (ls *LabScheduler) deleteService(name string) error {
+func (ls *LessonScheduler) deleteService(name string) error {
 	return nil
 }
 
-func (ls *LabScheduler) createService(pod *corev1.Pod, req *LabScheduleRequest) (*corev1.Service, error) {
+func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
@@ -23,7 +23,7 @@ func (ls *LabScheduler) createService(pod *corev1.Pod, req *LabScheduleRequest) 
 	}
 	serviceName := pod.ObjectMeta.Name + "-svc"
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
 	typePortMap := map[string]int32{
 		"DEVICE":   22,
@@ -35,14 +35,14 @@ func (ls *LabScheduler) createService(pod *corev1.Pod, req *LabScheduleRequest) 
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
-				"labInstanceId":  req.Session,
-				"syringeManaged": "yes",
+				"lessonId":         fmt.Sprintf("%d", req.LessonDef.LessonID),
+				"lessonInstanceId": req.Session,
+				"syringeManaged":   "yes",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"labId":     fmt.Sprintf("%d", req.LabDef.LabID),
+				"lessonId":  fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId": req.Session,
 				"podName":   pod.ObjectMeta.Name,
 			},

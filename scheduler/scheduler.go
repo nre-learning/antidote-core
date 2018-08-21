@@ -4,7 +4,10 @@ package scheduler
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
+	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -19,21 +22,30 @@ import (
 
 type OperationType int32
 
-const (
+var (
 	OperationType_CREATE OperationType = 0
 	OperationType_DELETE OperationType = 1
+	OperationType_MODIFY OperationType = 2
+	typePortMap                        = map[string]int32{
+		"DEVICE":   22,
+		"LINUX":    22,
+		"NOTEBOOK": 8888,
+	}
+	defaultGitFileMode int32 = 0755
 )
 
-type LabScheduleRequest struct {
-	LabDef    *def.LabDefinition
+type LessonScheduleRequest struct {
+	LessonDef *def.LessonDefinition
 	Operation OperationType
 	Uuid      string
 	Session   string
+	Stage     int32
 }
 
-type LabScheduleResult struct {
+type LessonScheduleResult struct {
 	Success   bool
-	LabDef    *def.LabDefinition
+	Stage     int32
+	LessonDef *def.LessonDefinition
 	Operation OperationType
 	Message   string
 	KubeLab   *KubeLab
@@ -41,28 +53,28 @@ type LabScheduleResult struct {
 	Session   string
 }
 
-type LabScheduler struct {
-	Config   *rest.Config
-	Requests chan *LabScheduleRequest
-	Results  chan *LabScheduleResult
-	LabDefs  map[int32]*def.LabDefinition
+type LessonScheduler struct {
+	Config     *rest.Config
+	Requests   chan *LessonScheduleRequest
+	Results    chan *LessonScheduleResult
+	LessonDefs map[int32]*def.LessonDefinition
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
-func (ls *LabScheduler) Start() error {
+func (ls *LessonScheduler) Start() error {
 
 	// Ensure cluster is cleansed before we start the scheduler
 	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
-	ls.nukeFromOrbit()
+	// ls.nukeFromOrbit()
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
 
-	// Need to start a garbage collector that watches for livelabs to reach a certain age and delete them (and clear from memory here).
+	// Need to start a garbage collector that watches for livelessons to reach a certain age and delete them (and clear from memory here).
 	// Might need to look into some kind of activity check so you don't kill something that was actually in use
-	// You should also expose the delete functionality so the javascript can send a quit signal for a lab but you'll want to make sure
-	// people can't kill others labs.
+	// You should also expose the delete functionality so the javascript can send a quit signal for a lesson but you'll want to make sure
+	// people can't kill others lessons.
 
 	for {
 		newRequest := <-ls.Requests
@@ -73,42 +85,87 @@ func (ls *LabScheduler) Start() error {
 		if newRequest.Operation == OperationType_CREATE {
 			newKubeLab, err := ls.createKubeLab(newRequest)
 			if err != nil {
-				log.Errorf("Error creating lab: %s", err)
-				ls.Results <- &LabScheduleResult{
+				log.Errorf("Error creating lesson: %s", err)
+				ls.Results <- &LessonScheduleResult{
 					Success:   false,
-					LabDef:    newRequest.LabDef,
+					LessonDef: newRequest.LessonDef,
 					KubeLab:   nil,
 					Uuid:      "",
 					Operation: newRequest.Operation,
 				}
 			}
-			ls.Results <- &LabScheduleResult{
+
+			liveLesson := newKubeLab.ToLiveLesson()
+
+			// TODO(mierdin) need to add timeout
+			for {
+				time.Sleep(1 * time.Second)
+
+				// TODO(mierdin): tcp connection test isn't enough. Need to do SSH and ensure we can at least get that
+				if !isReachable(liveLesson) {
+					continue
+				}
+				break
+			}
+
+			wg := new(sync.WaitGroup)
+			wg.Add(len(liveLesson.Endpoints))
+
+			// Perform configuration changes
+			for i := range liveLesson.Endpoints {
+				ep := liveLesson.Endpoints[i]
+				if ep.Type == pb.Endpoint_DEVICE {
+					job, err := ls.configureDevice(ep, newRequest)
+					if err != nil {
+						log.Errorf("Problem configuring device %s", ep.Name)
+						continue // TODO(mierdin): should quit entirely and return an error result to the channel
+					}
+					go func() {
+						defer wg.Done()
+
+						// TODO(mierdin): Add timeout
+						for {
+							time.Sleep(2 * time.Second)
+							completed, _ := ls.isCompleted(job, newRequest)
+							if completed {
+								break
+							}
+						}
+					}()
+				}
+			}
+
+			wg.Wait()
+
+			ls.Results <- &LessonScheduleResult{
 				Success:   true,
-				LabDef:    newRequest.LabDef,
+				LessonDef: newRequest.LessonDef,
 				KubeLab:   newKubeLab,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 			}
 		} else if newRequest.Operation == OperationType_DELETE {
-			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LabDef.LabID, newRequest.Session)
+			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
 			err := ls.deleteNamespace(nsName)
 			if err != nil {
-				log.Errorf("Error creating lab: %s", err)
-				ls.Results <- &LabScheduleResult{
+				log.Errorf("Error deleting lesson: %s", err)
+				ls.Results <- &LessonScheduleResult{
 					Success:   false,
-					LabDef:    newRequest.LabDef,
+					LessonDef: newRequest.LessonDef,
 					KubeLab:   nil,
 					Uuid:      "",
 					Operation: newRequest.Operation,
 				}
 			}
-			ls.Results <- &LabScheduleResult{
+			ls.Results <- &LessonScheduleResult{
 				Success:   true,
-				LabDef:    newRequest.LabDef,
+				LessonDef: newRequest.LessonDef,
 				KubeLab:   nil,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 			}
+		} else if newRequest.Operation == OperationType_MODIFY {
+			//
 		}
 
 		log.Debug("Result sent. Now waiting for next schedule request...")
@@ -117,12 +174,11 @@ func (ls *LabScheduler) Start() error {
 	return nil
 }
 
-func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error) {
+func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, error) {
 
 	ns, err := ls.createNamespace(req)
 	if err != nil {
-		log.Error("failed to create namespace, not creating kubelab")
-		return nil, err
+		log.Error(err)
 	}
 
 	kl := &KubeLab{
@@ -137,7 +193,7 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 	// Create management network for "misc" stuff like notebooks
 	_, err = ls.createNetwork("mgmt-net", req, false, "")
 	if err != nil {
-		return nil, err
+		log.Error(err)
 	}
 
 	// Create our configmap for the initContainer for cloning the antidote repo
@@ -145,11 +201,11 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 
 	// Only bother making connections and device pod/services if we're not using the
 	// shared topology
-	if !kl.CreateRequest.LabDef.SharedTopology {
+	if !kl.CreateRequest.LessonDef.SharedTopology {
 
 		// Create networks from connections property
-		for c := range req.LabDef.Connections {
-			connection := req.LabDef.Connections[c]
+		for c := range req.LessonDef.Connections {
+			connection := req.LessonDef.Connections[c]
 			newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
 			if err != nil {
 				log.Error(err)
@@ -161,33 +217,41 @@ func (ls *LabScheduler) createKubeLab(req *LabScheduleRequest) (*KubeLab, error)
 		}
 
 		// Create pods and services for devices
-		for d := range req.LabDef.Devices {
+		for d := range req.LessonDef.Devices {
 
 			// Create pods from devices property
-			device := req.LabDef.Devices[d]
-			newPod, _ := ls.createPod(
+			device := req.LessonDef.Devices[d]
+			newPod, err := ls.createPod(
 				device.Name,
 				device.Image,
-				pb.LabEndpoint_DEVICE,
-				getMemberNetworks(device, req.LabDef.Connections),
+				pb.Endpoint_DEVICE,
+				getMemberNetworks(device, req.LessonDef.Connections),
 				req,
 			)
+			if err != nil {
+				log.Error(err)
+			}
 			kl.Pods[newPod.ObjectMeta.Name] = newPod
 
 			// Create service for this pod
-			newSvc, _ := ls.createService(
+			newSvc, err := ls.createService(
 				newPod,
 				req,
 			)
+			if err != nil {
+				log.Error(err)
+			}
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}
 	}
-	if req.LabDef.Notebook {
+
+	// TODO(mierdin): Will have to stage-ify
+	if req.LessonDef.Notebook {
 
 		notebookPod, _ := ls.createPod(
 			"notebook",
 			"antidotelabs/jupyter",
-			pb.LabEndpoint_NOTEBOOK,
+			pb.Endpoint_NOTEBOOK,
 			[]string{"mgmt-net"},
 			req,
 		)
@@ -227,36 +291,36 @@ func getSSHServicePort(svc *corev1.Service) (string, error) {
 // KubeLab is the collection of kubernetes resources that makes up a lab instance
 type KubeLab struct {
 	Namespace      *corev1.Namespace
-	CreateRequest  *LabScheduleRequest // The request that originally resulted in this KubeLab
+	CreateRequest  *LessonScheduleRequest // The request that originally resulted in this KubeLab
 	Networks       map[string]*crd.NetworkAttachmentDefinition
 	Pods           map[string]*corev1.Pod
 	Services       map[string]*corev1.Service
 	LabConnections map[string]string
 }
 
-// ToLiveLab exports a KubeLab as a generic LiveLab so the API can use it
-func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
+// ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it
+func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
-	ret := pb.LiveLab{
-		LabUUID:   kl.CreateRequest.Uuid,
-		LabId:     kl.CreateRequest.LabDef.LabID,
-		Endpoints: []*pb.LabEndpoint{},
-		Ready:     false, // Set to false for now, will update elsewhere in a health check
+	ret := pb.LiveLesson{
+		LessonUUID: kl.CreateRequest.Uuid,
+		LessonId:   kl.CreateRequest.LessonDef.LessonID,
+		Endpoints:  []*pb.Endpoint{},
+		Ready:      false, // Set to false for now, will update elsewhere in a health check
 	}
 
-	if kl.CreateRequest.LabDef.SharedTopology {
-		ret.Endpoints = []*pb.LabEndpoint{
+	if kl.CreateRequest.LessonDef.SharedTopology {
+		ret.Endpoints = []*pb.Endpoint{
 			{
 				Name: "vqfx1",
-				Type: pb.LabEndpoint_DEVICE,
+				Type: pb.Endpoint_DEVICE,
 				Port: 30021,
 			}, {
 				Name: "vqfx2",
-				Type: pb.LabEndpoint_DEVICE,
+				Type: pb.Endpoint_DEVICE,
 				Port: 30022,
 			}, {
 				Name: "vqfx3",
-				Type: pb.LabEndpoint_DEVICE,
+				Type: pb.Endpoint_DEVICE,
 				Port: 30023,
 			},
 		}
@@ -276,9 +340,9 @@ func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
 		port, _ := getSSHServicePort(kl.Services[s])
 		portInt, _ := strconv.Atoi(port)
 
-		endpoint := &pb.LabEndpoint{
+		endpoint := &pb.Endpoint{
 			Name: podBuddy.ObjectMeta.Name,
-			Type: pb.LabEndpoint_EndpointType(pb.LabEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
+			Type: pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
 			Port: int32(portInt),
 			// ApiPort
 		}
@@ -288,7 +352,7 @@ func (kl *KubeLab) ToLiveLab() *pb.LiveLab {
 	return &ret
 }
 
-func (ls *LabScheduler) createGitConfigMap(nsName string) error {
+func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
@@ -334,4 +398,28 @@ git reset --hard $REF`
 	}
 
 	return nil
+}
+
+func isReachable(ll *pb.LiveLesson) bool {
+	for d := range ll.Endpoints {
+		ep := ll.Endpoints[d]
+		if connectTest(ep.Port) {
+			log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+		} else {
+			log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+			return false
+		}
+	}
+	return true
+}
+
+func connectTest(port int32) bool {
+	intPort := strconv.Itoa(int(port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 1*time.Second)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+
+	return true
 }

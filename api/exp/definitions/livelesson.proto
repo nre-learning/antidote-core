@@ -2,47 +2,70 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
-// The LiveLabs service definition.
-service LiveLabs {
+service LiveLessonsService {
 
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
-  rpc RequestLiveLab(LabParams) returns (LabUUID) {
+  rpc RequestLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
-      post: "/exp/livelab"
+      post: "/exp/livelesson"
+      body: "*"
+    };
+  }
+
+  // SetLiveLesson updates certain parameters of an existing LiveLesson, such as setting the LessonStage
+  rpc SetLiveLesson(LessonParams) returns (LessonUUID) {
+    option (google.api.http) = {
+      post: "/exp/livelesson/{id}"
       body: "*"
     };
   }
 
   // Delete a running livelab
-  rpc DeleteLiveLab(LabParams) returns (LiveLab) {
+  rpc DeleteLiveLesson(LessonParams) returns (LiveLesson) {
     option (google.api.http) = {
-      delete: "/exp/livelab"
+      delete: "/exp/livelesson"
       body: "*"
     };
   }
 
-  // Retrieve details about a lab
-  rpc GetLiveLab(LabUUID) returns (LiveLab) {
+  // Retrieve details about a lesson
+  rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
     option (google.api.http) = {
-      get: "/exp/livelab/{id}"
+      get: "/exp/livelesson/{id}"
     };
   }
 
-  // TODO(mierdin): Need to add instrumentation requests, so we can get visibility into the list of livelabs, labdefs, etc.
+  // Retrieve all livelessons
+  rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {
+    option (google.api.http) = {
+      get: "/exp/livelesson/all"
+    };
+  }
+
+  // TODO(mierdin): Need to add instrumentation requests, so we can get visibility into the list of livelessons, labdefs, etc.
+
+
+
+}
+
+message LiveLessons {
+  repeated LiveLessons livelessons = 1;
 }
 
 // A provisioned lab without the scheduler details. The server will translate from an underlying type
 // (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
-message LiveLab {
-  string LabUUID = 1;
-  int32 LabId = 2;
-  repeated LabEndpoint Endpoints  = 3;
-  string LabGuide = 4;
-  bool Ready = 5;
+message LiveLesson {
+  string LessonUUID = 1;
+  int32 LessonId = 2;
+  repeated Endpoint Endpoints  = 3;
+  int32 LessonStage = 4;
+  string LabGuide = 5;
+  bool Ready = 6;
 }
 
-message LabEndpoint {
+message Endpoint {
   string Name  = 1;
 
   // This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc.
@@ -51,8 +74,8 @@ message LabEndpoint {
     DEVICE = 1;        // A network device. Expected to be reachable via SSH or API on the listed port
     NOTEBOOK = 2;      // Jupyter server
     BLACKBOX = 3;      // Some kind of entity that the user doesn't have access to (i.e. for troubleshooting)
-    LINUX = 4;         // Linux container we want to provide access to for tools
-    CONFIGURATOR = 5;  // Configurator container that's responsible for bootstrapping the lab devices
+    LINUX = 4;         // Linux container we want to provide access to for tools. Handled pretty much the same as DEVICE, as we SSH to this.
+    // CONFIGURATOR = 5;  // Configurator container that's responsible for bootstrapping the lab devices
   }
   EndpointType Type = 2;
 
@@ -65,12 +88,13 @@ message LabEndpoint {
   int32 Api_port  = 4;
 }
 
-message LabParams {
-  int32 labId = 1;
+message LessonParams {
+  int32 id = 1;
   string sessionId = 2;
+  int32 lessonStage = 3;
 }
 
-message LabUUID {
+message LessonUUID {
   string id = 1;
 }
 

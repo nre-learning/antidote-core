@@ -49,41 +49,41 @@ func main() {
 	}
 	config := getConfig(useKubeConfig)
 
-	// Get lab definitions
+	// Get lesson definitions
 	fileList := []string{}
-	log.Debugf("Searching %s for lab definitions", searchDir)
+	log.Debugf("Searching %s for lesson definitions", searchDir)
 	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
 		syringeFileLocation := fmt.Sprintf("%s/syringe.yaml", path)
 		if _, err := os.Stat(syringeFileLocation); err == nil {
-			log.Debugf("Found lab definition at: %s", syringeFileLocation)
+			log.Debugf("Found lesson definition at: %s", syringeFileLocation)
 			fileList = append(fileList, syringeFileLocation)
 		}
 		return nil
 	})
 
-	labDefs, err := def.ImportLabDefs(fileList)
+	lessonDefs, err := def.ImportLessonDefs(fileList)
 	if err != nil {
 		log.Warn(err)
 	}
-	log.Infof("Imported %d lab definitions.", len(labDefs))
+	log.Infof("Imported %d lesson definitions.", len(lessonDefs))
 
-	// Start lab scheduler
-	labScheduler := scheduler.LabScheduler{
-		Config:   config,
-		Requests: make(chan *scheduler.LabScheduleRequest),
-		Results:  make(chan *scheduler.LabScheduleResult),
-		LabDefs:  labDefs,
+	// Start lesson scheduler
+	lessonScheduler := scheduler.LessonScheduler{
+		Config:     config,
+		Requests:   make(chan *scheduler.LessonScheduleRequest),
+		Results:    make(chan *scheduler.LessonScheduleResult),
+		LessonDefs: lessonDefs,
 	}
 	go func() {
-		err = labScheduler.Start()
+		err = lessonScheduler.Start()
 		if err != nil {
-			log.Fatalf("Problem starting lab scheduler: %s", err)
+			log.Fatalf("Problem starting lesson scheduler: %s", err)
 		}
 	}()
 
-	// Start API, and feed it pointer to lab scheduler so they can talk
+	// Start API, and feed it pointer to lesson scheduler so they can talk
 	go func() {
-		err = api.StartAPI(&labScheduler, grpcPort, httpPort)
+		err = api.StartAPI(&lessonScheduler, grpcPort, httpPort)
 		if err != nil {
 			log.Fatalf("Problem starting API: %s", err)
 		}

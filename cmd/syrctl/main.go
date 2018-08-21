@@ -22,7 +22,7 @@ func main() {
 	var client APIExpClient
 
 	app := cli.NewApp()
-	app.Name = "cyrctl"
+	app.Name = "syrctl"
 	app.Version = "v0.1.0"
 	app.Usage = "Scheduling for the Antidote project and NRE Labs"
 
@@ -54,9 +54,9 @@ func main() {
 
 		// TODO(mierdin) need to document usage of c.Args().First()
 		{
-			Name:    "livelab",
-			Aliases: []string{"livelabs"},
-			Usage:   "Work with Syringe livelabs",
+			Name:    "livelesson",
+			Aliases: []string{"livelesson"},
+			Usage:   "Work with Syringe livelesson",
 			Subcommands: []cli.Command{
 				{
 					Name:  "get",
@@ -72,9 +72,9 @@ func main() {
 							fmt.Println(err)
 						}
 						defer conn.Close()
-						client := pb.NewLiveLabsClient(conn)
+						client := pb.NewLiveLessonsServiceClient(conn)
 
-						liveLabDetails, err := client.GetLiveLab(context.Background(), &pb.LabUUID{Id: c.Args().First()})
+						liveLabDetails, err := client.GetLiveLesson(context.Background(), &pb.LessonUUID{Id: c.Args().First()})
 						if err != nil {
 							fmt.Println(err)
 						}
@@ -95,12 +95,12 @@ func main() {
 							fmt.Println(err)
 						}
 						defer conn.Close()
-						client := pb.NewLiveLabsClient(conn)
+						client := pb.NewLiveLessonsServiceClient(conn)
 
-						labId, _ := strconv.Atoi(c.Args()[0])
+						lessonId, _ := strconv.Atoi(c.Args()[0])
 
-						liveLabDetails, err := client.RequestLiveLab(context.Background(), &pb.LabParams{
-							LabId:     int32(labId),
+						liveLabDetails, err := client.RequestLiveLesson(context.Background(), &pb.LessonParams{
+							Id:        int32(lessonId),
 							SessionId: c.Args()[1],
 						})
 
@@ -125,12 +125,12 @@ func main() {
 							fmt.Println(err)
 						}
 						defer conn.Close()
-						client := pb.NewLiveLabsClient(conn)
+						client := pb.NewLiveLessonsServiceClient(conn)
 
-						labId, _ := strconv.Atoi(c.Args()[0])
+						lessonId, _ := strconv.Atoi(c.Args()[0])
 
-						_, err = client.DeleteLiveLab(context.Background(), &pb.LabParams{
-							LabId:     int32(labId),
+						_, err = client.DeleteLiveLesson(context.Background(), &pb.LessonParams{
+							Id:        int32(lessonId),
 							SessionId: c.Args()[1],
 						})
 

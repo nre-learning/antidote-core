@@ -15,8 +15,8 @@ import (
 
 // nukeFromOrbit seeks out all syringe-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
-// in place, but no running labs. Syringe doesn't manage itself, or any other Antidote services.
-func (ls *LabScheduler) nukeFromOrbit() error {
+// in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
+func (ls *LessonScheduler) nukeFromOrbit() error {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
@@ -52,7 +52,7 @@ func (ls *LabScheduler) nukeFromOrbit() error {
 	return nil
 }
 
-func (ls *LabScheduler) deleteNamespace(name string) error {
+func (ls *LessonScheduler) deleteNamespace(name string) error {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
@@ -86,14 +86,14 @@ func (ls *LabScheduler) deleteNamespace(name string) error {
 	return errors.New(errorMsg)
 }
 
-func (ls *LabScheduler) createNamespace(req *LabScheduleRequest) (*corev1.Namespace, error) {
+func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
 	coreclient, err := corev1client.NewForConfig(ls.Config)
 	if err != nil {
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LabDef.LabID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
 	log.Infof("Creating namespace: %s", req.Session)
 
@@ -101,7 +101,7 @@ func (ls *LabScheduler) createNamespace(req *LabScheduleRequest) (*corev1.Namesp
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
-				"labId":          fmt.Sprintf("%d", req.LabDef.LabID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 			},
@@ -115,7 +115,7 @@ func (ls *LabScheduler) createNamespace(req *LabScheduleRequest) (*corev1.Namesp
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Namespace %s already exists.", nsName)
 
-		// In this case we are returning what we tried to create. This means that when this lab is cleaned up,
+		// In this case we are returning what we tried to create. This means that when this lesson is cleaned up,
 		// syringe will delete the pod that already existed.
 		return namespace, err
 	} else {
