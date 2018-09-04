@@ -21,9 +21,15 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return nil, errors.New(msg)
 	}
 
+	if lp.LessonId == 0 {
+		msg := "Lesson ID cannot be nil"
+		log.Error(msg)
+		return nil, errors.New(msg)
+	}
+
 	// Identify lesson definition - return error if doesn't exist by ID
-	if _, ok := s.scheduler.LessonDefs[lp.Id]; !ok {
-		log.Errorf("Couldn't find lesson ID %d", lp.Id)
+	if _, ok := s.scheduler.LessonDefs[lp.LessonId]; !ok {
+		log.Errorf("Couldn't find lesson ID %d", lp.LessonId)
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
 
@@ -31,7 +37,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	// Just look it up and send UUID
 	log.Infof("Looking up session %s", lp.SessionId)
 	if _, ok := s.sessions[lp.SessionId]; ok {
-		if lessonUuid, ok := s.sessions[lp.SessionId][lp.Id]; ok {
+		if lessonUuid, ok := s.sessions[lp.SessionId][lp.LessonId]; ok {
 
 			log.Debugf("Found existing session %d", lp.SessionId)
 			return &pb.LessonUUID{Id: lessonUuid}, nil
@@ -60,16 +66,20 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	// and literally store all state in kubernetes
 	//
 	// Ensure sessions table is updated with the new session
-	s.sessions[lp.SessionId][lp.Id] = newUuid
+	s.sessions[lp.SessionId][lp.LessonId] = newUuid
 
 	// 3 - if doesn't already exist, put together schedule request and send to channel
 	s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		LessonDef: s.scheduler.LessonDefs[lp.Id],
+		LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 		Operation: scheduler.OperationType_CREATE,
 		Stage:     lessonStage,
 		Uuid:      newUuid,
 		Session:   lp.SessionId,
 	}
+
+	// Pre-emptively populate livelessons map with non-ready livelesson.
+	// This will be updated when the scheduler response comes back.
+	s.liveLessons[newUuid] = &pb.LiveLesson{Ready: false}
 
 	return &pb.LessonUUID{Id: newUuid}, nil
 }
@@ -77,7 +87,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 func (s *server) SetLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
 
 	// Need to set Ready to false immediately before returning to avoid race conditions
-	uuid := s.sessions[lp.SessionId][lp.Id]
+	uuid := s.sessions[lp.SessionId][lp.LessonId]
 	s.liveLessons[uuid].Ready = false
 
 	// TODO(mierdin): Finish the implementation, sending a schedule request.
@@ -94,7 +104,7 @@ func (s *server) DeleteLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb
 
 	// TODO(mierdin): need to perform some security checks here
 
-	if _, ok := s.scheduler.LessonDefs[lp.Id]; !ok {
+	if _, ok := s.scheduler.LessonDefs[lp.LessonId]; !ok {
 		return &pb.LiveLesson{}, errors.New("Failed to find referenced lesson ID")
 	}
 
@@ -102,7 +112,7 @@ func (s *server) DeleteLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb
 		return &pb.LiveLesson{}, errors.New("No existing session found to delete")
 	}
 
-	if _, ok := s.sessions[lp.SessionId][lp.Id]; !ok {
+	if _, ok := s.sessions[lp.SessionId][lp.LessonId]; !ok {
 		return &pb.LiveLesson{}, errors.New("Session exists but isn't currently using the requested lesson ID")
 	}
 
@@ -110,9 +120,9 @@ func (s *server) DeleteLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb
 	delete(s.sessions, lp.SessionId)
 
 	s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		LessonDef: s.scheduler.LessonDefs[lp.Id],
+		LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 		Operation: scheduler.OperationType_DELETE,
-		Uuid:      s.sessions[lp.SessionId][lp.Id],
+		Uuid:      s.sessions[lp.SessionId][lp.LessonId],
 		Session:   lp.SessionId,
 	}
 
@@ -136,18 +146,21 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 	log.Debug(s.liveLessons)
 
 	log.Debugf("About to return %s", s.liveLessons[uuid.Id])
+	return s.liveLessons[uuid.Id], nil
 
 	// Return immediately without health check if we already know it's running
-	if s.liveLessons[uuid.Id].Ready {
-		return s.liveLessons[uuid.Id], nil
-	}
+	// if s.liveLessons[uuid.Id].Ready {
+	// 	return s.liveLessons[uuid.Id], nil
+	// }
 
 	// For now, I'm doing a health check synchronous with the client calling getLiveLesson. This will obviously incur a performance
 	// hit the first few calls, but I'm mitigating this by updating the livelesson in memory with the result, so that eventually,
 	// after subsequent calls, the below conditional will return True and we won't have to check the status again.
 	// Obviously this isn't ideal for making sure the lesson is STILL running after a while, only that it's initially running.
 	// s.liveLessons[uuid.Id].Ready = isReady(s.liveLessons[uuid.Id])
-	return s.liveLessons[uuid.Id], nil
+	// return s.liveLessons[uuid.Id], nil
+
+	// return &pb.LiveLesson{Ready: false}, nil
 
 }
 

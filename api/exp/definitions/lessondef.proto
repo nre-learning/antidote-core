@@ -7,19 +7,32 @@ import "google/protobuf/empty.proto";
 service LessonDefService {
 
   // Retrieve all LessonDefs
+  // TODO(mierdin): Need to add a filter option here so you can get via category. This will help for building dynamic menus
   rpc ListLessonDefs(google.protobuf.Empty) returns (LessonDefs) {
     option (google.api.http) = {
-      get: "/exp/lessondef/all"
+      get: "/exp/lessondef"
     };
   }
+
+  rpc GetLessonDef(LessonID) returns (LessonDef) {
+    option (google.api.http) = {
+      get: "/exp/lessondef/{id}"
+    };
+  }
+
 }
 
 message LessonDefs {
   repeated LessonDef lessondefs = 1;
 }
 
+message LessonID {
+  int32 id = 1;
+}
+
 message LessonDef {
-  string LessonId = 1;
+  int32 LessonId = 1;
+  int32 Stages = 2;
 }
 
 

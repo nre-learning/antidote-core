@@ -100,7 +100,7 @@ func main() {
 						lessonId, _ := strconv.Atoi(c.Args()[0])
 
 						liveLabDetails, err := client.RequestLiveLesson(context.Background(), &pb.LessonParams{
-							Id:        int32(lessonId),
+							LessonId:  int32(lessonId),
 							SessionId: c.Args()[1],
 						})
 
@@ -130,7 +130,7 @@ func main() {
 						lessonId, _ := strconv.Atoi(c.Args()[0])
 
 						_, err = client.DeleteLiveLesson(context.Background(), &pb.LessonParams{
-							Id:        int32(lessonId),
+							LessonId:  int32(lessonId),
 							SessionId: c.Args()[1],
 						})
 

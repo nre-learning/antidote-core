@@ -17,7 +17,7 @@ service LiveLessonsService {
   // SetLiveLesson updates certain parameters of an existing LiveLesson, such as setting the LessonStage
   rpc SetLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
-      post: "/exp/livelesson/{id}"
+      post: "/exp/livelesson/{lessonId}"
       body: "*"
     };
   }
@@ -89,7 +89,7 @@ message Endpoint {
 }
 
 message LessonParams {
-  int32 id = 1;
+  int32 lessonId = 1;
   string sessionId = 2;
   int32 lessonStage = 3;
 }

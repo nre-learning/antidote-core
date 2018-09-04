@@ -4,7 +4,6 @@ package scheduler
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -13,6 +12,7 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -305,7 +305,13 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		LessonUUID: kl.CreateRequest.Uuid,
 		LessonId:   kl.CreateRequest.LessonDef.LessonID,
 		Endpoints:  []*pb.Endpoint{},
-		Ready:      false, // Set to false for now, will update elsewhere in a health check
+
+		// Previously we were overriding this value, so it was set to false, and then the API would perform the health check.
+		// Now, the health check is done by the scheduler, and is only returned to the API when everything is ready. So we
+		// need this to be set to true.
+		//
+		// You may consider moving this field to kubelab or something.
+		Ready: true,
 	}
 
 	if kl.CreateRequest.LessonDef.SharedTopology {
@@ -348,6 +354,8 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		}
 		ret.Endpoints = append(ret.Endpoints, endpoint)
 	}
+
+	ret.LabGuide = kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide
 
 	return &ret
 }
@@ -415,7 +423,17 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 func connectTest(port int32) bool {
 	intPort := strconv.Itoa(int(port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 1*time.Second)
+
+	sshConfig := &ssh.ClientConfig{
+		User:            "root",
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Auth: []ssh.AuthMethod{
+			ssh.Password("VR-netlab9"),
+		},
+		Timeout: time.Second * 2,
+	}
+
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), sshConfig)
 	if err != nil {
 		return false
 	}

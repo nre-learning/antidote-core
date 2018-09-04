@@ -43,6 +43,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 
 	s := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(s, apiServer)
+	pb.RegisterLessonDefServiceServer(s, apiServer)
 	defer s.Stop()
 
 	// Start grpc server
@@ -56,6 +57,10 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	gwmux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	err = gw.RegisterLiveLessonsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
+	err = gw.RegisterLessonDefServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -85,6 +90,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 
 	log.Debugf("gRPC server listening on port: %d\n", grpcPort)
 	log.Debugf("HTTP gateway listening on port: %d\n", httpPort)
+	log.Debug("Started.")
 	// err = srv.Serve(tls.NewListener(conn, srv.TLSConfig))
 
 	go srv.ListenAndServe()
@@ -96,10 +102,12 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	for {
 		result := <-ls.Results
 
-		log.Infof("Received result message: %s", result)
+		log.Debugf("Received result message: %v", result)
 
 		if result.Success {
 			if result.Operation == scheduler.OperationType_CREATE {
+
+				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
 				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
 
 				// Need to get labguide from stage information
