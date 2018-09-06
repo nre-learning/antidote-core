@@ -33,14 +33,42 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
 
+	// Get lessonStage from incoming request (or set to 1 by default if not specified)
+	var lessonStage int32 = 1
+	if lp.LessonStage != 0 {
+		lessonStage = lp.LessonStage
+	}
+
 	// Check to see if it already exists in memory. If it does, don't send provision request.
 	// Just look it up and send UUID
 	log.Infof("Looking up session %s", lp.SessionId)
 	if _, ok := s.sessions[lp.SessionId]; ok {
 		if lessonUuid, ok := s.sessions[lp.SessionId][lp.LessonId]; ok {
 
-			log.Debugf("Found existing session %d", lp.SessionId)
+			log.Debugf("Found existing session %s", lp.SessionId)
+
+			log.Debugf("Current lessonStage: %d - new lessonStage: %d", s.liveLessons[lessonUuid].LessonStage, lessonStage)
+
+			if s.liveLessons[lessonUuid].LessonStage != lessonStage {
+
+				// Since this already existed, we don't need to update the sessions map, or the livelessons map
+				// Just update the stage and ready properties before sending modify request
+				s.liveLessons[lessonUuid].LessonStage = lessonStage
+				s.liveLessons[lessonUuid].Ready = false
+
+				s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
+					LessonDef: s.scheduler.LessonDefs[lp.LessonId],
+					Operation: scheduler.OperationType_MODIFY,
+					Stage:     lessonStage,
+					Uuid:      lessonUuid,
+					Session:   lp.SessionId,
+				}
+
+			}
+
 			return &pb.LessonUUID{Id: lessonUuid}, nil
+		} else {
+			log.Infof("session ID found but not for this lesson: %d", lp.LessonId)
 		}
 	} else {
 
@@ -55,11 +83,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		if _, ok := s.liveLessons[newUuid]; !ok {
 			break
 		}
-	}
-
-	var lessonStage int32 = 1
-	if lp.LessonStage != 0 {
-		lessonStage = lp.LessonStage
 	}
 
 	// TODO(mierdin): consider not having any tables in memory at all. Just make everything function off of namespace names
@@ -79,7 +102,8 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 	// Pre-emptively populate livelessons map with non-ready livelesson.
 	// This will be updated when the scheduler response comes back.
-	s.liveLessons[newUuid] = &pb.LiveLesson{Ready: false}
+	s.liveLessons[newUuid] = &pb.LiveLesson{Ready: false, LessonId: lp.LessonId, LessonUUID: newUuid, LessonStage: lessonStage}
+	log.Infof("LiveLessons map: %v", s.liveLessons)
 
 	return &pb.LessonUUID{Id: newUuid}, nil
 }

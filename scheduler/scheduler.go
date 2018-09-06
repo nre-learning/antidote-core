@@ -4,6 +4,7 @@ package scheduler
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ var (
 	OperationType_MODIFY OperationType = 2
 	typePortMap                        = map[string]int32{
 		"DEVICE":   22,
-		"LINUX":    22,
+		"UTILITY":  22,
 		"NOTEBOOK": 8888,
 	}
 	defaultGitFileMode int32 = 0755
@@ -108,31 +109,35 @@ func (ls *LessonScheduler) Start() error {
 				break
 			}
 
-			wg := new(sync.WaitGroup)
-			wg.Add(len(liveLesson.Endpoints))
-
-			// Perform configuration changes
+			// Perform configuration changes for devices only
+			var deviceEndpoints []*pb.Endpoint
 			for i := range liveLesson.Endpoints {
 				ep := liveLesson.Endpoints[i]
 				if ep.Type == pb.Endpoint_DEVICE {
-					job, err := ls.configureDevice(ep, newRequest)
-					if err != nil {
-						log.Errorf("Problem configuring device %s", ep.Name)
-						continue // TODO(mierdin): should quit entirely and return an error result to the channel
-					}
-					go func() {
-						defer wg.Done()
-
-						// TODO(mierdin): Add timeout
-						for {
-							time.Sleep(2 * time.Second)
-							completed, _ := ls.isCompleted(job, newRequest)
-							if completed {
-								break
-							}
-						}
-					}()
+					deviceEndpoints = append(deviceEndpoints, ep)
 				}
+			}
+			wg := new(sync.WaitGroup)
+			wg.Add(len(deviceEndpoints))
+			for i := range deviceEndpoints {
+				job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
+				if err != nil {
+					log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
+					continue // TODO(mierdin): should quit entirely and return an error result to the channel
+				}
+				go func() {
+					defer wg.Done()
+
+					// TODO(mierdin): Add timeout
+					for {
+						time.Sleep(2 * time.Second)
+						completed, _ := ls.isCompleted(job, newRequest)
+						if completed {
+							break
+						}
+					}
+				}()
+
 			}
 
 			wg.Wait()
@@ -190,7 +195,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		LabConnections: map[string]string{},
 	}
 
-	// Create management network for "misc" stuff like notebooks
+	// Create management network for "misc" stuff like notebooks EDIT not needed anymore
 	_, err = ls.createNetwork("mgmt-net", req, false, "")
 	if err != nil {
 		log.Error(err)
@@ -225,7 +230,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 				device.Name,
 				device.Image,
 				pb.Endpoint_DEVICE,
-				getMemberNetworks(device, req.LessonDef.Connections),
+				getMemberNetworks(device.Name, req.LessonDef.Connections),
 				req,
 			)
 			if err != nil {
@@ -243,10 +248,40 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			}
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}
+
+		// Create pods and services for utility containers
+		for d := range req.LessonDef.Utilities {
+
+			utility := req.LessonDef.Utilities[d]
+			newPod, err := ls.createPod(
+				utility.Name,
+				utility.Image,
+				pb.Endpoint_UTILITY,
+				getMemberNetworks(utility.Name, req.LessonDef.Connections),
+				req,
+			)
+			if err != nil {
+				log.Error(err)
+			}
+			kl.Pods[newPod.ObjectMeta.Name] = newPod
+
+			// Create service for this pod
+			newSvc, err := ls.createService(
+				newPod,
+				req,
+			)
+			if err != nil {
+				log.Error(err)
+			}
+			kl.Services[newSvc.ObjectMeta.Name] = newSvc
+		}
+
 	}
 
-	// TODO(mierdin): Will have to stage-ify
-	if req.LessonDef.Notebook {
+	// TODO(mierdin): convert this field back to boolean and make sure it gets passed to the API. Then use the below:
+	// The path is deterministic, so we don't need the user to specify the path
+	if true {
+		// if req.LessonDef.Stages[req.Stage].Notebook {
 
 		notebookPod, _ := ls.createPod(
 			"notebook",
@@ -302,9 +337,10 @@ type KubeLab struct {
 func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 	ret := pb.LiveLesson{
-		LessonUUID: kl.CreateRequest.Uuid,
-		LessonId:   kl.CreateRequest.LessonDef.LessonID,
-		Endpoints:  []*pb.Endpoint{},
+		LessonUUID:  kl.CreateRequest.Uuid,
+		LessonId:    kl.CreateRequest.LessonDef.LessonID,
+		Endpoints:   []*pb.Endpoint{},
+		LessonStage: kl.CreateRequest.Stage,
 
 		// Previously we were overriding this value, so it was set to false, and then the API would perform the health check.
 		// Now, the health check is done by the scheduler, and is only returned to the API when everything is ready. So we
@@ -411,24 +447,42 @@ git reset --hard $REF`
 func isReachable(ll *pb.LiveLesson) bool {
 	for d := range ll.Endpoints {
 		ep := ll.Endpoints[d]
-		if connectTest(ep.Port) {
-			log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
-		} else {
-			log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
-			return false
+
+		if ep.GetType() == pb.Endpoint_DEVICE {
+			if sshTest(ep.Port, "VR-netlab9") {
+				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			} else {
+				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				return false
+			}
+		} else if ep.GetType() == pb.Endpoint_NOTEBOOK {
+			if connectTest(ep.Port) {
+				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			} else {
+				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				return false
+			}
+		} else if ep.GetType() == pb.Endpoint_UTILITY {
+			if sshTest(ep.Port, "antidotepassword") {
+				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			} else {
+				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				return false
+			}
 		}
+
 	}
 	return true
 }
 
-func connectTest(port int32) bool {
+func sshTest(port int32, password string) bool {
 	intPort := strconv.Itoa(int(port))
 
 	sshConfig := &ssh.ClientConfig{
 		User:            "root",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password("VR-netlab9"),
+			ssh.Password(password),
 		},
 		Timeout: time.Second * 2,
 	}
@@ -439,5 +493,15 @@ func connectTest(port int32) bool {
 	}
 	defer conn.Close()
 
+	return true
+}
+
+func connectTest(port int32) bool {
+	intPort := strconv.Itoa(int(port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 2*time.Second)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
 	return true
 }

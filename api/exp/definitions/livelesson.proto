@@ -72,10 +72,9 @@ message Endpoint {
   enum EndpointType {
     UNKNOWN = 0;       // In proto3, zero value fields are indistinguishable from unset fields, by design. They are not sent on the wire either. So let's set this aside.
     DEVICE = 1;        // A network device. Expected to be reachable via SSH or API on the listed port
-    NOTEBOOK = 2;      // Jupyter server
-    BLACKBOX = 3;      // Some kind of entity that the user doesn't have access to (i.e. for troubleshooting)
-    LINUX = 4;         // Linux container we want to provide access to for tools. Handled pretty much the same as DEVICE, as we SSH to this.
-    // CONFIGURATOR = 5;  // Configurator container that's responsible for bootstrapping the lab devices
+    NOTEBOOK = 2;      // Jupyter notebook server
+    BLACKBOX = 3;      // Some kind of entity that the user doesn't have access to (i.e. for troubleshooting). Effectively the same as UTILITY but we don't present this to the user in any way on the web UI
+    UTILITY = 4;       // Linux container we want to provide access to for tools. Handled pretty much the same as DEVICE, as we SSH to this.
   }
   EndpointType Type = 2;
 

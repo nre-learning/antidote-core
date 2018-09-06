@@ -25,10 +25,10 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
-	typePortMap := map[string]int32{
-		"DEVICE":   22,
-		"NOTEBOOK": 8888,
-	}
+	// typePortMap := map[string]int32{
+	// 	"DEVICE":   22,
+	// 	"NOTEBOOK": 8888,
+	// }
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

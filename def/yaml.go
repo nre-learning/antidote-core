@@ -13,6 +13,7 @@ type LessonDefinition struct {
 	LessonName     string                 `json:"lessonName" yaml:"lessonName"`
 	LessonID       int32                  `json:"lessonID" yaml:"lessonID"`
 	Devices        []*Device              `json:"devices" yaml:"devices"`
+	Utilities      []*Utility             `json:"utilities" yaml:"utilities"`
 	Connections    []*Connection          `json:"connections" yaml:"connections"`
 	SharedTopology bool                   `json:"SharedTopology" yaml:"sharedTopology"`
 	Stages         map[int32]*LessonStage `json:"stages" yaml:"stages"`
@@ -23,10 +24,15 @@ type LessonDefinition struct {
 type LessonStage struct {
 	LabGuide string            `json:"labguide" yaml:"labguide"`
 	Configs  map[string]string `json:"configs" yaml:"configs"`
-	Notebook string            `json:"notebook" yaml:"notebook"`
+	Notebook bool              `json:"notebook" yaml:"notebook"`
 }
 
 type Device struct {
+	Name  string `json:"name" yaml:"name"`
+	Image string `json:"image" yaml:"image"`
+}
+
+type Utility struct {
 	Name  string `json:"name" yaml:"name"`
 	Image string `json:"image" yaml:"image"`
 }
@@ -108,13 +114,13 @@ FILES:
 		for c := range lessonDef.Connections {
 			connection := lessonDef.Connections[c]
 
-			if !deviceInLabDef(connection.A, &lessonDef) {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent device"))
+			if !entityInLabDef(connection.A, &lessonDef) {
+				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent entity"))
 				continue FILES
 			}
 
-			if !deviceInLabDef(connection.B, &lessonDef) {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent device"))
+			if !entityInLabDef(connection.B, &lessonDef) {
+				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent entity"))
 				continue FILES
 			}
 		}
@@ -129,11 +135,17 @@ FILES:
 	return retLds, nil
 }
 
-// deviceInLabDef is a helper function to ensure that a device is found by name in a lab definition
-func deviceInLabDef(deviceName string, ld *LessonDefinition) bool {
+// entityInLabDef is a helper function to ensure that a device is found by name in a lab definition
+func entityInLabDef(entityName string, ld *LessonDefinition) bool {
 	for i := range ld.Devices {
 		device := ld.Devices[i]
-		if deviceName == device.Name {
+		if entityName == device.Name {
+			return true
+		}
+	}
+	for i := range ld.Utilities {
+		utility := ld.Utilities[i]
+		if entityName == utility.Name {
 			return true
 		}
 	}
