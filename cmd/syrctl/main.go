@@ -111,36 +111,36 @@ func main() {
 
 					},
 				},
-				{
-					Name:  "delete",
-					Usage: "Delete an existing livelab",
-					Action: func(c *cli.Context) {
-						var (
-							serverAddr = flag.String("server_addr", "127.0.0.1:50099", "The server address in the format of host:port")
-						)
+				// {
+				// 	Name:  "delete",
+				// 	Usage: "Delete an existing livelab",
+				// 	Action: func(c *cli.Context) {
+				// 		var (
+				// 			serverAddr = flag.String("server_addr", "127.0.0.1:50099", "The server address in the format of host:port")
+				// 		)
 
-						// TODO(mierdin): Add security options
-						conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
-						if err != nil {
-							fmt.Println(err)
-						}
-						defer conn.Close()
-						client := pb.NewLiveLessonsServiceClient(conn)
+				// 		// TODO(mierdin): Add security options
+				// 		conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
+				// 		if err != nil {
+				// 			fmt.Println(err)
+				// 		}
+				// 		defer conn.Close()
+				// 		client := pb.NewLiveLessonsServiceClient(conn)
 
-						lessonId, _ := strconv.Atoi(c.Args()[0])
+				// 		lessonId, _ := strconv.Atoi(c.Args()[0])
 
-						_, err = client.DeleteLiveLesson(context.Background(), &pb.LessonParams{
-							LessonId:  int32(lessonId),
-							SessionId: c.Args()[1],
-						})
+				// 		_, err = client.DeleteLiveLesson(context.Background(), &pb.LessonParams{
+				// 			LessonId:  int32(lessonId),
+				// 			SessionId: c.Args()[1],
+				// 		})
 
-						if err != nil {
-							fmt.Println(err)
-						}
-						fmt.Println("Deleted.")
+				// 		if err != nil {
+				// 			fmt.Println(err)
+				// 		}
+				// 		fmt.Println("Deleted.")
 
-					},
-				},
+				// 	},
+				// },
 			},
 		},
 	}

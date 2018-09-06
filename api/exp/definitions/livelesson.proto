@@ -22,14 +22,6 @@ service LiveLessonsService {
     };
   }
 
-  // Delete a running livelab
-  rpc DeleteLiveLesson(LessonParams) returns (LiveLesson) {
-    option (google.api.http) = {
-      delete: "/exp/livelesson"
-      body: "*"
-    };
-  }
-
   // Retrieve details about a lesson
   rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
     option (google.api.http) = {

@@ -124,35 +124,6 @@ func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveL
 	return &pb.LiveLessons{}, nil
 }
 
-func (s *server) DeleteLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LiveLesson, error) {
-
-	// TODO(mierdin): need to perform some security checks here
-
-	if _, ok := s.scheduler.LessonDefs[lp.LessonId]; !ok {
-		return &pb.LiveLesson{}, errors.New("Failed to find referenced lesson ID")
-	}
-
-	if _, ok := s.sessions[lp.SessionId]; !ok {
-		return &pb.LiveLesson{}, errors.New("No existing session found to delete")
-	}
-
-	if _, ok := s.sessions[lp.SessionId][lp.LessonId]; !ok {
-		return &pb.LiveLesson{}, errors.New("Session exists but isn't currently using the requested lesson ID")
-	}
-
-	// Delete the session
-	delete(s.sessions, lp.SessionId)
-
-	s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		LessonDef: s.scheduler.LessonDefs[lp.LessonId],
-		Operation: scheduler.OperationType_DELETE,
-		Uuid:      s.sessions[lp.SessionId][lp.LessonId],
-		Session:   lp.SessionId,
-	}
-
-	return &pb.LiveLesson{}, nil
-}
-
 func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.LiveLesson, error) {
 
 	if uuid.Id == "" {
@@ -172,47 +143,4 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 	log.Debugf("About to return %s", s.liveLessons[uuid.Id])
 	return s.liveLessons[uuid.Id], nil
 
-	// Return immediately without health check if we already know it's running
-	// if s.liveLessons[uuid.Id].Ready {
-	// 	return s.liveLessons[uuid.Id], nil
-	// }
-
-	// For now, I'm doing a health check synchronous with the client calling getLiveLesson. This will obviously incur a performance
-	// hit the first few calls, but I'm mitigating this by updating the livelesson in memory with the result, so that eventually,
-	// after subsequent calls, the below conditional will return True and we won't have to check the status again.
-	// Obviously this isn't ideal for making sure the lesson is STILL running after a while, only that it's initially running.
-	// s.liveLessons[uuid.Id].Ready = isReady(s.liveLessons[uuid.Id])
-	// return s.liveLessons[uuid.Id], nil
-
-	// return &pb.LiveLesson{Ready: false}, nil
-
 }
-
-// func isReady(ll *pb.LiveLesson) bool {
-// 	for d := range ll.Endpoints {
-// 		ep := ll.Endpoints[d]
-// 		if isReachable(ep.Port) {
-// 			log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
-// 		} else {
-// 			log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }
-
-// func isReachable(port int32) bool {
-// 	intPort := strconv.Itoa(int(port))
-// 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 1*time.Second)
-// 	if err != nil {
-// 		return false
-// 	}
-// 	defer conn.Close()
-
-// 	return true
-// }
-
-// curl --header "Content-Type: application/json" \
-//   --request POST \
-//   --data '{"id": 12, "sessionId": "6viedvg5rctwdpcc"} ' \
-//   https://labs.networkreliability.engineering/syringe/exp/livelesson
