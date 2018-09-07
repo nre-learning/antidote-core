@@ -123,6 +123,11 @@ FILES:
 				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent entity"))
 				continue FILES
 			}
+
+			if connection.Subnet == "" {
+				log.Errorf("Connection must specify subnet")
+				continue FILES
+			}
 		}
 
 		// TODO(mierdin): Make sure lab ID and lab name are unique
