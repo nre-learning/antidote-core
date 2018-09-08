@@ -109,13 +109,11 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 
 				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
 				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
-
-				// Need to get labguide from stage information
-				// apiServer.liveLessons[result.Uuid].LabGuide = result.LessonDef.LabGuide
 			} else if result.Operation == scheduler.OperationType_DELETE {
 				delete(apiServer.liveLessons, result.Uuid)
 			} else if result.Operation == scheduler.OperationType_MODIFY {
-				// TODO
+				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
+				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
 			} else {
 				log.Error("FOO")
 			}

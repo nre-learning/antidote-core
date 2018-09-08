@@ -13,6 +13,31 @@ import (
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 )
 
+func (ls *LessonScheduler) killAllJobs(nsName string) error {
+
+	batchclient, err := batchv1client.NewForConfig(ls.Config)
+	if err != nil {
+		panic(err)
+	}
+
+	result, err := batchclient.Jobs(nsName).List(metav1.ListOptions{})
+	if err != nil {
+		log.Errorf("Couldn't retrieve jobs: %s", err)
+		return err
+	}
+
+	existingJobs := result.Items
+
+	for i := range existingJobs {
+		err = batchclient.Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
@@ -121,10 +146,8 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 								fmt.Sprintf("--optional_args=port=%d", ep.Port),
 								"vip.labs.networkreliability.engineering",
 								"configure",
-
-								// TODO need to get this from syringe file
 								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonID, req.Stage, ep.Name),
-								"--strategy=merge",
+								"--strategy=replace",
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod

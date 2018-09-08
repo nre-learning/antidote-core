@@ -33,6 +33,7 @@ var (
 		"NOTEBOOK": 8888,
 	}
 	defaultGitFileMode int32 = 0755
+	kubeLabs                 = map[string]*KubeLab{}
 )
 
 type LessonScheduleRequest struct {
@@ -83,6 +84,7 @@ func (ls *LessonScheduler) Start() error {
 		log.Debug("Scheduler received new request")
 		log.Debug(newRequest)
 
+		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
 		if newRequest.Operation == OperationType_CREATE {
 			newKubeLab, err := ls.createKubeLab(newRequest)
 			if err != nil {
@@ -102,7 +104,88 @@ func (ls *LessonScheduler) Start() error {
 			for {
 				time.Sleep(1 * time.Second)
 
-				// TODO(mierdin): tcp connection test isn't enough. Need to do SSH and ensure we can at least get that
+				if !isReachable(liveLesson) {
+					continue
+				}
+				break
+			}
+
+			// Perform configuration changes for devices only
+			var deviceEndpoints []*pb.Endpoint
+			for i := range liveLesson.Endpoints {
+				ep := liveLesson.Endpoints[i]
+				if ep.Type == pb.Endpoint_DEVICE {
+					deviceEndpoints = append(deviceEndpoints, ep)
+				}
+			}
+			wg := new(sync.WaitGroup)
+			wg.Add(len(deviceEndpoints))
+			for i := range deviceEndpoints {
+				job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
+				if err != nil {
+					log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
+					continue // TODO(mierdin): should quit entirely and return an error result to the channel
+				}
+				go func() {
+					defer wg.Done()
+
+					// TODO(mierdin): Add timeout
+					for {
+						time.Sleep(2 * time.Second)
+						completed, _ := ls.isCompleted(job, newRequest)
+						if completed {
+							break
+						}
+					}
+				}()
+
+			}
+
+			wg.Wait()
+
+			kubeLabs[newRequest.Uuid] = newKubeLab
+
+			ls.Results <- &LessonScheduleResult{
+				Success:   true,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   newKubeLab,
+				Uuid:      newRequest.Uuid,
+				Operation: newRequest.Operation,
+				Stage:     newRequest.Stage,
+			}
+		} else if newRequest.Operation == OperationType_DELETE {
+			err := ls.deleteNamespace(nsName)
+			if err != nil {
+				log.Errorf("Error deleting lesson: %s", err)
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   nil,
+					Uuid:      "",
+					Operation: newRequest.Operation,
+				}
+			}
+			ls.Results <- &LessonScheduleResult{
+				Success:   true,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   nil,
+				Uuid:      newRequest.Uuid,
+				Operation: newRequest.Operation,
+			}
+		} else if newRequest.Operation == OperationType_MODIFY {
+
+			log.Info("Reconfiguring to %d!!!", newRequest.Stage)
+
+			ls.killAllJobs(nsName)
+			kubeLabs[newRequest.Uuid].CreateRequest = newRequest
+			liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
+
+			// TODO(mierdin): Make below into a function, and get rid of duplicate CREATE code for configuration
+
+			// TODO(mierdin) need to add timeout
+			for {
+				time.Sleep(1 * time.Second)
+
 				if !isReachable(liveLesson) {
 					continue
 				}
@@ -145,32 +228,11 @@ func (ls *LessonScheduler) Start() error {
 			ls.Results <- &LessonScheduleResult{
 				Success:   true,
 				LessonDef: newRequest.LessonDef,
-				KubeLab:   newKubeLab,
+				KubeLab:   kubeLabs[newRequest.Uuid],
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
+				Stage:     newRequest.Stage,
 			}
-		} else if newRequest.Operation == OperationType_DELETE {
-			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-			err := ls.deleteNamespace(nsName)
-			if err != nil {
-				log.Errorf("Error deleting lesson: %s", err)
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   nil,
-					Uuid:      "",
-					Operation: newRequest.Operation,
-				}
-			}
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   nil,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-			}
-		} else if newRequest.Operation == OperationType_MODIFY {
-			// Need to destroy and recreate the utilities as well as making config changes
 
 		}
 
@@ -279,10 +341,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 
 	}
 
-	// TODO(mierdin): convert this field back to boolean and make sure it gets passed to the API. Then use the below:
-	// The path is deterministic, so we don't need the user to specify the path
-	if true {
-		// if req.LessonDef.Stages[req.Stage].Notebook {
+	if req.LessonDef.Stages[req.Stage].Notebook {
 
 		notebookPod, _ := ls.createPod(
 			"notebook",
@@ -342,6 +401,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		LessonId:    kl.CreateRequest.LessonDef.LessonID,
 		Endpoints:   []*pb.Endpoint{},
 		LessonStage: kl.CreateRequest.Stage,
+		LabGuide:    kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
 
 		// Previously we were overriding this value, so it was set to false, and then the API would perform the health check.
 		// Now, the health check is done by the scheduler, and is only returned to the API when everything is ready. So we
@@ -374,11 +434,13 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		// find corresponding pod for this service
 		var podBuddy *corev1.Pod
 		for p := range kl.Pods {
-			if fmt.Sprintf("%s-svc", kl.Pods[p].ObjectMeta.Name) == kl.Services[s].ObjectMeta.Name {
+			if kl.Pods[p].ObjectMeta.Name == kl.Services[s].ObjectMeta.Name {
 				podBuddy = kl.Pods[p]
 				break
 			}
 		}
+
+		// TODO(mierdin): handle if podbuddy is still empty
 
 		port, _ := getSSHServicePort(kl.Services[s])
 		portInt, _ := strconv.Atoi(port)
