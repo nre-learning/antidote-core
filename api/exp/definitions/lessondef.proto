@@ -2,15 +2,14 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 
 service LessonDefService {
 
-  // Retrieve all LessonDefs
-  // TODO(mierdin): Need to add a filter option here so you can get via category. This will help for building dynamic menus
-  rpc ListLessonDefs(google.protobuf.Empty) returns (LessonDefs) {
+  // Retrieve all LessonDefs with filter
+  rpc ListLessonDefs(LessonDefFilter) returns (LessonDefs) {
     option (google.api.http) = {
-      get: "/exp/lessondef"
+      post: "/exp/lessondef"
+      body: "*"
     };
   }
 
@@ -24,6 +23,7 @@ service LessonDefService {
 
 message LessonDefs {
   repeated LessonDef lessondefs = 1;
+  string Category = 2;
 }
 
 message LessonID {
@@ -33,6 +33,9 @@ message LessonID {
 message LessonDef {
   int32 LessonId = 1;
   int32 Stages = 2;
+  string LessonName = 3;
 }
 
-
+message LessonDefFilter {
+  string Category = 1;
+}

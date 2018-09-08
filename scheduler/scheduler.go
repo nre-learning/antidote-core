@@ -170,7 +170,8 @@ func (ls *LessonScheduler) Start() error {
 				Operation: newRequest.Operation,
 			}
 		} else if newRequest.Operation == OperationType_MODIFY {
-			//
+			// Need to destroy and recreate the utilities as well as making config changes
+
 		}
 
 		log.Debug("Result sent. Now waiting for next schedule request...")

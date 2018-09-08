@@ -15,6 +15,7 @@ service LiveLessonsService {
   }
 
   // SetLiveLesson updates certain parameters of an existing LiveLesson, such as setting the LessonStage
+  // TODO deprecated
   rpc SetLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
       post: "/exp/livelesson/{lessonId}"

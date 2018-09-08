@@ -37,6 +37,8 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 	if result.Status.Failed > 0 {
 		log.Errorf("Problem configuring with %s", result.Name)
+
+		//TODO(mierdin): need to count N failures, then when exceeded, surface this back up the channel, to the API, and to the user, so they're not waiting forever.
 	}
 
 	return (result.Status.Active == 0), nil

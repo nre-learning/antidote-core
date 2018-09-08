@@ -21,7 +21,10 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 	if err != nil {
 		panic(err)
 	}
-	serviceName := pod.ObjectMeta.Name + "-svc"
+
+	// We want to use the same name as the Pod object, since the service name will be what users try to reach
+	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
+	serviceName := pod.ObjectMeta.Name
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 

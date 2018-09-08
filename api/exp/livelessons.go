@@ -110,6 +110,8 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 func (s *server) SetLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
 
+	// DEPRECATED
+
 	// Need to set Ready to false immediately before returning to avoid race conditions
 	uuid := s.sessions[lp.SessionId][lp.LessonId]
 	s.liveLessons[uuid].Ready = false

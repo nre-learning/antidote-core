@@ -45,7 +45,7 @@ type Connection struct {
 
 // JSON exports the lesson definition as JSON
 func (ld *LessonDefinition) JSON() string {
-	lessonJSON, err := json.Marshal(ld)
+	lessonJSON, err := json.MarshalIndent(ld, "", "  ")
 	if err != nil {
 		log.Error(err)
 		return ""
@@ -78,6 +78,11 @@ FILES:
 
 		if lessonDef.LessonName == "" {
 			log.Errorf("Failed to import %s: %s", file, errors.New("Lesson name cannot be blank"))
+			continue FILES
+		}
+
+		if lessonDef.Category == "" {
+			log.Errorf("Failed to import %s: %s", file, errors.New("Lesson category cannot be blank"))
 			continue FILES
 		}
 
@@ -132,7 +137,7 @@ FILES:
 
 		// TODO(mierdin): Make sure lab ID and lab name are unique
 
-		log.Infof("Successfully imported %s: %v", file, lessonDef)
+		log.Infof("Successfully imported %s: %v", file, lessonDef.JSON())
 
 		retLds[lessonDef.LessonID] = &lessonDef
 	}
