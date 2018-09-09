@@ -33,6 +33,8 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
 
+	// TODO(mierdin): need to handle invalid stage
+
 	// Get lessonStage from incoming request (or set to 1 by default if not specified)
 	var lessonStage int32 = 1
 	if lp.LessonStage != 0 {

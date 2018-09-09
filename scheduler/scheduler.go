@@ -100,48 +100,12 @@ func (ls *LessonScheduler) Start() error {
 
 			liveLesson := newKubeLab.ToLiveLesson()
 
-			// TODO(mierdin) need to add timeout
-			for {
-				time.Sleep(1 * time.Second)
-
-				if !isReachable(liveLesson) {
-					continue
-				}
-				break
+			if newRequest.LessonDef.TopologyType == "custom" {
+				log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
+				ls.configureStuff(nsName, liveLesson, newRequest)
+			} else {
+				log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
 			}
-
-			// Perform configuration changes for devices only
-			var deviceEndpoints []*pb.Endpoint
-			for i := range liveLesson.Endpoints {
-				ep := liveLesson.Endpoints[i]
-				if ep.Type == pb.Endpoint_DEVICE {
-					deviceEndpoints = append(deviceEndpoints, ep)
-				}
-			}
-			wg := new(sync.WaitGroup)
-			wg.Add(len(deviceEndpoints))
-			for i := range deviceEndpoints {
-				job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
-				if err != nil {
-					log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
-					continue // TODO(mierdin): should quit entirely and return an error result to the channel
-				}
-				go func() {
-					defer wg.Done()
-
-					// TODO(mierdin): Add timeout
-					for {
-						time.Sleep(2 * time.Second)
-						completed, _ := ls.isCompleted(job, newRequest)
-						if completed {
-							break
-						}
-					}
-				}()
-
-			}
-
-			wg.Wait()
 
 			kubeLabs[newRequest.Uuid] = newKubeLab
 
@@ -174,56 +138,15 @@ func (ls *LessonScheduler) Start() error {
 			}
 		} else if newRequest.Operation == OperationType_MODIFY {
 
-			log.Info("Reconfiguring to %d!!!", newRequest.Stage)
-
-			ls.killAllJobs(nsName)
 			kubeLabs[newRequest.Uuid].CreateRequest = newRequest
 			liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
 
-			// TODO(mierdin): Make below into a function, and get rid of duplicate CREATE code for configuration
-
-			// TODO(mierdin) need to add timeout
-			for {
-				time.Sleep(1 * time.Second)
-
-				if !isReachable(liveLesson) {
-					continue
-				}
-				break
+			if newRequest.LessonDef.TopologyType == "custom" {
+				log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
+				ls.configureStuff(nsName, liveLesson, newRequest)
+			} else {
+				log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
 			}
-
-			// Perform configuration changes for devices only
-			var deviceEndpoints []*pb.Endpoint
-			for i := range liveLesson.Endpoints {
-				ep := liveLesson.Endpoints[i]
-				if ep.Type == pb.Endpoint_DEVICE {
-					deviceEndpoints = append(deviceEndpoints, ep)
-				}
-			}
-			wg := new(sync.WaitGroup)
-			wg.Add(len(deviceEndpoints))
-			for i := range deviceEndpoints {
-				job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
-				if err != nil {
-					log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
-					continue // TODO(mierdin): should quit entirely and return an error result to the channel
-				}
-				go func() {
-					defer wg.Done()
-
-					// TODO(mierdin): Add timeout
-					for {
-						time.Sleep(2 * time.Second)
-						completed, _ := ls.isCompleted(job, newRequest)
-						if completed {
-							break
-						}
-					}
-				}()
-
-			}
-
-			wg.Wait()
 
 			ls.Results <- &LessonScheduleResult{
 				Success:   true,
@@ -238,6 +161,54 @@ func (ls *LessonScheduler) Start() error {
 
 		log.Debug("Result sent. Now waiting for next schedule request...")
 	}
+
+	return nil
+}
+
+func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
+	ls.killAllJobs(nsName)
+	// TODO(mierdin) need to add timeout
+	for {
+		time.Sleep(1 * time.Second)
+
+		if !isReachable(liveLesson) {
+			continue
+		}
+		break
+	}
+
+	// Perform configuration changes for devices only
+	var deviceEndpoints []*pb.Endpoint
+	for i := range liveLesson.Endpoints {
+		ep := liveLesson.Endpoints[i]
+		if ep.Type == pb.Endpoint_DEVICE {
+			deviceEndpoints = append(deviceEndpoints, ep)
+		}
+	}
+	wg := new(sync.WaitGroup)
+	wg.Add(len(deviceEndpoints))
+	for i := range deviceEndpoints {
+		job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
+		if err != nil {
+			log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
+			continue // TODO(mierdin): should quit entirely and return an error result to the channel
+		}
+		go func() {
+			defer wg.Done()
+
+			// TODO(mierdin): Add timeout
+			for {
+				time.Sleep(2 * time.Second)
+				completed, _ := ls.isCompleted(job, newRequest)
+				if completed {
+					break
+				}
+			}
+		}()
+
+	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -267,9 +238,11 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	// Create our configmap for the initContainer for cloning the antidote repo
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
 
-	// Only bother making connections and device pod/services if we're not using the
-	// shared topology
-	if !kl.CreateRequest.LessonDef.SharedTopology {
+	// Only bother making connections and device pod/services if we have a custom topology
+	log.Infof("New KubeLab for lesson %d is of TopologyType %s", kl.CreateRequest.LessonDef.LessonID, kl.CreateRequest.LessonDef.TopologyType)
+	if kl.CreateRequest.LessonDef.TopologyType == "custom" {
+
+		log.Debug("Creating devices and connections")
 
 		// Create networks from connections property
 		for c := range req.LessonDef.Connections {
@@ -312,33 +285,35 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}
 
-		// Create pods and services for utility containers
-		for d := range req.LessonDef.Utilities {
+	} else {
+		log.Debug("Not creating devices and connections")
+	}
 
-			utility := req.LessonDef.Utilities[d]
-			newPod, err := ls.createPod(
-				utility.Name,
-				utility.Image,
-				pb.Endpoint_UTILITY,
-				getMemberNetworks(utility.Name, req.LessonDef.Connections),
-				req,
-			)
-			if err != nil {
-				log.Error(err)
-			}
-			kl.Pods[newPod.ObjectMeta.Name] = newPod
+	// Create pods and services for utility containers
+	for d := range req.LessonDef.Utilities {
 
-			// Create service for this pod
-			newSvc, err := ls.createService(
-				newPod,
-				req,
-			)
-			if err != nil {
-				log.Error(err)
-			}
-			kl.Services[newSvc.ObjectMeta.Name] = newSvc
+		utility := req.LessonDef.Utilities[d]
+		newPod, err := ls.createPod(
+			utility.Name,
+			utility.Image,
+			pb.Endpoint_UTILITY,
+			getMemberNetworks(utility.Name, req.LessonDef.Connections),
+			req,
+		)
+		if err != nil {
+			log.Error(err)
 		}
+		kl.Pods[newPod.ObjectMeta.Name] = newPod
 
+		// Create service for this pod
+		newSvc, err := ls.createService(
+			newPod,
+			req,
+		)
+		if err != nil {
+			log.Error(err)
+		}
+		kl.Services[newSvc.ObjectMeta.Name] = newSvc
 	}
 
 	if req.LessonDef.Stages[req.Stage].Notebook {
@@ -411,7 +386,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		Ready: true,
 	}
 
-	if kl.CreateRequest.LessonDef.SharedTopology {
+	if kl.CreateRequest.LessonDef.TopologyType == "shared" {
 		ret.Endpoints = []*pb.Endpoint{
 			{
 				Name: "vqfx1",

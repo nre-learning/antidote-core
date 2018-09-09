@@ -10,15 +10,15 @@ import (
 )
 
 type LessonDefinition struct {
-	LessonName     string                 `json:"lessonName" yaml:"lessonName"`
-	LessonID       int32                  `json:"lessonID" yaml:"lessonID"`
-	Devices        []*Device              `json:"devices" yaml:"devices"`
-	Utilities      []*Utility             `json:"utilities" yaml:"utilities"`
-	Connections    []*Connection          `json:"connections" yaml:"connections"`
-	SharedTopology bool                   `json:"SharedTopology" yaml:"sharedTopology"`
-	Stages         map[int32]*LessonStage `json:"stages" yaml:"stages"`
-	Notebook       bool                   `json:"notebook" yaml:"notebook"`
-	Category       string                 `json:"category" yaml:"category"`
+	LessonName   string                 `json:"lessonName" yaml:"lessonName"`
+	LessonID     int32                  `json:"lessonID" yaml:"lessonID"`
+	Devices      []*Device              `json:"devices" yaml:"devices"`
+	Utilities    []*Utility             `json:"utilities" yaml:"utilities"`
+	Connections  []*Connection          `json:"connections" yaml:"connections"`
+	TopologyType string                 `json:"topologyType" yaml:"topologyType"`
+	Stages       map[int32]*LessonStage `json:"stages" yaml:"stages"`
+	Notebook     bool                   `json:"notebook" yaml:"notebook"`
+	Category     string                 `json:"category" yaml:"category"`
 }
 
 type LessonStage struct {
@@ -92,13 +92,17 @@ FILES:
 			continue FILES
 		}
 
-		if !lessonDef.SharedTopology {
+		if lessonDef.TopologyType != "none" && lessonDef.TopologyType != "shared" && lessonDef.TopologyType != "custom" {
+			lessonDef.TopologyType = "none"
+		}
+
+		if lessonDef.TopologyType == "custom" {
 			if len(lessonDef.Devices) == 0 {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Devices list is empty and sharedTopology is set to false"))
+				log.Errorf("Failed to import %s: %s", file, errors.New("Devices list is empty and TopologyType is set to custom"))
 				continue FILES
 			}
 			if len(lessonDef.Connections) == 0 {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connections list is empty and sharedTopology is set to false"))
+				log.Errorf("Failed to import %s: %s", file, errors.New("Connections list is empty and TopologyType is set to custom"))
 				continue FILES
 			}
 		}

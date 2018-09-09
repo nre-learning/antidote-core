@@ -17,10 +17,8 @@ func (s *server) ListLessonDefs(ctx context.Context, ldFilter *pb.LessonDefFilte
 
 	// TODO(mierdin): Okay for now, but not super effecient. Should store in category keys when loaded.
 	var retDefs []*pb.LessonDef
-	log.Debugf("Looking for all %s lessons", ldFilter.Category)
-	log.Debugf("ldFilter - %s", ldFilter)
 	for lessonId, lessonDef := range s.scheduler.LessonDefs {
-		log.Debugf("%d is in the %s category", lessonId, lessonDef.Category)
+		log.Debugf("Lesson %d is in the %s category", lessonId, lessonDef.Category)
 		if lessonDef.Category == ldFilter.Category {
 			retDefs = append(retDefs,
 				// TODO(mierdin): this little conversion is necessary because the lesson definition structs are not protobufs. Should do this.
