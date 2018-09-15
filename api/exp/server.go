@@ -41,7 +41,19 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	// 	}
 	// }()
 
+	// interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	// 	resp, err := handler(ctx, req)
+	// 	if err != nil {
+	// 		log.Warnf("UNARY method %q failed: %s", info.FullMethod, err)
+	// 	} else {
+	// 		log.Warnf("UNARY method %q succeeded: %s", info.FullMethod, resp)
+	// 		// log.Warnf(resp)
+	// 	}
+	// 	return resp, err
+	// }
+
 	s := grpc.NewServer()
+	// s := grpc.NewServer(grpc.UnaryInterceptor(interceptor))
 	pb.RegisterLiveLessonsServiceServer(s, apiServer)
 	pb.RegisterLessonDefServiceServer(s, apiServer)
 	defer s.Stop()

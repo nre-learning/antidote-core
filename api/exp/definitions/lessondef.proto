@@ -8,14 +8,14 @@ service LessonDefService {
   // Retrieve all LessonDefs with filter
   rpc ListLessonDefs(LessonDefFilter) returns (LessonDefs) {
     option (google.api.http) = {
-      post: "/exp/lessondef"
+      post: "/syringe/exp/lessondef"
       body: "*"
     };
   }
 
   rpc GetLessonDef(LessonID) returns (LessonDef) {
     option (google.api.http) = {
-      get: "/exp/lessondef/{id}"
+      get: "/syringe/exp/lessondef/{id}"
     };
   }
 

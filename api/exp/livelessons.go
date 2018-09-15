@@ -128,6 +128,10 @@ func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveL
 	return &pb.LiveLessons{}, nil
 }
 
+func (s *server) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.HealthCheckMessage, error) {
+	return &pb.HealthCheckMessage{}, nil
+}
+
 func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.LiveLesson, error) {
 
 	if uuid.Id == "" {

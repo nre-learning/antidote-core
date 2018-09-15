@@ -28,10 +28,10 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
-	// typePortMap := map[string]int32{
-	// 	"DEVICE":   22,
-	// 	"NOTEBOOK": 8888,
-	// }
+	serviceTypeMap := map[string]corev1.ServiceType{
+		"DEVICE":   corev1.ServiceTypeClusterIP,
+		"NOTEBOOK": corev1.ServiceTypeLoadBalancer,
+	}
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -41,6 +41,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 				"lessonId":         fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"lessonInstanceId": req.Session,
 				"syringeManaged":   "yes",
+				"endpointType":     pod.ObjectMeta.Labels["endpointType"],
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -62,7 +63,14 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 				// 	TargetPort: intstr.FromInt(830),
 				// },
 			},
-			Type: corev1.ServiceTypeNodePort,
+
+			// When running in GKE we want to use the LoadBalancer type. This allows us to expose this service via a TCP load balancer.
+			// https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer
+			// For SSH this isn't really necessary, as guac is sitting in the cluster - but for other types like notebooks, where an iframe needs to be opened directly,
+			// it's useful to have this facing externally. MAYBE consider a ClusterIP for all devices and utility servers but LoadBalancer for anything needing an iframe.
+			// Note that LoadBalancer will have to have some kind of proper DNS mapping.
+
+			Type: serviceTypeMap[pod.ObjectMeta.Labels["endpointType"]],
 		},
 	}
 

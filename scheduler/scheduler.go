@@ -68,7 +68,7 @@ func (ls *LessonScheduler) Start() error {
 
 	// Ensure cluster is cleansed before we start the scheduler
 	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
-	// ls.nukeFromOrbit()
+	ls.nukeFromOrbit()
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
@@ -338,7 +338,15 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	return kl, nil
 }
 
-func getSSHServicePort(svc *corev1.Service) (string, error) {
+func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
+
+	var host string
+	if svc.ObjectMeta.Labels["endpointType"] == "NOTEBOOK" {
+		host = svc.Spec.ExternalIPs[0]
+	} else {
+		host = svc.Spec.ClusterIP
+	}
+
 	for p := range svc.Spec.Ports {
 
 		// TODO should set port name consistently via syringe, and look up via name instead here
@@ -351,11 +359,14 @@ func getSSHServicePort(svc *corev1.Service) (string, error) {
 			// 	return "", errors.New("unable to find NodePort for service")
 			// }
 
-			return strconv.Itoa(int(svc.Spec.Ports[p].NodePort)), nil
+			// Previously was using nodeport, now we're not.
+			// return host, int(svc.Spec.Ports[p].NodePort), nil
+
+			return host, int(svc.Spec.Ports[p].Port), nil
 		}
 	}
-	log.Error("unable to find NodePort for service")
-	return "", errors.New("unable to find NodePort for service")
+	log.Error("unable to find port for service")
+	return "", 0, errors.New("unable to find port for service")
 }
 
 // KubeLab is the collection of kubernetes resources that makes up a lab instance
@@ -417,13 +428,14 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 		// TODO(mierdin): handle if podbuddy is still empty
 
-		port, _ := getSSHServicePort(kl.Services[s])
-		portInt, _ := strconv.Atoi(port)
+		host, port, _ := getConnectivityInfo(kl.Services[s])
+		// portInt, _ := strconv.Atoi(port)
 
 		endpoint := &pb.Endpoint{
 			Name: podBuddy.ObjectMeta.Name,
 			Type: pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
-			Port: int32(portInt),
+			Host: host,
+			Port: int32(port),
 			// ApiPort
 		}
 		ret.Endpoints = append(ret.Endpoints, endpoint)
@@ -487,24 +499,24 @@ func isReachable(ll *pb.LiveLesson) bool {
 		ep := ll.Endpoints[d]
 
 		if ep.GetType() == pb.Endpoint_DEVICE {
-			if sshTest(ep.Port, "VR-netlab9") {
-				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			if sshTest(ep.Host, ep.Port, "VR-netlab9") {
+				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
 			} else {
-				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
 				return false
 			}
 		} else if ep.GetType() == pb.Endpoint_NOTEBOOK {
-			if connectTest(ep.Port) {
-				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			if connectTest(ep.Host, ep.Port) {
+				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
 			} else {
-				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
 				return false
 			}
 		} else if ep.GetType() == pb.Endpoint_UTILITY {
-			if sshTest(ep.Port, "antidotepassword") {
-				log.Debugf("%s health check passed on port %d", ep.Name, ep.Port)
+			if sshTest(ep.Host, ep.Port, "antidotepassword") {
+				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
 			} else {
-				log.Debugf("%s health check failed on port %d", ep.Name, ep.Port)
+				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
 				return false
 			}
 		}
@@ -513,7 +525,7 @@ func isReachable(ll *pb.LiveLesson) bool {
 	return true
 }
 
-func sshTest(port int32, password string) bool {
+func sshTest(host string, port int32, password string) bool {
 	intPort := strconv.Itoa(int(port))
 
 	sshConfig := &ssh.ClientConfig{
@@ -525,7 +537,7 @@ func sshTest(port int32, password string) bool {
 		Timeout: time.Second * 2,
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), sshConfig)
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, intPort), sshConfig)
 	if err != nil {
 		return false
 	}
@@ -534,9 +546,9 @@ func sshTest(port int32, password string) bool {
 	return true
 }
 
-func connectTest(port int32) bool {
+func connectTest(host string, port int32) bool {
 	intPort := strconv.Itoa(int(port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("vip.labs.networkreliability.engineering:%s", intPort), 2*time.Second)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, intPort), 2*time.Second)
 	if err != nil {
 		return false
 	}

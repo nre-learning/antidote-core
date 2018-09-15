@@ -6,10 +6,16 @@ import "google/protobuf/empty.proto";
 
 service LiveLessonsService {
 
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckMessage) {
+    option (google.api.http) = {
+      get: "/*"
+    };
+  }
+
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
   rpc RequestLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
-      post: "/exp/livelesson"
+      post: "/syringe/exp/livelesson"
       body: "*"
     };
   }
@@ -18,7 +24,7 @@ service LiveLessonsService {
   // TODO deprecated
   rpc SetLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
-      post: "/exp/livelesson/{lessonId}"
+      post: "/syringe/exp/livelesson/{lessonId}"
       body: "*"
     };
   }
@@ -26,14 +32,14 @@ service LiveLessonsService {
   // Retrieve details about a lesson
   rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
     option (google.api.http) = {
-      get: "/exp/livelesson/{id}"
+      get: "/syringe/exp/livelesson/{id}"
     };
   }
 
   // Retrieve all livelessons
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {
     option (google.api.http) = {
-      get: "/exp/livelesson/all"
+      get: "/syringe/exp/livelesson/all"
     };
   }
 
@@ -42,6 +48,8 @@ service LiveLessonsService {
 
 
 }
+
+message HealthCheckMessage {}
 
 message LiveLessons {
   repeated LiveLessons livelessons = 1;
@@ -71,13 +79,21 @@ message Endpoint {
   }
   EndpointType Type = 2;
 
+  // This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If a NOTEBOOK,
+  // this will get set to the FQDN needed to connect to the external IP allocated for it.
+  string Host = 3;
+
   // Port for normal operations. If type "device", used for SSH. If type "notebook", loads up in an iframe.
-  int32 Port  = 3;
+  int32 Port  = 4;
+
+  // Future stuff for NOTEBOOK type
+  string Protocol = 5;
+  string Uri = 6;
 
   // Extra port for API interactions.
   // Note that this mostly doesn't matter, as this is only in case we want to allow API interactions from outside
   // the cluster via NodePort. Most of the time we'll use the standard ports using in-cluster traffic.
-  int32 Api_port  = 4;
+  int32 Api_port  = 7;
 }
 
 message LessonParams {
