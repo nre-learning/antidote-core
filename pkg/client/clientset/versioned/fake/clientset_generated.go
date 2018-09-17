@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
-	kubernetesv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/kubernetes.com/v1"
-	fakekubernetesv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/kubernetes.com/v1/fake"
+	k8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+	fakek8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,12 +71,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// KubernetesV1 retrieves the KubernetesV1Client
-func (c *Clientset) KubernetesV1() kubernetesv1.KubernetesV1Interface {
-	return &fakekubernetesv1.FakeKubernetesV1{Fake: &c.Fake}
+// K8sV1 retrieves the K8sV1Client
+func (c *Clientset) K8sV1() k8sv1.K8sV1Interface {
+	return &fakek8sv1.FakeK8sV1{Fake: &c.Fake}
 }
 
-// Kubernetes retrieves the KubernetesV1Client
-func (c *Clientset) Kubernetes() kubernetesv1.KubernetesV1Interface {
-	return &fakekubernetesv1.FakeKubernetesV1{Fake: &c.Fake}
+// K8s retrieves the K8sV1Client
+func (c *Clientset) K8s() k8sv1.K8sV1Interface {
+	return &fakek8sv1.FakeK8sV1{Fake: &c.Fake}
 }

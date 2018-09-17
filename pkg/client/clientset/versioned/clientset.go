@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	kubernetesv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/kubernetes.com/v1"
+	k8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,27 +27,27 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	KubernetesV1() kubernetesv1.KubernetesV1Interface
+	K8sV1() k8sv1.K8sV1Interface
 	// Deprecated: please explicitly pick a version if possible.
-	Kubernetes() kubernetesv1.KubernetesV1Interface
+	K8s() k8sv1.K8sV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kubernetesV1 *kubernetesv1.KubernetesV1Client
+	k8sV1 *k8sv1.K8sV1Client
 }
 
-// KubernetesV1 retrieves the KubernetesV1Client
-func (c *Clientset) KubernetesV1() kubernetesv1.KubernetesV1Interface {
-	return c.kubernetesV1
+// K8sV1 retrieves the K8sV1Client
+func (c *Clientset) K8sV1() k8sv1.K8sV1Interface {
+	return c.k8sV1
 }
 
-// Deprecated: Kubernetes retrieves the default version of KubernetesClient.
+// Deprecated: K8s retrieves the default version of K8sClient.
 // Please explicitly pick a version.
-func (c *Clientset) Kubernetes() kubernetesv1.KubernetesV1Interface {
-	return c.kubernetesV1
+func (c *Clientset) K8s() k8sv1.K8sV1Interface {
+	return c.k8sV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -66,7 +66,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.kubernetesV1, err = kubernetesv1.NewForConfig(&configShallowCopy)
+	cs.k8sV1, err = k8sv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.kubernetesV1 = kubernetesv1.NewForConfigOrDie(c)
+	cs.k8sV1 = k8sv1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -91,7 +91,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.kubernetesV1 = kubernetesv1.New(c)
+	cs.k8sV1 = k8sv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

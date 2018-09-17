@@ -78,12 +78,17 @@ test:
 	go test ./... -cover
 
 update:
+	# rm -rf ~/.glide && rm -rf vendor/ && rm -f glide.lock
 	glide up -v
 
 # You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.
 gengo:
-	rm -rf pkg/client/clientset && \
+
+	# https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
+
+	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
+	
 	vendor/k8s.io/code-generator/generate-groups.sh all \
 	github.com/nre-learning/syringe/pkg/client \
 	github.com/nre-learning/syringe/pkg/apis \
-	kubernetes.com:v1
+	k8s.cni.cncf.io:v1

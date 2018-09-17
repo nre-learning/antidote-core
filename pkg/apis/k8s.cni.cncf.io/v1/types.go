@@ -38,6 +38,8 @@ import meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //             config:
 //                  type: string
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type NetworkAttachmentDefinition struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`

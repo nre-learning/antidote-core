@@ -1,19 +1,31 @@
 package: github.com/nre-learning/syringe
 import:
-- package: k8s.io/client-go
-  version: v8.0.0
-- package: k8s.io/apimachinery
-  # version: kubernetes-1.11.0
-  # branch: release-1.11
-- package: k8s.io/code-generator
 - package: k8s.io/gengo
-- package: k8s.io/kube-openapi/pkg/util/proto
+- package: k8s.io/kube-openapi
+  subpackages:
+  - pkg/util/proto
 - package: google.golang.org/grpc
   version: v1.13.0
 - package: github.com/grpc-ecosystem/grpc-gateway
-- package: github.com/golang/protobuf/protoc-gen-go
+  version: ~1.5.0
+- package: github.com/golang/protobuf
+  version: ~1.2.0
+  subpackages:
+  - protoc-gen-go
+- package: github.com/influxdata/influxdb
+  version: ~1.6.3
+  subpackages:
+  - client/v2
+- package: k8s.io/code-generator
 
-# vendor/k8s.io/code-generator/generate-groups.sh all \
-# github.com/nre-learning/syringe/pkg/client \
-# github.com/nre-learning/syringe/pkg/apis \
-# example.com:v1
+# Pay careful attention to https://github.com/kubernetes/client-go#compatibility-matrix for below packages
+- package: k8s.io/client-go
+  # version: v6.0.0
+  version: kubernetes-1.11.1
+- package: k8s.io/apimachinery
+  # version: release-1.9
+  version: kubernetes-1.11.1
+- package: k8s.io/apiextensions-apiserver
+  # version: release-1.9
+  version: kubernetes-1.11.1
+

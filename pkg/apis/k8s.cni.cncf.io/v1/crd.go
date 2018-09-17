@@ -7,12 +7,15 @@ Code modified from https://github.com/yaronha/kube-crd
 package v1
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 
+	"github.com/cloudflare/cfssl/log"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
@@ -27,20 +30,29 @@ const (
 
 // Create the CRD resource, ignore error if it already exists
 func CreateCRD(clientset apiextcs.Interface) error {
-	crd := &apiextv1beta1.CustomResourceDefinition{
-		ObjectMeta: meta_v1.ObjectMeta{Name: FullCRDName},
-		Spec: apiextv1beta1.CustomResourceDefinitionSpec{
-			Group:   CRDGroup,
-			Version: CRDVersion,
-			Scope:   apiextv1beta1.NamespaceScoped,
-			Names: apiextv1beta1.CustomResourceDefinitionNames{
-				Plural: CRDPlural,
-				Kind:   reflect.TypeOf(NetworkAttachmentDefinition{}).Name(),
-			},
+
+	// Had to do this silliness because apiextv1beta1 needed it's own vendored ObjectMeta instead of my v1.ObjectMeta for some dumb reason
+	str := fmt.Sprintf(`{
+		"metadata": {
+			"name": %s
+		}
+	}`, FullCRDName)
+	crd := apiextv1beta1.CustomResourceDefinition{}
+	json.Unmarshal([]byte(str), &crd)
+
+	log.Debugf("Created unmarshaled CRD: %v", crd)
+
+	crd.Spec = apiextv1beta1.CustomResourceDefinitionSpec{
+		Group:   CRDGroup,
+		Version: CRDVersion,
+		Scope:   apiextv1beta1.NamespaceScoped,
+		Names: apiextv1beta1.CustomResourceDefinitionNames{
+			Plural: CRDPlural,
+			Kind:   reflect.TypeOf(NetworkAttachmentDefinition{}).Name(),
 		},
 	}
 
-	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
 	if err != nil && apierrors.IsAlreadyExists(err) {
 		return nil
 	}

@@ -24,11 +24,9 @@ import (
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/pkg/transport"
-
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	serveroptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
-	"k8s.io/apiextensions-apiserver/test/integration/fixtures"
+	"k8s.io/apiextensions-apiserver/test/integration/testserver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,21 +37,21 @@ import (
 )
 
 func TestPostInvalidObjectMeta(t *testing.T) {
-	tearDown, apiExtensionClient, dynamicClient, err := fixtures.StartDefaultServerWithClients(t)
+	stopCh, apiExtensionClient, dynamicClient, err := testserver.StartDefaultServerWithClients()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tearDown()
+	defer close(stopCh)
 
-	noxuDefinition := fixtures.NewNoxuCustomResourceDefinition(apiextensionsv1beta1.NamespaceScoped)
-	noxuDefinition, err = fixtures.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
+	noxuDefinition := testserver.NewNoxuCustomResourceDefinition(apiextensionsv1beta1.NamespaceScoped)
+	noxuDefinition, err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	noxuResourceClient := newNamespacedCustomResourceClient("default", dynamicClient, noxuDefinition)
 
-	obj := fixtures.NewNoxuInstance("default", "foo")
+	obj := testserver.NewNoxuInstance("default", "foo")
 	unstructured.SetNestedField(obj.UnstructuredContent(), int64(42), "metadata", "unknown")
 	unstructured.SetNestedField(obj.UnstructuredContent(), map[string]interface{}{"foo": int64(42), "bar": "abc"}, "metadata", "labels")
 	_, err = instantiateCustomResource(t, obj, noxuResourceClient, noxuDefinition)
@@ -82,11 +80,16 @@ func TestPostInvalidObjectMeta(t *testing.T) {
 }
 
 func TestInvalidObjectMetaInStorage(t *testing.T) {
-	tearDown, config, options, err := fixtures.StartDefaultServer(t)
+	serverConfig, err := testserver.DefaultServerConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tearDown()
+
+	stopCh, config, err := testserver.StartServer(serverConfig)
+	defer close(stopCh)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	apiExtensionClient, err := clientset.NewForConfig(config)
 	if err != nil {
@@ -98,14 +101,13 @@ func TestInvalidObjectMetaInStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	noxuDefinition := fixtures.NewNoxuCustomResourceDefinition(apiextensionsv1beta1.NamespaceScoped)
-	noxuDefinition, err = fixtures.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
+	noxuDefinition := testserver.NewNoxuCustomResourceDefinition(apiextensionsv1beta1.NamespaceScoped)
+	noxuDefinition, err = testserver.CreateNewCustomResourceDefinition(noxuDefinition, apiExtensionClient, dynamicClient)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	RESTOptionsGetter := serveroptions.NewCRDRESTOptionsGetter(*options.RecommendedOptions.Etcd)
-	restOptions, err := RESTOptionsGetter.GetRESTOptions(schema.GroupResource{Group: noxuDefinition.Spec.Group, Resource: noxuDefinition.Spec.Names.Plural})
+	restOptions, err := serverConfig.GenericConfig.RESTOptionsGetter.GetRESTOptions(schema.GroupResource{Group: noxuDefinition.Spec.Group, Resource: noxuDefinition.Spec.Names.Plural})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestInvalidObjectMetaInStorage(t *testing.T) {
 
 	t.Logf("Creating object with invalid labels manually in etcd")
 
-	original := fixtures.NewNoxuInstance("default", "foo")
+	original := testserver.NewNoxuInstance("default", "foo")
 	unstructured.SetNestedField(original.UnstructuredContent(), int64(42), "metadata", "unknown")
 	unstructured.SetNestedField(original.UnstructuredContent(), map[string]interface{}{"foo": int64(42), "bar": "abc"}, "metadata", "labels")
 
