@@ -6,16 +6,24 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
+	swag "github.com/nre-learning/syringe/api/exp/swagger"
+
+	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
+
 	log "github.com/Sirupsen/logrus"
+	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
+	assetfs "github.com/philips/go-bindata-assetfs"
 	grpc "google.golang.org/grpc"
 
 	gw "github.com/nre-learning/syringe/api/exp/generated"
@@ -34,26 +42,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 		scheduler:   ls,
 	}
 
-	// go func() {
-	// 	for {
-	// 		time.Sleep(1 * time.Second)
-	// 		log.Warn(apiServer.liveLabs)
-	// 	}
-	// }()
-
-	// interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	// 	resp, err := handler(ctx, req)
-	// 	if err != nil {
-	// 		log.Warnf("UNARY method %q failed: %s", info.FullMethod, err)
-	// 	} else {
-	// 		log.Warnf("UNARY method %q succeeded: %s", info.FullMethod, resp)
-	// 		// log.Warnf(resp)
-	// 	}
-	// 	return resp, err
-	// }
-
 	s := grpc.NewServer()
-	// s := grpc.NewServer(grpc.UnaryInterceptor(interceptor))
 	pb.RegisterLiveLessonsServiceServer(s, apiServer)
 	pb.RegisterLessonDefServiceServer(s, apiServer)
 	defer s.Stop()
@@ -78,40 +67,29 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	}
 
 	mux := http.NewServeMux()
-	// mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, req *http.Request) {
-	// 	io.Copy(w, strings.NewReader(pb.Swagger))
-	// })
-
 	mux.Handle("/", gwmux)
-	// serveSwagger(mux)
+	mux.HandleFunc("/livelesson.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Livelesson))
+	})
+	mux.HandleFunc("/lessondef.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Lessondef))
+	})
 
-	// conn, err := net.Listen("tcp", fmt.Sprintf(":%d", httpport))
-	// _, err = net.Listen("tcp", fmt.Sprintf(":%d", httpport))
-	// if err != nil {
-	// 	panic(err)
-	// }
+	serveSwagger(mux)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", httpPort),
 		Handler: grpcHandlerFunc(s, mux),
-		// TLSConfig: &tls.Config{
-		// Certificates: []tls.Certificate{*demoKeyPair},
-		// NextProtos:   []string{"h2"},
-		// },
 	}
-
-	log.Debugf("gRPC server listening on port: %d\n", grpcPort)
-	log.Debugf("HTTP gateway listening on port: %d\n", httpPort)
-	log.Debug("Started.")
-	// err = srv.Serve(tls.NewListener(conn, srv.TLSConfig))
-
 	go srv.ListenAndServe()
-	// if err != nil {
-	// 	log.Fatal("ListenAndServe: ", err)
-	// 	return err
-	// }
 
-	// go apiServer.startTSDBExport()
+	log.WithFields(log.Fields{
+		"gRPC Port": grpcPort,
+		"HTTP Port": httpPort,
+	}).Info("Syringe API started.")
+
+	// Begin periodically exporting metrics to TSDB
+	go apiServer.startTSDBExport()
 
 	for {
 		result := <-ls.Results
@@ -173,7 +151,8 @@ type server struct {
 // connections or otherHandler otherwise. Copied from cockroachdb.
 func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Add handler for grpc server
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO(tamird): point to merged gRPC code rather than a PR.
 		// This is a partial recreation of gRPC's internal checks https://github.com/grpc/grpc-go/pull/514/files#diff-95e9a25b738459a2d3030e1e6fa2a718R61
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
@@ -182,20 +161,23 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 			otherHandler.ServeHTTP(w, r)
 		}
 	})
+
+	// Add gorilla's logging handler for standards-based access logging
+	return ghandlers.LoggingHandler(os.Stdout, handlerFunc)
 }
 
-// func serveSwagger(mux *http.ServeMux) {
-// 	mime.AddExtensionType(".svg", "image/svg+xml")
+func serveSwagger(mux *http.ServeMux) {
+	mime.AddExtensionType(".svg", "image/svg+xml")
 
-// 	// Expose files in third_party/swagger-ui/ on <host>/swagger-ui
-// 	fileServer := http.FileServer(&assetfs.AssetFS{
-// 		Asset:    swagger.Asset,
-// 		AssetDir: swagger.AssetDir,
-// 		Prefix:   "third_party/swagger-ui",
-// 	})
-// 	prefix := "/swagger-ui/"
-// 	mux.Handle(prefix, http.StripPrefix(prefix, fileServer))
-// }
+	// Expose files in third_party/swagger-ui/ on <host>/swagger
+	fileServer := http.FileServer(&assetfs.AssetFS{
+		Asset:    swagger.Asset,
+		AssetDir: swagger.AssetDir,
+		Prefix:   "third_party/swagger-ui",
+	})
+	prefix := "/swagger/"
+	mux.Handle(prefix, http.StripPrefix(prefix, fileServer))
+}
 
 var validShortID = regexp.MustCompile("^[a-z0-9]{12}$")
 

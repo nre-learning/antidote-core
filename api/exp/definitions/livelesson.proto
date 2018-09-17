@@ -15,16 +15,7 @@ service LiveLessonsService {
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
   rpc RequestLiveLesson(LessonParams) returns (LessonUUID) {
     option (google.api.http) = {
-      post: "/syringe/exp/livelesson"
-      body: "*"
-    };
-  }
-
-  // SetLiveLesson updates certain parameters of an existing LiveLesson, such as setting the LessonStage
-  // TODO deprecated
-  rpc SetLiveLesson(LessonParams) returns (LessonUUID) {
-    option (google.api.http) = {
-      post: "/syringe/exp/livelesson/{lessonId}"
+      post: "/exp/livelesson"
       body: "*"
     };
   }
@@ -32,14 +23,14 @@ service LiveLessonsService {
   // Retrieve details about a lesson
   rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
     option (google.api.http) = {
-      get: "/syringe/exp/livelesson/{id}"
+      get: "/exp/livelesson/{id}"
     };
   }
 
   // Retrieve all livelessons
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {
     option (google.api.http) = {
-      get: "/syringe/exp/livelesson/all"
+      get: "/exp/livelesson/all"
     };
   }
 

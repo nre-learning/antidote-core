@@ -1,0 +1,125 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/exp/definitions/lessondef.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/lessondef": {
+      "post": {
+        "summary": "Retrieve all LessonDefs with filter",
+        "operationId": "ListLessonDefs",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expLessonDefs"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/expLessonDefFilter"
+            }
+          }
+        ],
+        "tags": [
+          "LessonDefService"
+        ]
+      }
+    },
+    "/exp/lessondef/{id}": {
+      "get": {
+        "operationId": "GetLessonDef",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expLessonDef"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "LessonDefService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expLessonDef": {
+      "type": "object",
+      "properties": {
+        "LessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonStage"
+          }
+        },
+        "LessonName": {
+          "type": "string"
+        }
+      }
+    },
+    "expLessonDefFilter": {
+      "type": "object",
+      "properties": {
+        "Category": {
+          "type": "string"
+        }
+      }
+    },
+    "expLessonDefs": {
+      "type": "object",
+      "properties": {
+        "lessondefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonDef"
+          }
+        },
+        "Category": {
+          "type": "string"
+        }
+      }
+    },
+    "expLessonStage": {
+      "type": "object",
+      "properties": {
+        "StageId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

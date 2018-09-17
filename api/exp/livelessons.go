@@ -43,7 +43,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 	// Check to see if it already exists in memory. If it does, don't send provision request.
 	// Just look it up and send UUID
-	log.Infof("Looking up session %s", lp.SessionId)
 	if _, ok := s.sessions[lp.SessionId]; ok {
 		if lessonUuid, ok := s.sessions[lp.SessionId][lp.LessonId]; ok {
 
@@ -55,10 +54,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				Uuid:      "",
 				Session:   lp.SessionId,
 			}
-
-			log.Debugf("Found existing session %s", lp.SessionId)
-
-			log.Debugf("Current lessonStage: %d - new lessonStage: %d", s.liveLessons[lessonUuid].LessonStage, lessonStage)
 
 			if s.liveLessons[lessonUuid].LessonStage != lessonStage {
 
@@ -84,6 +79,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	} else {
 
 		// Doesn't exist, prep this spot with an empty map
+		log.Infof("Creating new session: %s", lp.SessionId)
 		s.sessions[lp.SessionId] = map[int32]string{}
 	}
 
@@ -119,20 +115,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	return &pb.LessonUUID{Id: newUuid}, nil
 }
 
-func (s *server) SetLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
-
-	// DEPRECATED
-
-	// Need to set Ready to false immediately before returning to avoid race conditions
-	uuid := s.sessions[lp.SessionId][lp.LessonId]
-	s.liveLessons[uuid].Ready = false
-
-	// TODO(mierdin): Finish the implementation, sending a schedule request.
-	// NEED TO make sure the referenced lesson doesn't use the shared topology
-
-	return &pb.LessonUUID{Id: uuid}, nil
-}
-
 func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
 	return &pb.LiveLessons{}, nil
 }
@@ -149,15 +131,10 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 		return nil, errors.New(msg)
 	}
 
-	log.Infof("Looking up livelesson %s", uuid.Id)
 	if _, ok := s.liveLessons[uuid.Id]; !ok {
 		return nil, errors.New("livelesson not found")
 	}
 
-	log.Debug("CURRENT LIVELESSONS")
-	log.Debug(s.liveLessons)
-
-	log.Debugf("About to return %s", s.liveLessons[uuid.Id])
 	return s.liveLessons[uuid.Id], nil
 
 }

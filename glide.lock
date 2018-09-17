@@ -1,10 +1,6 @@
-hash: 1da96f5c45d4fb13d4c9f3c278ebfe1ca005ac70b6b9054b30db603232472990
-updated: 2018-09-17T12:28:00.623784449-07:00
+hash: 6192840c026414a5885017e3ac34ce73c7f39241d8f1f394a14a2a5e66f2e463
+updated: 2018-09-17T14:45:37.747464133-07:00
 imports:
-- name: github.com/cloudflare/cfssl
-  version: 33259b0d21316a8c1140cb7e5879065997237d53
-  subpackages:
-  - log
 - name: github.com/codegangsta/cli
   version: 934abfb2f102315b5794e15ebc7949e4ca253920
 - name: github.com/davecgh/go-spew
@@ -69,6 +65,8 @@ imports:
   - pkg/escape
 - name: github.com/json-iterator/go
   version: f2b4162afba35581b6d4a50d3b8f34e33c144682
+- name: github.com/jteeuwen/go-bindata
+  version: 6025e8de665b31fa74ab1a66f2cddd8c0abf887e
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: b729f2633dfe35f4d1d8a32385f6685610ce1cb5
 - name: github.com/modern-go/concurrent
@@ -77,6 +75,8 @@ imports:
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/peterbourgon/diskv
   version: 5f041e8faa004a95c88a202771f4cc3e991971e6
+- name: github.com/philips/go-bindata-assetfs
+  version: 3dcc96556217539f50599357fb481ac0dc7439b9
 - name: github.com/Sirupsen/logrus
   version: d23a0f20d429b5da960216daca3b37e075cbdcd1
 - name: github.com/spf13/pflag
