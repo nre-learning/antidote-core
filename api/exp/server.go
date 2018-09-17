@@ -111,6 +111,8 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	// 	return err
 	// }
 
+	// go apiServer.startTSDBExport()
+
 	for {
 		result := <-ls.Results
 
@@ -126,6 +128,23 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 			} else if result.Operation == scheduler.OperationType_MODIFY {
 				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
 				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
+
+			} else if result.Operation == scheduler.OperationType_GC {
+				for i := range result.GCLessons {
+					cleanedNs := result.GCLessons[i]
+					// 14-6viedvg5rctwdpcc-ns
+					lessonId, _ := strconv.ParseInt(strings.Split(cleanedNs, "-")[0], 10, 32)
+					sessionId := strings.Split(cleanedNs, "-")[1]
+
+					if _, ok := apiServer.sessions[sessionId]; ok {
+						if lessonUuid, ok := apiServer.sessions[sessionId][int32(lessonId)]; ok {
+
+							// Delete UUID from livelessons, and then delete from sessions map
+							delete(apiServer.liveLessons, lessonUuid)
+							delete(apiServer.sessions[sessionId], int32(lessonId))
+						}
+					}
+				}
 			} else {
 				log.Error("FOO")
 			}

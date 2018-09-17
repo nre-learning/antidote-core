@@ -27,6 +27,8 @@ var (
 	OperationType_CREATE OperationType = 0
 	OperationType_DELETE OperationType = 1
 	OperationType_MODIFY OperationType = 2
+	OperationType_BOOP   OperationType = 3
+	OperationType_GC     OperationType = 4
 	typePortMap                        = map[string]int32{
 		"DEVICE":   22,
 		"UTILITY":  22,
@@ -53,6 +55,7 @@ type LessonScheduleResult struct {
 	KubeLab   *KubeLab
 	Uuid      string
 	Session   string
+	GCLessons []string
 }
 
 type LessonScheduler struct {
@@ -78,6 +81,30 @@ func (ls *LessonScheduler) Start() error {
 	// You should also expose the delete functionality so the javascript can send a quit signal for a lesson but you'll want to make sure
 	// people can't kill others lessons.
 
+	go func() {
+		for {
+
+			cleaned, err := ls.purgeOldLessons()
+			if err != nil {
+				log.Error("Problem with GCing lessons")
+			}
+
+			if len(cleaned) > 0 {
+				ls.Results <- &LessonScheduleResult{
+					Success:   true,
+					LessonDef: nil,
+					KubeLab:   nil,
+					Uuid:      "",
+					Operation: OperationType_GC,
+					GCLessons: cleaned,
+				}
+			}
+
+			time.Sleep(1 * time.Minute)
+
+		}
+	}()
+
 	for {
 		newRequest := <-ls.Requests
 
@@ -98,7 +125,24 @@ func (ls *LessonScheduler) Start() error {
 				}
 			}
 
+			// nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+			// err = ls.boopNamespace(nsName)
+			// if err != nil {
+			// 	log.Errorf("Problem create-booping %s: %v", nsName, err)
+			// }
+
 			liveLesson := newKubeLab.ToLiveLesson()
+
+			// TODO(mierdin) need to add timeout
+			for {
+				time.Sleep(1 * time.Second)
+
+				if !isReachable(liveLesson) {
+					continue
+				}
+				break
+			}
 
 			if newRequest.LessonDef.TopologyType == "custom" {
 				log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
@@ -148,6 +192,13 @@ func (ls *LessonScheduler) Start() error {
 				log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
 			}
 
+			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+			err := ls.boopNamespace(nsName)
+			if err != nil {
+				log.Errorf("Problem modify-booping %s: %v", nsName, err)
+			}
+
 			ls.Results <- &LessonScheduleResult{
 				Success:   true,
 				LessonDef: newRequest.LessonDef,
@@ -157,6 +208,13 @@ func (ls *LessonScheduler) Start() error {
 				Stage:     newRequest.Stage,
 			}
 
+		} else if newRequest.Operation == OperationType_BOOP {
+			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+			err := ls.boopNamespace(nsName)
+			if err != nil {
+				log.Errorf("Problem boop-booping %s: %v", nsName, err)
+			}
 		}
 
 		log.Debug("Result sent. Now waiting for next schedule request...")
@@ -167,15 +225,6 @@ func (ls *LessonScheduler) Start() error {
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
 	ls.killAllJobs(nsName)
-	// TODO(mierdin) need to add timeout
-	for {
-		time.Sleep(1 * time.Second)
-
-		if !isReachable(liveLesson) {
-			continue
-		}
-		break
-	}
 
 	// Perform configuration changes for devices only
 	var deviceEndpoints []*pb.Endpoint

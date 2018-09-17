@@ -47,6 +47,15 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	if _, ok := s.sessions[lp.SessionId]; ok {
 		if lessonUuid, ok := s.sessions[lp.SessionId][lp.LessonId]; ok {
 
+			// get this ns booped
+			s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
+				LessonDef: s.scheduler.LessonDefs[lp.LessonId],
+				Operation: scheduler.OperationType_BOOP,
+				Stage:     0,
+				Uuid:      "",
+				Session:   lp.SessionId,
+			}
+
 			log.Debugf("Found existing session %s", lp.SessionId)
 
 			log.Debugf("Current lessonStage: %d - new lessonStage: %d", s.liveLessons[lessonUuid].LessonStage, lessonStage)

@@ -3,6 +3,7 @@ package scheduler
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +13,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+func (ls *LessonScheduler) boopNamespace(nsName string) error {
+
+	log.Debugf("Booping %s", nsName)
+
+	coreclient, err := corev1client.NewForConfig(ls.Config)
+	if err != nil {
+		panic(err)
+	}
+	ns, err := coreclient.Namespaces().Get(nsName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	ns.ObjectMeta.Labels["lastAccessed"] = strconv.Itoa(int(time.Now().Unix()))
+
+	_, err = coreclient.Namespaces().Update(ns)
+	if err != nil {
+		return err
+	}
+
+	// "syringeManaged": "yes",
+
+	return nil
+}
 
 // nukeFromOrbit seeks out all syringe-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
@@ -104,6 +130,8 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
+				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
+				"created":        strconv.Itoa(int(time.Now().Unix())),
 			},
 			Namespace: nsName,
 		},
@@ -123,4 +151,60 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 		return nil, err
 	}
 	return result, err
+}
+
+// Lesson garbage-collector
+func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
+
+	coreclient, err := corev1client.NewForConfig(ls.Config)
+	if err != nil {
+		panic(err)
+	}
+	nameSpaces, err := coreclient.Namespaces().List(metav1.ListOptions{
+		// VERY Important. Only delete those with this label, otherwise you'll nuke the cluster.
+		LabelSelector: "syringeManaged",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// No need to GC if no syringe namespaces exist
+	if len(nameSpaces.Items) == 0 {
+		log.Debug("No syringe-managed namespaces found. No need to GC.")
+		return []string{}, nil
+	}
+
+	oldNameSpaces := []string{}
+	for n := range nameSpaces.Items {
+
+		// lastAccessed =
+		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		lastAccessed := time.Unix(i, 0)
+		if time.Since(lastAccessed) > 30*time.Minute {
+			oldNameSpaces = append(oldNameSpaces, nameSpaces.Items[n].ObjectMeta.Name)
+		}
+	}
+
+	// No need to GC if no old namespaces exist
+	if len(oldNameSpaces) == 0 {
+		log.Debug("No old namespaces found. No need to GC.")
+		return []string{}, nil
+	}
+
+	log.Warnf("Garbage-collecting %d old lessons", len(oldNameSpaces))
+	var wg sync.WaitGroup
+	wg.Add(len(oldNameSpaces))
+	for n := range oldNameSpaces {
+		go func() {
+			defer wg.Done()
+			ls.deleteNamespace(oldNameSpaces[n])
+		}()
+	}
+	wg.Wait()
+	log.Infof("Finished garbage-collecting %d old lessons", len(oldNameSpaces))
+	return oldNameSpaces, nil
+
 }

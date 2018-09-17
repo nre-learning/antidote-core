@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"errors"
+	"sort"
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	def "github.com/nre-learning/syringe/def"
 )
 
 func (s *server) ListLessonDefs(ctx context.Context, ldFilter *pb.LessonDefFilter) (*pb.LessonDefs, error) {
@@ -25,7 +27,7 @@ func (s *server) ListLessonDefs(ctx context.Context, ldFilter *pb.LessonDefFilte
 				&pb.LessonDef{
 					LessonName: lessonDef.LessonName,
 					LessonId:   lessonDef.LessonID,
-					Stages:     int32(len(lessonDef.Stages)),
+					Stages:     convertStages(lessonDef.Stages),
 				},
 			)
 		}
@@ -45,8 +47,29 @@ func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.Lesson
 	// TODO(mierdin): this little conversion is necessary because the lesson definition structs are not protobufs. Should do this.
 	var retLessonDef = pb.LessonDef{
 		LessonId: lessonDef.LessonID,
-		Stages:   int32(len(lessonDef.Stages)),
+		Stages:   convertStages(lessonDef.Stages),
 	}
 
 	return &retLessonDef, nil
+}
+
+// Helper function because lesson definitions aren't protobufs
+func convertStages(stages map[int32]*def.LessonStage) []*pb.LessonStage {
+	retStages := []*pb.LessonStage{}
+
+	stageIds := []int{}
+	for k := range stages {
+		stageIds = append(stageIds, int(k))
+	}
+	sort.Ints(stageIds)
+
+	for i := range stageIds {
+		stage := pb.LessonStage{
+			StageId:     int32(stageIds[i]),
+			Description: stages[int32(stageIds[i])].Description,
+		}
+		retStages = append(retStages, &stage)
+	}
+
+	return retStages
 }

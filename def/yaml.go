@@ -22,9 +22,10 @@ type LessonDefinition struct {
 }
 
 type LessonStage struct {
-	LabGuide string            `json:"labguide" yaml:"labguide"`
-	Configs  map[string]string `json:"configs" yaml:"configs"`
-	Notebook bool              `json:"notebook" yaml:"notebook"`
+	LabGuide    string            `json:"labguide" yaml:"labguide"`
+	Configs     map[string]string `json:"configs" yaml:"configs"`
+	Notebook    bool              `json:"notebook" yaml:"notebook"`
+	Description string            `json:"description" yaml:"description"`
 }
 
 type Device struct {

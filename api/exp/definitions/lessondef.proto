@@ -32,8 +32,13 @@ message LessonID {
 
 message LessonDef {
   int32 LessonId = 1;
-  int32 Stages = 2;
+  repeated LessonStage Stages = 2;
   string LessonName = 3;
+}
+
+message LessonStage {
+  int32 StageId = 1;
+  string Description = 2;
 }
 
 message LessonDefFilter {
