@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -22,7 +23,7 @@ func (ls *LessonScheduler) killAllJobs(nsName string) error {
 
 	result, err := batchclient.Jobs(nsName).List(metav1.ListOptions{})
 	if err != nil {
-		log.Errorf("Couldn't retrieve jobs: %s", err)
+		log.Errorf("Unable to list Jobs: %s", err)
 		return err
 	}
 
@@ -32,6 +33,20 @@ func (ls *LessonScheduler) killAllJobs(nsName string) error {
 		err = batchclient.Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
+		}
+	}
+
+	// Block until the jobs are cleaned up, so we don't cause a race condition when the scheduler moves forward with trying to create new jobs
+	for {
+		//TODO(mierdin): add timeout
+		time.Sleep(time.Second * 5)
+		result, err = batchclient.Jobs(nsName).List(metav1.ListOptions{})
+		if err != nil {
+			log.Errorf("Unable to list Jobs: %s", err)
+			return err
+		}
+		if len(result.Items) == 0 {
+			break
 		}
 	}
 
@@ -49,7 +64,7 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 	result, err := batchclient.Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Couldn't retrieve job: %s", err)
+		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
 		return false, err
 	}
 	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
@@ -144,7 +159,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 								"--password=VR-netlab9",
 								"--vendor=junos",
 								fmt.Sprintf("--optional_args=port=%d", ep.Port),
-								"vip.labs.networkreliability.engineering",
+								ep.Host,
 								"configure",
 								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonID, req.Stage, ep.Name),
 								"--strategy=replace",

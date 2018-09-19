@@ -187,23 +187,6 @@ Livelesson = `{
         ]
       }
     },
-    "/exp/livelesson/all": {
-      "get": {
-        "summary": "Retrieve all livelessons",
-        "operationId": "ListLiveLessons",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/expLiveLessons"
-            }
-          }
-        },
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
-    },
     "/exp/livelesson/{id}": {
       "get": {
         "summary": "Retrieve details about a lesson",
@@ -224,6 +207,23 @@ Livelesson = `{
             "type": "string"
           }
         ],
+        "tags": [
+          "LiveLessonsService"
+        ]
+      }
+    },
+    "/exp/livelessonall": {
+      "get": {
+        "summary": "Retrieve all livelessons",
+        "operationId": "ListLiveLessons",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expLiveLessonMap"
+            }
+          }
+        },
         "tags": [
           "LiveLessonsService"
         ]
@@ -302,6 +302,17 @@ Livelesson = `{
         }
       }
     },
+    "expLessontoUUIDMap": {
+      "type": "object",
+      "properties": {
+        "Uuids": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expUUIDtoLiveLessonMap"
+          }
+        }
+      }
+    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
@@ -328,17 +339,32 @@ Livelesson = `{
         "Ready": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "createdTime": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
     },
-    "expLiveLessons": {
+    "expLiveLessonMap": {
       "type": "object",
       "properties": {
-        "livelessons": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expLiveLessons"
+        "Sessions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expLessontoUUIDMap"
+          }
+        }
+      }
+    },
+    "expUUIDtoLiveLessonMap": {
+      "type": "object",
+      "properties": {
+        "Livelessons": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expLiveLesson"
           }
         }
       }

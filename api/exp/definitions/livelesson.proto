@@ -3,6 +3,7 @@ package syringe.api.exp;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service LiveLessonsService {
 
@@ -28,11 +29,12 @@ service LiveLessonsService {
   }
 
   // Retrieve all livelessons
-  rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {
+  rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessonMap) {
     option (google.api.http) = {
-      get: "/exp/livelesson/all"
+      get: "/exp/livelessonall"
     };
   }
+
 
   // TODO(mierdin): Need to add instrumentation requests, so we can get visibility into the list of livelessons, labdefs, etc.
 
@@ -42,8 +44,16 @@ service LiveLessonsService {
 
 message HealthCheckMessage {}
 
-message LiveLessons {
-  repeated LiveLessons livelessons = 1;
+message UUIDtoLiveLessonMap {
+  map<string, LiveLesson> Livelessons = 1;
+}
+
+message LessontoUUIDMap {
+  map<int32, UUIDtoLiveLessonMap> Uuids = 1;
+}
+
+message LiveLessonMap {
+  map<string, LessontoUUIDMap> Sessions = 1;
 }
 
 // A provisioned lab without the scheduler details. The server will translate from an underlying type
@@ -55,6 +65,7 @@ message LiveLesson {
   int32 LessonStage = 4;
   string LabGuide = 5;
   bool Ready = 6;
+  google.protobuf.Timestamp createdTime = 7;
 }
 
 message Endpoint {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -72,15 +73,12 @@ func (ls *LessonScheduler) Start() error {
 	// Ensure cluster is cleansed before we start the scheduler
 	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
 	ls.nukeFromOrbit()
+	// I have taken this out now that garbage collection is in place. We should probably not have this in here, in case syringe panics, and then restarts, nuking everything.
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
 
-	// Need to start a garbage collector that watches for livelessons to reach a certain age and delete them (and clear from memory here).
-	// Might need to look into some kind of activity check so you don't kill something that was actually in use
-	// You should also expose the delete functionality so the javascript can send a quit signal for a lesson but you'll want to make sure
-	// people can't kill others lessons.
-
+	// Garbage collection
 	go func() {
 		for {
 
@@ -105,122 +103,124 @@ func (ls *LessonScheduler) Start() error {
 		}
 	}()
 
+	// Handle incoming requests asynchronously
 	for {
 		newRequest := <-ls.Requests
-
-		log.Debug("Scheduler received new request")
-		log.Debug(newRequest)
-
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-		if newRequest.Operation == OperationType_CREATE {
-			newKubeLab, err := ls.createKubeLab(newRequest)
-			if err != nil {
-				log.Errorf("Error creating lesson: %s", err)
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   nil,
-					Uuid:      "",
-					Operation: newRequest.Operation,
-				}
-			}
-
-			// nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-
-			// err = ls.boopNamespace(nsName)
-			// if err != nil {
-			// 	log.Errorf("Problem create-booping %s: %v", nsName, err)
-			// }
-
-			liveLesson := newKubeLab.ToLiveLesson()
-
-			// TODO(mierdin) need to add timeout
-			for {
-				time.Sleep(1 * time.Second)
-
-				if !isReachable(liveLesson) {
-					continue
-				}
-				break
-			}
-
-			if newRequest.LessonDef.TopologyType == "custom" {
-				log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
-				ls.configureStuff(nsName, liveLesson, newRequest)
-			} else {
-				log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
-			}
-
-			kubeLabs[newRequest.Uuid] = newKubeLab
-
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   newKubeLab,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-		} else if newRequest.Operation == OperationType_DELETE {
-			err := ls.deleteNamespace(nsName)
-			if err != nil {
-				log.Errorf("Error deleting lesson: %s", err)
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   nil,
-					Uuid:      "",
-					Operation: newRequest.Operation,
-				}
-			}
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   nil,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-			}
-		} else if newRequest.Operation == OperationType_MODIFY {
-
-			kubeLabs[newRequest.Uuid].CreateRequest = newRequest
-			liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
-
-			if newRequest.LessonDef.TopologyType == "custom" {
-				log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
-				ls.configureStuff(nsName, liveLesson, newRequest)
-			} else {
-				log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
-			}
-
-			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-
-			err := ls.boopNamespace(nsName)
-			if err != nil {
-				log.Errorf("Problem modify-booping %s: %v", nsName, err)
-			}
-
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   kubeLabs[newRequest.Uuid],
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-
-		} else if newRequest.Operation == OperationType_BOOP {
-			nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-
-			err := ls.boopNamespace(nsName)
-			if err != nil {
-				log.Errorf("Problem boop-booping %s: %v", nsName, err)
-			}
-		}
-
-		log.Debug("Result sent. Now waiting for next schedule request...")
+		go ls.handleRequest(newRequest)
+		log.Debugf("Scheduler received new request - %v", newRequest)
 	}
 
 	return nil
+}
+
+func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
+	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+	if newRequest.Operation == OperationType_CREATE {
+		newKubeLab, err := ls.createKubeLab(newRequest)
+		if err != nil {
+			log.Errorf("Error creating lesson: %s", err)
+			ls.Results <- &LessonScheduleResult{
+				Success:   false,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   nil,
+				Uuid:      "",
+				Operation: newRequest.Operation,
+			}
+		}
+
+		// nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+		// err = ls.boopNamespace(nsName)
+		// if err != nil {
+		// 	log.Errorf("Problem create-booping %s: %v", nsName, err)
+		// }
+
+		liveLesson := newKubeLab.ToLiveLesson()
+
+		// TODO(mierdin) need to add timeout
+		for {
+			time.Sleep(1 * time.Second)
+
+			if !isReachable(liveLesson) {
+				continue
+			}
+			break
+		}
+
+		if newRequest.LessonDef.TopologyType == "custom" {
+			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
+			ls.configureStuff(nsName, liveLesson, newRequest)
+		} else {
+			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
+		}
+
+		kubeLabs[newRequest.Uuid] = newKubeLab
+
+		ls.Results <- &LessonScheduleResult{
+			Success:   true,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   newKubeLab,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
+		}
+	} else if newRequest.Operation == OperationType_DELETE {
+		err := ls.deleteNamespace(nsName)
+		if err != nil {
+			log.Errorf("Error deleting lesson: %s", err)
+			ls.Results <- &LessonScheduleResult{
+				Success:   false,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   nil,
+				Uuid:      "",
+				Operation: newRequest.Operation,
+			}
+		}
+		ls.Results <- &LessonScheduleResult{
+			Success:   true,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   nil,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+		}
+	} else if newRequest.Operation == OperationType_MODIFY {
+
+		kubeLabs[newRequest.Uuid].CreateRequest = newRequest
+		liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
+
+		if newRequest.LessonDef.TopologyType == "custom" {
+			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
+			ls.configureStuff(nsName, liveLesson, newRequest)
+		} else {
+			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
+		}
+
+		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+		err := ls.boopNamespace(nsName)
+		if err != nil {
+			log.Errorf("Problem modify-booping %s: %v", nsName, err)
+		}
+
+		ls.Results <- &LessonScheduleResult{
+			Success:   true,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   kubeLabs[newRequest.Uuid],
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
+		}
+
+	} else if newRequest.Operation == OperationType_BOOP {
+		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+
+		err := ls.boopNamespace(nsName)
+		if err != nil {
+			log.Errorf("Problem boop-booping %s: %v", nsName, err)
+		}
+	}
+
+	log.Debug("Result sent. Now waiting for next schedule request...")
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
@@ -247,7 +247,7 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 
 			// TODO(mierdin): Add timeout
 			for {
-				time.Sleep(2 * time.Second)
+				time.Sleep(5 * time.Second)
 				completed, _ := ls.isCompleted(job, newRequest)
 				if completed {
 					break
@@ -391,7 +391,11 @@ func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
 
 	var host string
 	if svc.ObjectMeta.Labels["endpointType"] == "NOTEBOOK" {
-		host = svc.Spec.ExternalIPs[0]
+		if len(svc.Spec.ExternalIPs) > 0 {
+			host = svc.Spec.ExternalIPs[0]
+		} else {
+			host = svc.Spec.ClusterIP
+		}
 	} else {
 		host = svc.Spec.ClusterIP
 	}
@@ -431,12 +435,17 @@ type KubeLab struct {
 // ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it
 func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
+	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["lastAccessed"], 10, 64)
+
 	ret := pb.LiveLesson{
 		LessonUUID:  kl.CreateRequest.Uuid,
 		LessonId:    kl.CreateRequest.LessonDef.LessonID,
 		Endpoints:   []*pb.Endpoint{},
 		LessonStage: kl.CreateRequest.Stage,
 		LabGuide:    kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
+		CreatedTime: &timestamp.Timestamp{
+			Seconds: ts,
+		},
 
 		// Previously we were overriding this value, so it was set to false, and then the API would perform the health check.
 		// Now, the health check is done by the scheduler, and is only returned to the API when everything is ready. So we
@@ -544,39 +553,52 @@ git reset --hard $REF`
 }
 
 func isReachable(ll *pb.LiveLesson) bool {
+
+	reachableMap := map[string]bool{}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(len(ll.Endpoints))
+
+	var mapMutex = &sync.Mutex{}
+
 	for d := range ll.Endpoints {
+
 		ep := ll.Endpoints[d]
 
-		if ep.GetType() == pb.Endpoint_DEVICE {
-			if sshTest(ep.Host, ep.Port, "VR-netlab9") {
-				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
-			} else {
-				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
-				return false
-			}
-		} else if ep.GetType() == pb.Endpoint_NOTEBOOK {
-			if connectTest(ep.Host, ep.Port) {
-				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
-			} else {
-				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
-				return false
-			}
-		} else if ep.GetType() == pb.Endpoint_UTILITY {
-			if sshTest(ep.Host, ep.Port, "antidotepassword") {
-				log.Debugf("%s health check passed on %s:%d", ep.Name, ep.Host, ep.Port)
-			} else {
-				log.Debugf("%s health check failed on %s:%d", ep.Name, ep.Host, ep.Port)
-				return false
-			}
-		}
+		go func() {
+			defer wg.Done()
+			log.Debugf("Connectivity testing endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
 
+			testResult := false
+
+			if ep.GetType() == pb.Endpoint_DEVICE {
+				testResult = sshTest(ep.Host, ep.Port, "VR-netlab9")
+			} else if ep.GetType() == pb.Endpoint_NOTEBOOK {
+				testResult = connectTest(ep.Host, ep.Port)
+			} else if ep.GetType() == pb.Endpoint_UTILITY {
+				testResult = sshTest(ep.Host, ep.Port, "antidotepassword")
+			}
+			mapMutex.Lock()
+			defer mapMutex.Unlock()
+			reachableMap[ep.Name] = testResult
+
+		}()
 	}
+	wg.Wait()
+
+	log.Debugf("Livelesson %s health check results: %v", ll.LessonUUID, reachableMap)
+
+	for _, reachable := range reachableMap {
+		if !reachable {
+			return false
+		}
+	}
+
 	return true
 }
 
 func sshTest(host string, port int32, password string) bool {
 	intPort := strconv.Itoa(int(port))
-
 	sshConfig := &ssh.ClientConfig{
 		User:            "root",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -592,6 +614,7 @@ func sshTest(host string, port int32, password string) bool {
 	}
 	defer conn.Close()
 
+	log.Debugf("done ssh testing %s", host)
 	return true
 }
 
@@ -602,5 +625,7 @@ func connectTest(host string, port int32) bool {
 		return false
 	}
 	defer conn.Close()
+
+	log.Debugf("done connect testing %s", host)
 	return true
 }

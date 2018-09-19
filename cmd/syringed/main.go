@@ -22,6 +22,14 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
+type SyringeConfig struct {
+	SearchDir      string
+	GRPCPort       int
+	HTTPPort       int
+	DeviceGCAge    int
+	NonDeviceGCAge int
+}
+
 func main() {
 
 	// Get configuration parameters from env

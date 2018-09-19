@@ -142,7 +142,8 @@ FILES:
 
 		// TODO(mierdin): Make sure lab ID and lab name are unique
 
-		log.Infof("Successfully imported %s: %v", file, lessonDef.JSON())
+		// log.Infof("Successfully imported %s: %v", file, lessonDef.JSON())
+		log.Infof("Successfully imported lesson %d: %s", lessonDef.LessonID, lessonDef.LessonName)
 
 		retLds[lessonDef.LessonID] = &lessonDef
 	}
