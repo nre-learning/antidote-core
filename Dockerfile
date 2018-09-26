@@ -18,7 +18,8 @@ COPY . $GOPATH/src/github.com/nre-learning/syringe
 RUN cd $GOPATH/src/github.com/nre-learning/syringe && make
 
 # Copy binaries into new minimalist image
+# TODO(mierdin): DNS lookups not working right in scratch. I tried debian and it just blew chunks. Need to look into a solution for this
 FROM scratch
 COPY --from=build-env /go/bin/syringed /usr/bin/syringed
-COPY --from=build-env /go/bin/syringectl /usr/bin/syrctl
+COPY --from=build-env /go/bin/syrctl /usr/bin/syrctl
 CMD ["/usr/bin/syringed"]

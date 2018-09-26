@@ -18,7 +18,7 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 
 	log.Debugf("Booping %s", nsName)
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +44,7 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 // in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
 func (ls *LessonScheduler) nukeFromOrbit() error {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +80,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 func (ls *LessonScheduler) deleteNamespace(name string) error {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -114,7 +114,7 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 
 func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -156,7 +156,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 // Lesson garbage-collector
 func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}

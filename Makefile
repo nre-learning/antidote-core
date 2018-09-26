@@ -7,7 +7,12 @@ clean:
 	rm -f $(GOPATH)/bin/syrctl
 
 compile:
+
 	@echo "Generating protobuf code..."
+
+	@rm -f pkg/ui/data/swagger/datafile.go
+
+	@rm -f /tmp/datafile.go
 
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 
@@ -38,7 +43,12 @@ compile:
 	@hack/build-ui.sh
 
 	@echo "Compiling syringe binaries..."
+
+ifeq ($(shell uname), Darwin)
 	@go install ./cmd/...
+else
+	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+endif
 
 docker:
 	docker build -t antidotelabs/syringe .

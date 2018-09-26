@@ -60,7 +60,7 @@ type LessonScheduleResult struct {
 }
 
 type LessonScheduler struct {
-	Config     *rest.Config
+	KubeConfig *rest.Config
 	Requests   chan *LessonScheduleRequest
 	Results    chan *LessonScheduleResult
 	LessonDefs map[int32]*def.LessonDefinition
@@ -438,11 +438,12 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["lastAccessed"], 10, 64)
 
 	ret := pb.LiveLesson{
-		LessonUUID:  kl.CreateRequest.Uuid,
-		LessonId:    kl.CreateRequest.LessonDef.LessonID,
-		Endpoints:   []*pb.Endpoint{},
-		LessonStage: kl.CreateRequest.Stage,
-		LabGuide:    kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
+		LessonUUID:    kl.CreateRequest.Uuid,
+		LessonId:      kl.CreateRequest.LessonDef.LessonID,
+		Endpoints:     []*pb.Endpoint{},
+		LessonStage:   kl.CreateRequest.Stage,
+		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
+		LabGuide:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,
 		},
@@ -506,7 +507,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}

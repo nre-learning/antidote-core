@@ -68,7 +68,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				s.scheduler.Requests <- req
 
 				// TODO(mierdin): Need to make this async, to not impact UX
-				s.recordRequestTSDB(req)
+				// s.recordRequestTSDB(req)
 
 			} else {
 
@@ -84,7 +84,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				s.scheduler.Requests <- req
 
 				// TODO(mierdin): Need to make this async, to not impact UX
-				s.recordRequestTSDB(req)
+				// s.recordRequestTSDB(req)
 			}
 
 			return &pb.LessonUUID{Id: lessonUuid}, nil
@@ -124,7 +124,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	s.scheduler.Requests <- req
 
 	// TODO(mierdin): Need to make this async, to not impact UX
-	s.recordRequestTSDB(req)
+	// s.recordRequestTSDB(req)
 
 	// Pre-emptively populate livelessons map with non-ready livelesson.
 	// This will be updated when the scheduler response comes back.

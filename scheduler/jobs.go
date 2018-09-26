@@ -16,7 +16,7 @@ import (
 
 func (ls *LessonScheduler) killAllJobs(nsName string) error {
 
-	batchclient, err := batchv1client.NewForConfig(ls.Config)
+	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +57,7 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
-	batchclient, err := batchv1client.NewForConfig(ls.Config)
+	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +87,7 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
 
-	batchclient, err := batchv1client.NewForConfig(ls.Config)
+	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -162,7 +162,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 								ep.Host,
 								"configure",
 								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonID, req.Stage, ep.Name),
-								"--strategy=replace",
+								"--strategy=merge",
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod

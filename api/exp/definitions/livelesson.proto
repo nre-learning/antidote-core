@@ -66,6 +66,8 @@ message LiveLesson {
   string LabGuide = 5;
   bool Ready = 6;
   google.protobuf.Timestamp createdTime = 7;
+  string sessionId = 8;
+  string LessonDiagram = 9;
 }
 
 message Endpoint {

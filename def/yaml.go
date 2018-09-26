@@ -10,15 +10,16 @@ import (
 )
 
 type LessonDefinition struct {
-	LessonName   string                 `json:"lessonName" yaml:"lessonName"`
-	LessonID     int32                  `json:"lessonID" yaml:"lessonID"`
-	Devices      []*Device              `json:"devices" yaml:"devices"`
-	Utilities    []*Utility             `json:"utilities" yaml:"utilities"`
-	Connections  []*Connection          `json:"connections" yaml:"connections"`
-	TopologyType string                 `json:"topologyType" yaml:"topologyType"`
-	Stages       map[int32]*LessonStage `json:"stages" yaml:"stages"`
-	Notebook     bool                   `json:"notebook" yaml:"notebook"`
-	Category     string                 `json:"category" yaml:"category"`
+	LessonName    string                 `json:"lessonName" yaml:"lessonName"`
+	LessonID      int32                  `json:"lessonID" yaml:"lessonID"`
+	Devices       []*Device              `json:"devices" yaml:"devices"`
+	Utilities     []*Utility             `json:"utilities" yaml:"utilities"`
+	Connections   []*Connection          `json:"connections" yaml:"connections"`
+	TopologyType  string                 `json:"topologyType" yaml:"topologyType"`
+	Stages        map[int32]*LessonStage `json:"stages" yaml:"stages"`
+	Notebook      bool                   `json:"notebook" yaml:"notebook"`
+	Category      string                 `json:"category" yaml:"category"`
+	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
 }
 
 type LessonStage struct {

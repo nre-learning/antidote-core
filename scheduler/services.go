@@ -17,7 +17,7 @@ func (ls *LessonScheduler) deleteService(name string) error {
 
 func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}

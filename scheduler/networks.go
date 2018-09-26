@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -17,7 +18,7 @@ import (
 func (ls *LessonScheduler) createNetworkCrd() error {
 
 	// create clientset and create our CRD, this only need to run once
-	clientset, err := apiextcs.NewForConfig(ls.Config)
+	clientset, err := apiextcs.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -37,7 +38,7 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
 
 	// Create a new clientset which include our CRD schema
-	crdcs, scheme, err := crd.NewClient(ls.Config)
+	crdcs, scheme, err := crd.NewClient(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -48,6 +49,15 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
+
+	// https://access.redhat.com/solutions/652593
+	strLid := strconv.Itoa(int(req.LessonDef.LessonID))
+	chars := 12 - len(strLid)
+
+	bridgeName := fmt.Sprintf("%s-%s", strLid, req.Session)
+	if len(req.Session) > chars {
+		bridgeName = fmt.Sprintf("%s-%s", strLid, req.Session[0:chars])
+	}
 
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
@@ -61,9 +71,9 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 			},
 			"ipam": {
 			  "type": "host-local",
-			  "subnet": %s
+			  "subnet": "%s"
 			}
-		}`, networkName, networkName, subnet)
+		}`, networkName, bridgeName, subnet)
 
 	// Create a new Network object and write to k8s
 	network := &crd.NetworkAttachmentDefinition{
@@ -125,7 +135,7 @@ func getMemberNetworks(deviceName string, connections []*def.Connection) []strin
 func (ls *LessonScheduler) deleteNetwork(name, ns string) error {
 
 	// Create a new clientset which include our CRD schema
-	crdcs, scheme, err := crd.NewClient(ls.Config)
+	crdcs, scheme, err := crd.NewClient(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}

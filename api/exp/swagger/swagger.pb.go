@@ -343,6 +343,12 @@ Livelesson = `{
         "createdTime": {
           "type": "string",
           "format": "date-time"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "LessonDiagram": {
+          "type": "string"
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."

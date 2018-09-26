@@ -22,7 +22,7 @@ type networkAnnotation struct {
 
 func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.Config)
+	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -120,7 +120,6 @@ func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_En
 					Name:  podName,
 					Image: image,
 
-					// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
 					ImagePullPolicy: "Always",
 					Ports: []corev1.ContainerPort{
 						{

@@ -11,9 +11,7 @@ import (
 	scheduler "github.com/nre-learning/syringe/scheduler"
 )
 
-var influxURL = "http://10.104.168.244:8086"
-
-// "http://influxdb.default.svc.cluster.local:8086"
+var influxURL = "http://influxdb.default.svc.cluster.local:8086"
 
 func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
@@ -29,9 +27,7 @@ func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
 	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
 	if response, err := c.Query(q); err == nil && response.Error() == nil {
-		log.Errorf("Problem creating database (this is likely because it already exists. If further influxdb writes go through, you can ignore this): %s", response.Results)
-		// log.Error(err)
-		// log.Error(response.Error())
+		//
 	}
 
 	// Create a new point batch
@@ -98,9 +94,7 @@ func (s *server) startTSDBExport() error {
 
 	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
 	if response, err := c.Query(q); err == nil && response.Error() == nil {
-		log.Errorf("Problem creating database (this is likely because it already exists. If further influxdb writes go through, you can ignore this): %s", response.Results)
-		log.Error(err)
-		log.Error(response.Error())
+		//
 	}
 
 	for {
@@ -140,9 +134,9 @@ func (s *server) startTSDBExport() error {
 			if _, ok := lessonIdMap[liveLesson.LessonId]; ok {
 				continue // already present
 			}
+
 			lessonIdMap[liveLesson.LessonId] = "foo"
 		}
-
 		// apt-get update && apt-get install -y curl
 		// curl -X POST 'http://10.104.168.244:8086/query?pretty=true' --data-urlencode "db=syringe_metrics" --data-urlencode "q=DROP DATABASE \"syringe_metrics\""
 		// curl -G 'http://10.104.168.244:8086/query?pretty=true' --data-urlencode "db=syringe_metrics" --data-urlencode "q=select * from /sessionStatus/"
@@ -198,7 +192,7 @@ func (s *server) getCountAndDuration(lessonId int32) (int64, int64) {
 
 		tts, err := ptypes.Timestamp(liveLesson.CreatedTime)
 		if err != nil {
-			log.Error("Problem converting timestamp")
+			log.Errorf("Problem converting timestamp: %v", err)
 		}
 		durations = append(durations, int64(time.Since(tts)*time.Second))
 	}
