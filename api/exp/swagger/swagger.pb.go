@@ -268,10 +268,11 @@ Livelesson = `{
         "Uri": {
           "type": "string"
         },
-        "Api_port": {
-          "type": "integer",
-          "format": "int32",
-          "description": "Extra port for API interactions.\nNote that this mostly doesn't matter, as this is only in case we want to allow API interactions from outside\nthe cluster via NodePort. Most of the time we'll use the standard ports using in-cluster traffic."
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
         }
       }
     },

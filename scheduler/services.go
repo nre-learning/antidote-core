@@ -42,6 +42,8 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 				"lessonInstanceId": req.Session,
 				"syringeManaged":   "yes",
 				"endpointType":     pod.ObjectMeta.Labels["endpointType"],
+				"sshUser":          pod.ObjectMeta.Labels["sshUser"],
+				"sshPassword":      pod.ObjectMeta.Labels["sshPassword"],
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -50,28 +52,23 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 				"sessionId": req.Session,
 				"podName":   pod.ObjectMeta.Name,
 			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "primaryport",
-					Port:       typePortMap[pod.ObjectMeta.Labels["endpointType"]],
-					TargetPort: intstr.FromInt(int(typePortMap[pod.ObjectMeta.Labels["endpointType"]])),
-				},
-				// Not currently used, will be used soon
-				// {
-				// 	Name:       "apiPort",
-				// 	Port:       830,
-				// 	TargetPort: intstr.FromInt(830),
-				// },
-			},
-
-			// When running in GKE we want to use the LoadBalancer type. This allows us to expose this service via a TCP load balancer.
-			// https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer
-			// For SSH this isn't really necessary, as guac is sitting in the cluster - but for other types like notebooks, where an iframe needs to be opened directly,
-			// it's useful to have this facing externally. MAYBE consider a ClusterIP for all devices and utility servers but LoadBalancer for anything needing an iframe.
-			// Note that LoadBalancer will have to have some kind of proper DNS mapping.
+			Ports: []corev1.ServicePort{}, // will fill out below
 
 			Type: serviceTypeMap[pod.ObjectMeta.Labels["endpointType"]],
 		},
+	}
+
+	for p := range pod.Spec.Containers[0].Ports {
+
+		// TODO(mierdin): need to do something different for NOTEBOOK/IFRAME endpoints
+
+		port := pod.Spec.Containers[0].Ports[p].ContainerPort
+
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       fmt.Sprintf("port-%d", port),
+			Port:       port,
+			TargetPort: intstr.FromInt(int(port)),
+		})
 	}
 
 	result, err := coreclient.Services(nsName).Create(svc)

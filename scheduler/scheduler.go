@@ -30,7 +30,7 @@ var (
 	OperationType_MODIFY OperationType = 2
 	OperationType_BOOP   OperationType = 3
 	OperationType_GC     OperationType = 4
-	typePortMap                        = map[string]int32{
+	_typePortMap                       = map[string]int32{
 		"DEVICE":   22,
 		"UTILITY":  22,
 		"NOTEBOOK": 8888,
@@ -247,10 +247,10 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 
 			// TODO(mierdin): Add timeout
 			for {
-				time.Sleep(5 * time.Second)
 				completed, _ := ls.isCompleted(job, newRequest)
+				time.Sleep(1 * time.Second)
 				if completed {
-					break
+					return
 				}
 			}
 		}()
@@ -312,8 +312,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			// Create pods from devices property
 			device := req.LessonDef.Devices[d]
 			newPod, err := ls.createPod(
-				device.Name,
-				device.Image,
+				device,
 				pb.Endpoint_DEVICE,
 				getMemberNetworks(device.Name, req.LessonDef.Connections),
 				req,
@@ -343,8 +342,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 
 		utility := req.LessonDef.Utilities[d]
 		newPod, err := ls.createPod(
-			utility.Name,
-			utility.Image,
+			utility,
 			pb.Endpoint_UTILITY,
 			getMemberNetworks(utility.Name, req.LessonDef.Connections),
 			req,
@@ -365,11 +363,42 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		kl.Services[newSvc.ObjectMeta.Name] = newSvc
 	}
 
+	// Create pods and services for black box containers
+	for d := range req.LessonDef.Blackboxes {
+
+		blackbox := req.LessonDef.Blackboxes[d]
+		newPod, err := ls.createPod(
+			blackbox,
+			pb.Endpoint_BLACKBOX,
+			getMemberNetworks(blackbox.Name, req.LessonDef.Connections),
+			req,
+		)
+		if err != nil {
+			log.Error(err)
+		}
+		kl.Pods[newPod.ObjectMeta.Name] = newPod
+
+		if len(newPod.Spec.Containers[0].Ports) > 0 {
+			// Create service for this pod
+			newSvc, err := ls.createService(
+				newPod,
+				req,
+			)
+			if err != nil {
+				log.Error(err)
+			}
+			kl.Services[newSvc.ObjectMeta.Name] = newSvc
+		}
+	}
+
 	if req.LessonDef.Stages[req.Stage].Notebook {
 
 		notebookPod, _ := ls.createPod(
-			"notebook",
-			"antidotelabs/jupyter",
+			&def.Endpoint{
+				Name:  "notebook",
+				Image: "antidotelabs/jupyter",
+				Ports: []int32{},
+			},
 			pb.Endpoint_NOTEBOOK,
 			[]string{"mgmt-net"},
 			req,
@@ -400,26 +429,13 @@ func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
 		host = svc.Spec.ClusterIP
 	}
 
-	for p := range svc.Spec.Ports {
-
-		// TODO should set port name consistently via syringe, and look up via name instead here
-		// so you can map to port and apiport in LiveLab entity
-		if svc.Spec.Ports[p].Name == "primaryport" {
-
-			// TODO should also detect an undefined NodePort, kind of like this
-			// if svc.Spec.Ports[p].NodePort == nil {
-			// 	log.Error("NodePort undefined for service")
-			// 	return "", errors.New("unable to find NodePort for service")
-			// }
-
-			// Previously was using nodeport, now we're not.
-			// return host, int(svc.Spec.Ports[p].NodePort), nil
-
-			return host, int(svc.Spec.Ports[p].Port), nil
-		}
+	// We are only using the first port for the health check.
+	if len(svc.Spec.Ports) == 0 {
+		return "", 0, errors.New("unable to find port for service")
+	} else {
+		return host, int(svc.Spec.Ports[0].Port), nil
 	}
-	log.Error("unable to find port for service")
-	return "", 0, errors.New("unable to find port for service")
+
 }
 
 // KubeLab is the collection of kubernetes resources that makes up a lab instance
@@ -491,10 +507,12 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		// portInt, _ := strconv.Atoi(port)
 
 		endpoint := &pb.Endpoint{
-			Name: podBuddy.ObjectMeta.Name,
-			Type: pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
-			Host: host,
-			Port: int32(port),
+			Name:        podBuddy.ObjectMeta.Name,
+			Type:        pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
+			Host:        host,
+			Port:        int32(port),
+			Sshuser:     kl.Services[s].ObjectMeta.Labels["sshUser"],
+			Sshpassword: kl.Services[s].ObjectMeta.Labels["sshPassword"],
 			// ApiPort
 		}
 		ret.Endpoints = append(ret.Endpoints, endpoint)
@@ -572,12 +590,10 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 			testResult := false
 
-			if ep.GetType() == pb.Endpoint_DEVICE {
-				testResult = sshTest(ep.Host, ep.Port, "VR-netlab9")
-			} else if ep.GetType() == pb.Endpoint_NOTEBOOK {
-				testResult = connectTest(ep.Host, ep.Port)
-			} else if ep.GetType() == pb.Endpoint_UTILITY {
-				testResult = sshTest(ep.Host, ep.Port, "antidotepassword")
+			if ep.GetType() == pb.Endpoint_DEVICE || ep.GetType() == pb.Endpoint_UTILITY {
+				testResult = sshTest(ep)
+			} else if ep.GetType() == pb.Endpoint_NOTEBOOK || ep.GetType() == pb.Endpoint_BLACKBOX {
+				testResult = connectTest(ep)
 			}
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
@@ -598,35 +614,35 @@ func isReachable(ll *pb.LiveLesson) bool {
 	return true
 }
 
-func sshTest(host string, port int32, password string) bool {
-	intPort := strconv.Itoa(int(port))
+func sshTest(ep *pb.Endpoint) bool {
+	intPort := strconv.Itoa(int(ep.Port))
 	sshConfig := &ssh.ClientConfig{
-		User:            "root",
+		User:            ep.Sshuser,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password(password),
+			ssh.Password(ep.Sshpassword),
 		},
 		Timeout: time.Second * 2,
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, intPort), sshConfig)
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), sshConfig)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	log.Debugf("done ssh testing %s", host)
+	log.Debugf("done ssh testing %s", ep.Host)
 	return true
 }
 
-func connectTest(host string, port int32) bool {
-	intPort := strconv.Itoa(int(port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, intPort), 2*time.Second)
+func connectTest(ep *pb.Endpoint) bool {
+	intPort := strconv.Itoa(int(ep.Port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	log.Debugf("done connect testing %s", host)
+	log.Debugf("done connect testing %s", ep.Host)
 	return true
 }

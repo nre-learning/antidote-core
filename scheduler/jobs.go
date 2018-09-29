@@ -81,6 +81,13 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 		//TODO(mierdin): need to count N failures, then when exceeded, surface this back up the channel, to the API, and to the user, so they're not waiting forever.
 	}
 
+	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
+	// conditional will return true. So let's also check to see if failed or successful is 0
+	// TODO(mierdin): Should also return error if Failed jobs is not 0
+	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
+		return false, nil
+	}
+
 	return (result.Status.Active == 0), nil
 
 }

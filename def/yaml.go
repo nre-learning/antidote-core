@@ -3,6 +3,7 @@ package def
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	log "github.com/Sirupsen/logrus"
@@ -12,14 +13,23 @@ import (
 type LessonDefinition struct {
 	LessonName    string                 `json:"lessonName" yaml:"lessonName"`
 	LessonID      int32                  `json:"lessonID" yaml:"lessonID"`
-	Devices       []*Device              `json:"devices" yaml:"devices"`
-	Utilities     []*Utility             `json:"utilities" yaml:"utilities"`
+	Devices       []*Endpoint            `json:"devices" yaml:"devices"`
+	Utilities     []*Endpoint            `json:"utilities" yaml:"utilities"`
+	Blackboxes    []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
 	Connections   []*Connection          `json:"connections" yaml:"connections"`
 	TopologyType  string                 `json:"topologyType" yaml:"topologyType"`
 	Stages        map[int32]*LessonStage `json:"stages" yaml:"stages"`
 	Notebook      bool                   `json:"notebook" yaml:"notebook"`
 	Category      string                 `json:"category" yaml:"category"`
 	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
+}
+
+type Endpoint struct {
+	Name        string  `json:"name" yaml:"name"`
+	Image       string  `json:"image" yaml:"image"`
+	Sshuser     string  `json:"sshuser" yaml:"sshuser"`
+	Sshpassword string  `json:"sshpassword" yaml:"sshpassword"`
+	Ports       []int32 `json:"ports" yaml:"ports"`
 }
 
 type LessonStage struct {
@@ -29,15 +39,28 @@ type LessonStage struct {
 	Description string            `json:"description" yaml:"description"`
 }
 
-type Device struct {
-	Name  string `json:"name" yaml:"name"`
-	Image string `json:"image" yaml:"image"`
-}
+// type Blackbox struct {
+// 	Name  string  `json:"name" yaml:"name"`
+// 	Image string  `json:"image" yaml:"image"`
+// 	Ports []int32 `json:"ports" yaml:"ports"`
+// }
 
-type Utility struct {
-	Name  string `json:"name" yaml:"name"`
-	Image string `json:"image" yaml:"image"`
-}
+// // Device and Utility have an implied port 22.
+// // Blackbox does not.
+// type Device struct {
+// 	Name        string  `json:"name" yaml:"name"`
+// 	Image       string  `json:"image" yaml:"image"`
+// 	Sshuser     string  `json:"sshuser" yaml:"sshuser"`
+// 	Sshpassword string  `json:"sshpassword" yaml:"sshpassword"`
+// 	Ports       []int32 `json:"ports" yaml:"ports"`
+// }
+// type Utility struct {
+// 	Name        string  `json:"name" yaml:"name"`
+// 	Image       string  `json:"image" yaml:"image"`
+// 	Sshuser     string  `json:"sshuser" yaml:"sshuser"`
+// 	Sshpassword string  `json:"sshpassword" yaml:"sshpassword"`
+// 	Ports       []int32 `json:"ports" yaml:"ports"`
+// }
 
 type Connection struct {
 	A      string `json:"a" yaml:"a"`
@@ -126,12 +149,12 @@ FILES:
 			connection := lessonDef.Connections[c]
 
 			if !entityInLabDef(connection.A, &lessonDef) {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent entity"))
+				log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Connection %s refers to nonexistent entity", connection.A)))
 				continue FILES
 			}
 
 			if !entityInLabDef(connection.B, &lessonDef) {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connection refers to nonexistent entity"))
+				log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Connection %s refers to nonexistent entity", connection.B)))
 				continue FILES
 			}
 
@@ -154,6 +177,7 @@ FILES:
 
 // entityInLabDef is a helper function to ensure that a device is found by name in a lab definition
 func entityInLabDef(entityName string, ld *LessonDefinition) bool {
+
 	for i := range ld.Devices {
 		device := ld.Devices[i]
 		if entityName == device.Name {
@@ -163,6 +187,12 @@ func entityInLabDef(entityName string, ld *LessonDefinition) bool {
 	for i := range ld.Utilities {
 		utility := ld.Utilities[i]
 		if entityName == utility.Name {
+			return true
+		}
+	}
+	for i := range ld.Blackboxes {
+		blackbox := ld.Blackboxes[i]
+		if entityName == blackbox.Name {
 			return true
 		}
 	}

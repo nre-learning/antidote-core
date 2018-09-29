@@ -15,6 +15,9 @@ var influxURL = "http://influxdb.default.svc.cluster.local:8086"
 
 func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
+	// TODO(mierdin): swing over to UDP
+	// https://docs.influxdata.com/influxdb/v1.6/supported_protocols/udp/
+
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr: influxURL,

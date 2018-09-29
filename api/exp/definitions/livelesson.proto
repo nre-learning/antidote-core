@@ -94,10 +94,9 @@ message Endpoint {
   string Protocol = 5;
   string Uri = 6;
 
-  // Extra port for API interactions.
-  // Note that this mostly doesn't matter, as this is only in case we want to allow API interactions from outside
-  // the cluster via NodePort. Most of the time we'll use the standard ports using in-cluster traffic.
-  int32 Api_port  = 7;
+  string Sshuser = 7;
+  string Sshpassword = 8;
+
 }
 
 message LessonParams {

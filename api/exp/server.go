@@ -89,7 +89,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 	}).Info("Syringe API started.")
 
 	// Begin periodically exporting metrics to TSDB
-	go apiServer.startTSDBExport()
+	// go apiServer.startTSDBExport()
 
 	for {
 		result := <-ls.Results

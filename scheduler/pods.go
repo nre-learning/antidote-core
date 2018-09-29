@@ -6,6 +6,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	"github.com/nre-learning/syringe/def"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,7 @@ type networkAnnotation struct {
 	Name string `json:"name"`
 }
 
-func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
+func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -45,22 +46,19 @@ func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_En
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
+			Name:      dep.Name,
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"endpointType":   etype.String(),
-				"podName":        podName,
+				"podName":        dep.Name,
 				"syringeManaged": "yes",
+				"sshUser":        dep.Sshuser,
+				"sshPassword":    dep.Sshpassword,
 			},
 			Annotations: map[string]string{
 				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJson),
-
-				// k8s.v1.cni.cncf.io/networks: '[
-				// 	{ "name": "12-net" },
-				// 	{ "name": "23-net" }
-				// ]'
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -117,20 +115,23 @@ func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_En
 			},
 			Containers: []corev1.Container{
 				{
-					Name:  podName,
-					Image: image,
+					Name:  dep.Name,
+					Image: dep.Image,
 
 					ImagePullPolicy: "Always",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: typePortMap[etype.String()],
-						},
-					},
+					Ports:           []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "git-volume",
 							ReadOnly:  false,
 							MountPath: "/antidote",
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Add: []corev1.Capability{
+								"NET_ADMIN",
+							},
 						},
 					},
 				},
@@ -158,19 +159,30 @@ func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_En
 		},
 	}
 
-	if etype.String() == "DEVICE" {
-		pod.Spec.Containers[0].Env = []corev1.EnvVar{
-			{
-				//TODO(mierdin): need to change the image to not require this
-				Name:  "VQFX_HOSTNAME",
-				Value: podName,
-			},
-		}
-
+	if etype.String() == "DEVICE" || etype.String() == "UTILITY" {
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &b,
 			AllowPrivilegeEscalation: &b,
 		}
+
+		// Remove any existing port 22
+		newports := []int32{}
+		for p := range dep.Ports {
+			if dep.Ports[p] != 22 {
+				newports = append(newports, dep.Ports[p])
+			}
+		}
+
+		// Add back in at the beginning, and append the rest.
+		dep.Ports = append([]int32{22}, newports...)
+
+	} else if etype.String() == "NOTEBOOK" {
+		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: 8888})
+	}
+
+	// Add any remaining ports not specified by the user
+	for p := range dep.Ports {
+		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: dep.Ports[p]})
 	}
 
 	result, err := coreclient.Pods(nsName).Create(pod)
@@ -181,16 +193,16 @@ func (ls *LessonScheduler) createPod(podName, image string, etype pb.Endpoint_En
 		}).Infof("Created pod: %s", result.ObjectMeta.Name)
 
 	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Pod %s already exists.", podName)
+		log.Warnf("Pod %s already exists.", dep.Name)
 
-		result, err := coreclient.Pods(nsName).Get(podName, metav1.GetOptions{})
+		result, err := coreclient.Pods(nsName).Get(dep.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
 	} else {
-		log.Errorf("Problem creating pod %s: %s", podName, err)
+		log.Errorf("Problem creating pod %s: %s", dep.Name, err)
 		return nil, err
 	}
 	return result, err

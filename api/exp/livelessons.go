@@ -52,6 +52,23 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 			if s.liveLessons[lessonUuid].LessonStage != lessonStage {
 
+				// 10.32.0.16 - - [28/Sep/2018:23:21:17 +0000] "POST /exp/livelesson HTTP/1.1" 408 66
+				// panic: runtime error: invalid memory address or nil pointer dereference
+				// [signal SIGSEGV: segmentation violation code=0x1 addr=0x30 pc=0xf4f88a]
+				// goroutine 342 [running]:
+				// github.com/nre-learning/syringe/api/exp.(*server).RequestLiveLesson(0xc4201d0020, 0x1370700, 0xc4204563f0, 0xc4204d3100, 0xc4201d0020, 0xc420456330, 0x1102de0)
+				// 	/go/src/github.com/nre-learning/syringe/api/exp/livelessons.go:53 +0x86a
+				// github.com/nre-learning/syringe/api/exp/generated._LiveLessonsService_RequestLiveLesson_Handler(0x119d680, 0xc4201d0020, 0x1370700, 0xc4204563f0, 0xc4201de230, 0x0, 0x0, 0x0, 0xc4200eecf8, 0xf48563)
+				// 	/go/src/github.com/nre-learning/syringe/api/exp/generated/livelesson.pb.go:631 +0x241
+				// github.com/nre-learning/syringe/vendor/google.golang.org/grpc.(*Server).processUnaryRPC(0xc4201ca000, 0x137c420, 0xc420260000, 0xc42051ed00, 0xc4203de180, 0x1c775b8, 0x0, 0x0, 0x0)
+				// 	/go/src/github.com/nre-learning/syringe/vendor/google.golang.org/grpc/server.go:1011 +0x4fc
+				// github.com/nre-learning/syringe/vendor/google.golang.org/grpc.(*Server).handleStream(0xc4201ca000, 0x137c420, 0xc420260000, 0xc42051ed00, 0x0)
+				// 	/go/src/github.com/nre-learning/syringe/vendor/google.golang.org/grpc/server.go:1249 +0x1318
+				// github.com/nre-learning/syringe/vendor/google.golang.org/grpc.(*Server).serveStreams.func1.1(0xc4203b60c0, 0xc4201ca000, 0x137c420, 0xc420260000, 0xc42051ed00)
+				// 	/go/src/github.com/nre-learning/syringe/vendor/google.golang.org/grpc/server.go:680 +0x9f
+				// created by github.com/nre-learning/syringe/vendor/google.golang.org/grpc.(*Server).serveStreams.func1
+				// 	/go/src/github.com/nre-learning/syringe/vendor/google.golang.org/grpc/server.go:678 +0xa1
+
 				// Since this already existed, we don't need to update the sessions map, or the livelessons map
 				// Just update the stage and ready properties before sending modify request
 				s.liveLessons[lessonUuid].LessonStage = lessonStage
@@ -181,6 +198,16 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 		return nil, errors.New("livelesson not found")
 	}
 
-	return s.liveLessons[uuid.Id], nil
+	// Remove all blackbox entries
+	ll := s.liveLessons[uuid.Id]
+	newEndpoints := []*pb.Endpoint{}
+	for e := range ll.Endpoints {
+		if ll.Endpoints[e].Type != pb.Endpoint_BLACKBOX {
+			newEndpoints = append(newEndpoints, ll.Endpoints[e])
+		}
+	}
+	ll.Endpoints = newEndpoints
+
+	return ll, nil
 
 }

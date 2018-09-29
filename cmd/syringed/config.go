@@ -14,6 +14,7 @@ type SyringeConfig struct {
 	NonDeviceGCAge      int
 	HealthCheckInterval int
 	TSDBExportInterval  int
+	TSDBEnabled         bool
 }
 
 func loadConfigVars() (*SyringeConfig, error) {
