@@ -459,6 +459,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		Endpoints:     []*pb.Endpoint{},
 		LessonStage:   kl.CreateRequest.Stage,
 		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
+		LessonVideo:   kl.CreateRequest.LessonDef.LessonVideo,
 		LabGuide:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,

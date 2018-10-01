@@ -10,6 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	api "github.com/nre-learning/syringe/api/exp"
+	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/def"
 	"github.com/nre-learning/syringe/scheduler"
 	"k8s.io/client-go/rest"
@@ -22,7 +23,7 @@ func init() {
 
 func main() {
 
-	syringeConfig, err := loadConfigVars()
+	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {
 		log.Fatalf("Invalid configuraiton. Please re-run Syringe with appropriate env variables")
 	}
@@ -44,7 +45,7 @@ func main() {
 		return nil
 	})
 
-	lessonDefs, err := def.ImportLessonDefs(fileList)
+	lessonDefs, err := def.ImportLessonDefs(syringeConfig, fileList)
 	if err != nil {
 		log.Warn(err)
 	}

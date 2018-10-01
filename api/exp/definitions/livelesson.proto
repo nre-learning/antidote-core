@@ -68,6 +68,7 @@ message LiveLesson {
   google.protobuf.Timestamp createdTime = 7;
   string sessionId = 8;
   string LessonDiagram = 9;
+  string LessonVideo = 10;
 }
 
 message Endpoint {

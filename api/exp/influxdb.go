@@ -11,19 +11,19 @@ import (
 	scheduler "github.com/nre-learning/syringe/scheduler"
 )
 
-var influxURL = "http://influxdb.default.svc.cluster.local:8086"
+var (
+	influxURL    = "http://influxdb:8086"
+	influxUDPUrl = "influxdb:8089"
+)
 
 func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
-	// TODO(mierdin): swing over to UDP
-	// https://docs.influxdata.com/influxdb/v1.6/supported_protocols/udp/
-
 	// Make client
-	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: influxURL,
+	c, err := influx.NewUDPClient(influx.UDPConfig{
+		Addr: influxUDPUrl,
 	})
 	if err != nil {
-		log.Error("Error creating InfluxDB Client: ", err.Error())
+		log.Error("Error creating InfluxDB UDP Client: ", err.Error())
 		return err
 	}
 	defer c.Close()
@@ -103,6 +103,8 @@ func (s *server) startTSDBExport() error {
 	for {
 		time.Sleep(1 * time.Minute)
 
+		log.Debug("Recording periodic influxdb metrics")
+
 		// Create a new point batch
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
 			Database:  "syringe_metrics",
@@ -128,7 +130,7 @@ func (s *server) startTSDBExport() error {
 
 		if len(s.liveLessons) == 0 {
 			log.Debug("No active liveLessons, so skipping TSDB write")
-			return nil
+			continue
 		}
 
 		lessonIdMap := map[int32]string{}

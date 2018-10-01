@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -18,7 +18,7 @@ type SyringeConfig struct {
 	IgnoreDisabled      bool // This ignores the "disabled" field in lesson definitions. Useful for showing lessons in any state when running in dev, etc. Will load lesson regardless.
 }
 
-func loadConfigVars() (*SyringeConfig, error) {
+func LoadConfigVars() (*SyringeConfig, error) {
 
 	config := SyringeConfig{}
 
@@ -49,6 +49,12 @@ func loadConfigVars() (*SyringeConfig, error) {
 		config.HTTPPort = 8086
 	} else {
 		config.HTTPPort = httpPort
+	}
+
+	if os.Getenv("SYRINGE_IGNORE_DISABLED") == "true" {
+		config.IgnoreDisabled = true
+	} else {
+		config.IgnoreDisabled = false
 	}
 
 	return &config, nil

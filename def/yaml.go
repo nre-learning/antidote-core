@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 
 	log "github.com/Sirupsen/logrus"
+	config "github.com/nre-learning/syringe/config"
 	"gopkg.in/yaml.v2"
 )
 
@@ -23,6 +24,7 @@ type LessonDefinition struct {
 	Notebook      bool                   `json:"notebook" yaml:"notebook"`
 	Category      string                 `json:"category" yaml:"category"`
 	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
+	LessonVideo   string                 `json:"lessonvideo" yaml:"lessonvideo"`
 }
 
 type Endpoint struct {
@@ -80,7 +82,7 @@ func (ld *LessonDefinition) JSON() string {
 	return string(lessonJSON)
 }
 
-func ImportLessonDefs(fileList []string) (map[int32]*LessonDefinition, error) {
+func ImportLessonDefs(syringeConfig *config.SyringeConfig, fileList []string) (map[int32]*LessonDefinition, error) {
 
 	retLds := map[int32]*LessonDefinition{}
 
