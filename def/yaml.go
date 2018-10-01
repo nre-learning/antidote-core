@@ -13,6 +13,7 @@ import (
 type LessonDefinition struct {
 	LessonName    string                 `json:"lessonName" yaml:"lessonName"`
 	LessonID      int32                  `json:"lessonID" yaml:"lessonID"`
+	Disabled      bool                   `json:"disabled" yaml:"disabled"`
 	Devices       []*Endpoint            `json:"devices" yaml:"devices"`
 	Utilities     []*Endpoint            `json:"utilities" yaml:"utilities"`
 	Blackboxes    []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
@@ -114,6 +115,11 @@ FILES:
 		if lessonDef.LessonID == 0 {
 			log.Info(lessonDef.JSON())
 			log.Errorf("Failed to import %s: %s", file, errors.New("Lesson id cannot be 0"))
+			continue FILES
+		}
+
+		if lessonDef.Disabled {
+			log.Warnf("Lesson %d is marked as 'disabled'. Skipping import.", lessonDef.LessonID)
 			continue FILES
 		}
 

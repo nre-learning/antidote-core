@@ -15,6 +15,7 @@ type SyringeConfig struct {
 	HealthCheckInterval int
 	TSDBExportInterval  int
 	TSDBEnabled         bool
+	IgnoreDisabled      bool // This ignores the "disabled" field in lesson definitions. Useful for showing lessons in any state when running in dev, etc. Will load lesson regardless.
 }
 
 func loadConfigVars() (*SyringeConfig, error) {
