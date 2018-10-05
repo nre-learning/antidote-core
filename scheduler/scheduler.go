@@ -30,11 +30,11 @@ var (
 	OperationType_MODIFY OperationType = 2
 	OperationType_BOOP   OperationType = 3
 	OperationType_GC     OperationType = 4
-	_typePortMap                       = map[string]int32{
-		"DEVICE":   22,
-		"UTILITY":  22,
-		"NOTEBOOK": 8888,
-	}
+	// _typePortMap                       = map[string]int32{
+	// 	"DEVICE":  22,
+	// 	"UTILITY": 22,
+	// 	"IFRAME":  8888,
+	// }
 	defaultGitFileMode int32 = 0755
 	kubeLabs                 = map[string]*KubeLab{}
 )
@@ -278,11 +278,11 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		LabConnections: map[string]string{},
 	}
 
-	// Create management network for "misc" stuff like notebooks EDIT not needed anymore
-	_, err = ls.createNetwork("mgmt-net", req, false, "")
-	if err != nil {
-		log.Error(err)
-	}
+	// TODO(mierdin): is this still needed?
+	// _, err = ls.createNetwork("mgmt-net", req, false, "")
+	// if err != nil {
+	// 	log.Error(err)
+	// }
 
 	// Create our configmap for the initContainer for cloning the antidote repo
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
@@ -391,26 +391,26 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		}
 	}
 
-	if req.LessonDef.Stages[req.Stage].Notebook {
+	if req.LessonDef.Stages[req.Stage].IframeResource.URI != "" {
 
-		notebookPod, _ := ls.createPod(
+		iframePod, _ := ls.createPod(
 			&def.Endpoint{
-				Name:  "notebook",
+				Name:  req.LessonDef.Stages[req.Stage].IframeResource.Name,
 				Image: "antidotelabs/jupyter",
 				Ports: []int32{},
 			},
-			pb.Endpoint_NOTEBOOK,
-			[]string{"mgmt-net"},
+			pb.Endpoint_IFRAME,
+			[]string{},
 			req,
 		)
-		kl.Pods[notebookPod.ObjectMeta.Name] = notebookPod
+		kl.Pods[iframePod.ObjectMeta.Name] = iframePod
 
 		// Create service for this pod
-		notebookSvc, _ := ls.createService(
-			notebookPod,
+		iframeSvc, _ := ls.createService(
+			iframePod,
 			req,
 		)
-		kl.Services[notebookSvc.ObjectMeta.Name] = notebookSvc
+		kl.Services[iframeSvc.ObjectMeta.Name] = iframeSvc
 	}
 
 	return kl, nil
@@ -419,12 +419,13 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
 
 	var host string
-	if svc.ObjectMeta.Labels["endpointType"] == "NOTEBOOK" {
+	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
 		if len(svc.Spec.ExternalIPs) > 0 {
-			host = svc.Spec.ExternalIPs[0]
+			host = "svc.Spec.ExternalIPs[0]"
 		} else {
 			host = svc.Spec.ClusterIP
 		}
+		return host, int(svc.Spec.Ports[0].Port), nil
 	} else {
 		host = svc.Spec.ClusterIP
 	}
@@ -516,6 +517,16 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			Sshpassword: kl.Services[s].ObjectMeta.Labels["sshPassword"],
 			// ApiPort
 		}
+
+		if endpoint.Type == pb.Endpoint_IFRAME {
+			endpoint.IframeDetails = &pb.IFDetails{
+				Name:     kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.Name,
+				URI:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.URI,
+				Protocol: kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.Protocol,
+				Port:     kl.Services[s].Spec.Ports[0].NodePort,
+			}
+		}
+
 		ret.Endpoints = append(ret.Endpoints, endpoint)
 	}
 
@@ -593,7 +604,7 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 			if ep.GetType() == pb.Endpoint_DEVICE || ep.GetType() == pb.Endpoint_UTILITY {
 				testResult = sshTest(ep)
-			} else if ep.GetType() == pb.Endpoint_NOTEBOOK || ep.GetType() == pb.Endpoint_BLACKBOX {
+			} else if ep.GetType() == pb.Endpoint_IFRAME || ep.GetType() == pb.Endpoint_BLACKBOX {
 				testResult = connectTest(ep)
 			}
 			mapMutex.Lock()

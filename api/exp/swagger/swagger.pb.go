@@ -236,7 +236,7 @@ Livelesson = `{
       "enum": [
         "UNKNOWN",
         "DEVICE",
-        "NOTEBOOK",
+        "IFRAME",
         "BLACKBOX",
         "UTILITY"
       ],
@@ -254,19 +254,14 @@ Livelesson = `{
         },
         "Host": {
           "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If a NOTEBOOK,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
+          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
         },
         "Port": {
           "type": "integer",
-          "format": "int32",
-          "description": "Port for normal operations. If type \"device\", used for SSH. If type \"notebook\", loads up in an iframe."
+          "format": "int32"
         },
-        "Protocol": {
-          "type": "string",
-          "title": "Future stuff for NOTEBOOK type"
-        },
-        "Uri": {
-          "type": "string"
+        "IframeDetails": {
+          "$ref": "#/definitions/expIFDetails"
         },
         "Sshuser": {
           "type": "string"
@@ -278,6 +273,20 @@ Livelesson = `{
     },
     "expHealthCheckMessage": {
       "type": "object"
+    },
+    "expIFDetails": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "URI": {
+          "type": "string"
+        }
+      }
     },
     "expLessonParams": {
       "type": "object",

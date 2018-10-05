@@ -29,8 +29,10 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
 	serviceTypeMap := map[string]corev1.ServiceType{
+		"UTILITY":  corev1.ServiceTypeClusterIP,
+		"BLACKBOX": corev1.ServiceTypeClusterIP,
 		"DEVICE":   corev1.ServiceTypeClusterIP,
-		"NOTEBOOK": corev1.ServiceTypeLoadBalancer,
+		"IFRAME":   corev1.ServiceTypeLoadBalancer,
 	}
 
 	svc := &corev1.Service{

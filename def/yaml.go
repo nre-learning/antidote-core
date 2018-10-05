@@ -21,7 +21,6 @@ type LessonDefinition struct {
 	Connections   []*Connection          `json:"connections" yaml:"connections"`
 	TopologyType  string                 `json:"topologyType" yaml:"topologyType"`
 	Stages        map[int32]*LessonStage `json:"stages" yaml:"stages"`
-	Notebook      bool                   `json:"notebook" yaml:"notebook"`
 	Category      string                 `json:"category" yaml:"category"`
 	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
 	LessonVideo   string                 `json:"lessonvideo" yaml:"lessonvideo"`
@@ -36,34 +35,18 @@ type Endpoint struct {
 }
 
 type LessonStage struct {
-	LabGuide    string            `json:"labguide" yaml:"labguide"`
-	Configs     map[string]string `json:"configs" yaml:"configs"`
-	Notebook    bool              `json:"notebook" yaml:"notebook"`
-	Description string            `json:"description" yaml:"description"`
+	LabGuide       string            `json:"labguide" yaml:"labguide"`
+	Configs        map[string]string `json:"configs" yaml:"configs"`
+	IframeResource IframeDetails     `json:"iframeresource" yaml:"iframeresource"`
+	Description    string            `json:"description" yaml:"description"`
 }
 
-// type Blackbox struct {
-// 	Name  string  `json:"name" yaml:"name"`
-// 	Image string  `json:"image" yaml:"image"`
-// 	Ports []int32 `json:"ports" yaml:"ports"`
-// }
-
-// // Device and Utility have an implied port 22.
-// // Blackbox does not.
-// type Device struct {
-// 	Name        string  `json:"name" yaml:"name"`
-// 	Image       string  `json:"image" yaml:"image"`
-// 	Sshuser     string  `json:"sshuser" yaml:"sshuser"`
-// 	Sshpassword string  `json:"sshpassword" yaml:"sshpassword"`
-// 	Ports       []int32 `json:"ports" yaml:"ports"`
-// }
-// type Utility struct {
-// 	Name        string  `json:"name" yaml:"name"`
-// 	Image       string  `json:"image" yaml:"image"`
-// 	Sshuser     string  `json:"sshuser" yaml:"sshuser"`
-// 	Sshpassword string  `json:"sshpassword" yaml:"sshpassword"`
-// 	Ports       []int32 `json:"ports" yaml:"ports"`
-// }
+type IframeDetails struct {
+	Name     string `json:"name" yaml:"name"`
+	Protocol string `json:"protocol" yaml:"protocol"`
+	URI      string `json:"uri" yaml:"uri"`
+	Port     int32  `json:"port" yaml:"port"`
+}
 
 type Connection struct {
 	A      string `json:"a" yaml:"a"`
@@ -120,7 +103,7 @@ FILES:
 			continue FILES
 		}
 
-		if lessonDef.Disabled {
+		if lessonDef.Disabled && !syringeConfig.IgnoreDisabled {
 			log.Warnf("Lesson %d is marked as 'disabled'. Skipping import.", lessonDef.LessonID)
 			continue FILES
 		}

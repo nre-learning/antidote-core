@@ -118,8 +118,12 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 					Name:  dep.Name,
 					Image: dep.Image,
 
-					ImagePullPolicy: "Always",
-					Ports:           []corev1.ContainerPort{}, // Will set below
+					// Omitting in order to keep things speedy. For debugging, uncomment this, and the image will be pulled every time.
+					// ImagePullPolicy: "Always",
+
+					ImagePullPolicy: "IfNotPresent",
+
+					Ports: []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "git-volume",
@@ -176,8 +180,9 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 		// Add back in at the beginning, and append the rest.
 		dep.Ports = append([]int32{22}, newports...)
 
-	} else if etype.String() == "NOTEBOOK" {
-		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: 8888})
+	} else if etype.String() == "IFRAME" {
+		port := req.LessonDef.Stages[req.Stage].IframeResource.Port
+		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
 	}
 
 	// Add any remaining ports not specified by the user

@@ -40,6 +40,10 @@ func (s *server) ListLessonDefs(ctx context.Context, ldFilter *pb.LessonDefFilte
 
 func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.LessonDef, error) {
 
+	if _, ok := s.scheduler.LessonDefs[lid.Id]; !ok {
+		return nil, errors.New("Invalid lesson ID")
+	}
+
 	lessonDef := s.scheduler.LessonDefs[lid.Id]
 
 	log.Debugf("Received request for lesson definition: %v", lessonDef)
