@@ -195,8 +195,13 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 		return nil, errors.New("livelesson not found")
 	}
 
-	// Remove all blackbox entries
 	ll := s.liveLessons[uuid.Id]
+
+	if ll.Error {
+		return nil, errors.New("Livelesson encountered errors during provisioning. See syringe logs")
+	}
+
+	// Remove all blackbox entries
 	newEndpoints := []*pb.Endpoint{}
 	for e := range ll.Endpoints {
 		if ll.Endpoints[e].Type != pb.Endpoint_BLACKBOX {

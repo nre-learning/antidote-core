@@ -131,7 +131,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		liveLesson := newKubeLab.ToLiveLesson()
 
 		tries := 0
-		for {
+		for i := 0; i < 600; i++ {
 			time.Sleep(1 * time.Second)
 
 			if tries > 600 {
@@ -156,7 +156,17 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 		if newRequest.LessonDef.TopologyType == "custom" {
 			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
-			ls.configureStuff(nsName, liveLesson, newRequest)
+			err := ls.configureStuff(nsName, liveLesson, newRequest)
+			if err != nil {
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+			}
 		} else {
 			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
 		}
@@ -197,7 +207,18 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 		if newRequest.LessonDef.TopologyType == "custom" {
 			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
-			ls.configureStuff(nsName, liveLesson, newRequest)
+			err := ls.configureStuff(nsName, liveLesson, newRequest)
+			if err != nil {
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+				return
+			}
 		} else {
 			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
 		}
@@ -243,6 +264,7 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 	}
 	wg := new(sync.WaitGroup)
 	wg.Add(len(deviceEndpoints))
+	allGood := true
 	for i := range deviceEndpoints {
 		job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
 		if err != nil {
@@ -252,42 +274,24 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 		go func() {
 			defer wg.Done()
 
-			// TODO(mierdin): Add timeout
-			for {
+			for i := 0; i < 600; i++ {
 				completed, _ := ls.isCompleted(job, newRequest)
 				time.Sleep(1 * time.Second)
 				if completed {
 					return
 				}
 			}
+			allGood = false
+			return
 		}()
 
 	}
 
 	wg.Wait()
 
-	// for {
-	// 	time.Sleep(1 * time.Second)
-
-	// 	if tries > 600 {
-	// 		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonID)
-	// 		ls.Results <- &LessonScheduleResult{
-	// 			Success:   false,
-	// 			LessonDef: newRequest.LessonDef,
-	// 			KubeLab:   newKubeLab,
-	// 			Uuid:      newRequest.Uuid,
-	// 			Operation: newRequest.Operation,
-	// 			Stage:     newRequest.Stage,
-	// 		}
-	// 		return
-	// 	}
-
-	// 	if !isReachable(liveLesson) {
-	// 		tries++
-	// 		continue
-	// 	}
-	// 	break
-	// }
+	if !allGood {
+		return errors.New("Problem during configuration")
+	}
 
 	return nil
 }

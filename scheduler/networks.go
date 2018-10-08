@@ -53,7 +53,7 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
 
 	np := netv1.NetworkPolicy{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      "stoneAge",
+			Name:      "stoneage",
 			Namespace: nsName,
 			Labels: map[string]string{
 				"syringeManaged": "yes",

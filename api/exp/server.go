@@ -128,6 +128,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 			}
 		} else {
 			log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
+			apiServer.liveLessons[result.Uuid] = &pb.LiveLesson{Error: true}
 		}
 	}
 

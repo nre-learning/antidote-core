@@ -63,6 +63,7 @@ message LiveLesson {
   string sessionId = 8;
   string LessonDiagram = 9;
   string LessonVideo = 10;
+  bool Error = 11;
 }
 
 message Endpoint {
