@@ -10,9 +10,13 @@ import (
 	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/nre-learning/syringe/pkg/client"
+	"k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	netv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 )
 
 func (ls *LessonScheduler) createNetworkCrd() error {
@@ -33,6 +37,75 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 	time.Sleep(3 * time.Second)
 
 	return nil
+}
+
+// createNetworkPolicy applies a kubernetes networkpolicy object to prohibit internet access out of pods within a namespace
+func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
+
+	nc, err := netv1client.NewForConfig(ls.KubeConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	var tcp v1.Protocol = "TCP"
+	var udp v1.Protocol = "UDP"
+	fivethree := intstr.IntOrString{IntVal: 53}
+
+	np := netv1.NetworkPolicy{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      "stoneAge",
+			Namespace: nsName,
+			Labels: map[string]string{
+				"syringeManaged": "yes",
+			},
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: meta_v1.LabelSelector{
+				MatchLabels: map[string]string{
+					"syringeManaged": "yes",
+				},
+			},
+			PolicyTypes: []netv1.PolicyType{
+				"Egress",
+			},
+			Egress: []netv1.NetworkPolicyEgressRule{
+				{
+					Ports: []netv1.NetworkPolicyPort{
+						{Protocol: &tcp, Port: &fivethree},
+						{Protocol: &udp, Port: &fivethree},
+					},
+				},
+				{
+					To: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &meta_v1.LabelSelector{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = nc.NetworkPolicies(nsName).Create(&np)
+	if err == nil {
+		log.WithFields(log.Fields{
+			"namespace": nsName,
+		}).Info("Created networkpolicy")
+
+	} else if apierrors.IsAlreadyExists(err) {
+		log.WithFields(log.Fields{
+			"namespace": nsName,
+		}).Warn("networkpolicy already exists.")
+		return nil
+	} else {
+		log.WithFields(log.Fields{
+			"namespace": nsName,
+		}).Errorf("Problem creating networkpolicy: %s", err)
+
+		return err
+	}
+	return nil
+
 }
 
 func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {

@@ -128,20 +128,27 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			}
 		}
 
-		// nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
-
-		// err = ls.boopNamespace(nsName)
-		// if err != nil {
-		// 	log.Errorf("Problem create-booping %s: %v", nsName, err)
-		// }
-
 		liveLesson := newKubeLab.ToLiveLesson()
 
-		// TODO(mierdin) need to add timeout
+		tries := 0
 		for {
 			time.Sleep(1 * time.Second)
 
+			if tries > 600 {
+				log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonID)
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   newKubeLab,
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+				return
+			}
+
 			if !isReachable(liveLesson) {
+				tries++
 				continue
 			}
 			break
@@ -259,6 +266,29 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 
 	wg.Wait()
 
+	// for {
+	// 	time.Sleep(1 * time.Second)
+
+	// 	if tries > 600 {
+	// 		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonID)
+	// 		ls.Results <- &LessonScheduleResult{
+	// 			Success:   false,
+	// 			LessonDef: newRequest.LessonDef,
+	// 			KubeLab:   newKubeLab,
+	// 			Uuid:      newRequest.Uuid,
+	// 			Operation: newRequest.Operation,
+	// 			Stage:     newRequest.Stage,
+	// 		}
+	// 		return
+	// 	}
+
+	// 	if !isReachable(liveLesson) {
+	// 		tries++
+	// 		continue
+	// 	}
+	// 	break
+	// }
+
 	return nil
 }
 
@@ -268,6 +298,9 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	if err != nil {
 		log.Error(err)
 	}
+
+	// Lock it doooooooown
+	ls.createNetworkPolicy(ns.ObjectMeta.Name)
 
 	kl := &KubeLab{
 		Namespace:      ns,

@@ -285,6 +285,10 @@ Livelesson = `{
         },
         "URI": {
           "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
