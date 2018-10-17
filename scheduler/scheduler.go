@@ -16,6 +16,7 @@ import (
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -171,6 +172,9 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
 		}
 
+		// Finish locking down networkpolicy now that lesson is online and reachable
+		ls.lockDownNetworkPolicy(newKubeLab.NetPolicy)
+
 		kubeLabs[newRequest.Uuid] = newKubeLab
 
 		ls.Results <- &LessonScheduleResult{
@@ -303,9 +307,6 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		log.Error(err)
 	}
 
-	// Lock it doooooooown
-	ls.createNetworkPolicy(ns.ObjectMeta.Name)
-
 	kl := &KubeLab{
 		Namespace:      ns,
 		CreateRequest:  req,
@@ -314,6 +315,9 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Services:       map[string]*corev1.Service{},
 		LabConnections: map[string]string{},
 	}
+
+	// Lock it doooooooown
+	kl.NetPolicy, _ = ls.createNetworkPolicy(ns.ObjectMeta.Name)
 
 	// TODO(mierdin): is this still needed?
 	// _, err = ls.createNetwork("mgmt-net", req, false, "")
@@ -484,12 +488,13 @@ type KubeLab struct {
 	Pods           map[string]*corev1.Pod
 	Services       map[string]*corev1.Service
 	LabConnections map[string]string
+	NetPolicy      *netv1.NetworkPolicy
 }
 
 // ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it
 func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
-	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["lastAccessed"], 10, 64)
+	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["created"], 10, 64)
 
 	ret := pb.LiveLesson{
 		LessonUUID:    kl.CreateRequest.Uuid,
@@ -511,23 +516,23 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		Ready: true,
 	}
 
-	if kl.CreateRequest.LessonDef.TopologyType == "shared" {
-		ret.Endpoints = []*pb.Endpoint{
-			{
-				Name: "vqfx1",
-				Type: pb.Endpoint_DEVICE,
-				Port: 30021,
-			}, {
-				Name: "vqfx2",
-				Type: pb.Endpoint_DEVICE,
-				Port: 30022,
-			}, {
-				Name: "vqfx3",
-				Type: pb.Endpoint_DEVICE,
-				Port: 30023,
-			},
-		}
-	}
+	// if kl.CreateRequest.LessonDef.TopologyType == "shared" {
+	// 	ret.Endpoints = []*pb.Endpoint{
+	// 		{
+	// 			Name: "vqfx1",
+	// 			Type: pb.Endpoint_DEVICE,
+	// 			Port: 30021,
+	// 		}, {
+	// 			Name: "vqfx2",
+	// 			Type: pb.Endpoint_DEVICE,
+	// 			Port: 30022,
+	// 		}, {
+	// 			Name: "vqfx3",
+	// 			Type: pb.Endpoint_DEVICE,
+	// 			Port: 30023,
+	// 		},
+	// 	}
+	// }
 
 	for s := range kl.Services {
 

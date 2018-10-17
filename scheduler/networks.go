@@ -39,8 +39,45 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 	return nil
 }
 
+// lockDownNetworkPolicy overwrites an existing networkpolicy to ensure it can't talk to the internet
+// This removes the initial configuration which allows github traffic.
+// This should be called immediately upon health check pass before returning a Ready status or moving
+// to another stage of lesson provisioning
+func (ls *LessonScheduler) lockDownNetworkPolicy(np *netv1.NetworkPolicy) error {
+
+	nc, err := netv1client.NewForConfig(ls.KubeConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	var tcp v1.Protocol = "TCP"
+	var udp v1.Protocol = "UDP"
+	fivethree := intstr.IntOrString{IntVal: 53}
+
+	np.Spec.Egress = []netv1.NetworkPolicyEgressRule{
+		{
+			Ports: []netv1.NetworkPolicyPort{
+				{Protocol: &tcp, Port: &fivethree},
+				{Protocol: &udp, Port: &fivethree},
+			},
+		},
+		{
+			To: []netv1.NetworkPolicyPeer{
+				{
+					NamespaceSelector: &meta_v1.LabelSelector{},
+				},
+			},
+		},
+	}
+
+	_, err = nc.NetworkPolicies(np.ObjectMeta.Namespace).Update(np)
+	return err
+}
+
 // createNetworkPolicy applies a kubernetes networkpolicy object to prohibit internet access out of pods within a namespace
-func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
+// By default it permits traffic to Github, but lockDownNetworkPolicy can be called to remove this as well. This is for the init
+// containers to clone the antidote repo properly during initialization
+func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
 
 	nc, err := netv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -67,7 +104,9 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
 			},
 			PolicyTypes: []netv1.PolicyType{
 				"Egress",
+				"Ingress",
 			},
+			Ingress: []netv1.NetworkPolicyIngressRule{{}},
 			Egress: []netv1.NetworkPolicyEgressRule{
 				{
 					Ports: []netv1.NetworkPolicyPort{
@@ -80,13 +119,16 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
 						{
 							NamespaceSelector: &meta_v1.LabelSelector{},
 						},
+						{
+							IPBlock: &netv1.IPBlock{CIDR: "0.0.0.0/0"},
+						},
 					},
 				},
 			},
 		},
 	}
 
-	_, err = nc.NetworkPolicies(nsName).Create(&np)
+	newnp, err := nc.NetworkPolicies(nsName).Create(&np)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -96,15 +138,15 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) error {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
 		}).Warn("networkpolicy already exists.")
-		return nil
+		return newnp, nil
 	} else {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
 		}).Errorf("Problem creating networkpolicy: %s", err)
 
-		return err
+		return nil, err
 	}
-	return nil
+	return newnp, nil
 
 }
 

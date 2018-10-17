@@ -115,38 +115,7 @@ func (s *server) startTSDBExport() error {
 			return err
 		}
 
-		/* Important to track:
-
-		- How many livelessons are currently provisioned?
-		- How many unique users are using the system?
-		- How many
-		*/
-
-		// in-memory map of liveLessons, indexed by UUID
-		// liveLessons map[string]*pb.LiveLesson
-
-		// map of session IDs maps containing lesson ID and corresponding lesson UUID
-		// sessions map[string]map[int32]string
-
-		if len(s.liveLessons) == 0 {
-			log.Debug("No active liveLessons, so skipping TSDB write")
-			continue
-		}
-
-		lessonIdMap := map[int32]string{}
-
-		for _, liveLesson := range s.liveLessons {
-			if _, ok := lessonIdMap[liveLesson.LessonId]; ok {
-				continue // already present
-			}
-
-			lessonIdMap[liveLesson.LessonId] = "foo"
-		}
-		// apt-get update && apt-get install -y curl
-		// curl -X POST 'http://10.104.168.244:8086/query?pretty=true' --data-urlencode "db=syringe_metrics" --data-urlencode "q=DROP DATABASE \"syringe_metrics\""
-		// curl -G 'http://10.104.168.244:8086/query?pretty=true' --data-urlencode "db=syringe_metrics" --data-urlencode "q=select * from /sessionStatus/"
-
-		for lessonId, _ := range lessonIdMap {
+		for lessonId, _ := range s.scheduler.LessonDefs {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
@@ -157,7 +126,10 @@ func (s *server) startTSDBExport() error {
 			count, duration := s.getCountAndDuration(lessonId)
 			fields["lessonName"] = s.scheduler.LessonDefs[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
-			fields["avgDuration"] = duration
+
+			if duration != 0 {
+				fields["avgDuration"] = duration
+			}
 			fields["activeNow"] = count
 
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
@@ -198,6 +170,7 @@ func (s *server) getCountAndDuration(lessonId int32) (int64, int64) {
 		tts, err := ptypes.Timestamp(liveLesson.CreatedTime)
 		if err != nil {
 			log.Errorf("Problem converting timestamp: %v", err)
+			log.Error(liveLesson.CreatedTime)
 		}
 		durations = append(durations, int64(time.Since(tts)*time.Second))
 	}
@@ -205,6 +178,10 @@ func (s *server) getCountAndDuration(lessonId int32) (int64, int64) {
 	total := int64(0)
 	for i := range durations {
 		total = total + durations[i]
+	}
+
+	if int64(len(durations)) == 0 {
+		return int64(count), 0
 	}
 
 	return int64(count), total / int64(len(durations))

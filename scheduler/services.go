@@ -32,7 +32,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 		"UTILITY":  corev1.ServiceTypeClusterIP,
 		"BLACKBOX": corev1.ServiceTypeClusterIP,
 		"DEVICE":   corev1.ServiceTypeClusterIP,
-		"IFRAME":   corev1.ServiceTypeLoadBalancer,
+		"IFRAME":   corev1.ServiceTypeNodePort,
 	}
 
 	svc := &corev1.Service{

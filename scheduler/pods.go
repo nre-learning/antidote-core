@@ -119,9 +119,9 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 					Image: dep.Image,
 
 					// Omitting in order to keep things speedy. For debugging, uncomment this, and the image will be pulled every time.
-					ImagePullPolicy: "Always",
+					// ImagePullPolicy: "Always",
 
-					// ImagePullPolicy: "IfNotPresent",
+					ImagePullPolicy: "IfNotPresent",
 
 					Ports: []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: []corev1.VolumeMount{
