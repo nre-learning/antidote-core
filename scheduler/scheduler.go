@@ -12,6 +12,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"golang.org/x/crypto/ssh"
@@ -61,10 +62,11 @@ type LessonScheduleResult struct {
 }
 
 type LessonScheduler struct {
-	KubeConfig *rest.Config
-	Requests   chan *LessonScheduleRequest
-	Results    chan *LessonScheduleResult
-	LessonDefs map[int32]*def.LessonDefinition
+	KubeConfig    *rest.Config
+	Requests      chan *LessonScheduleRequest
+	Results       chan *LessonScheduleResult
+	LessonDefs    map[int32]*def.LessonDefinition
+	SyringeConfig *config.SyringeConfig
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,

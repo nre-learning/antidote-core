@@ -8,6 +8,7 @@ import (
 
 type SyringeConfig struct {
 	LessonsDir          string
+	Tier                string
 	GRPCPort            int
 	HTTPPort            int
 	DeviceGCAge         int
@@ -33,11 +34,20 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	} else {
 		config.LessonsDir = searchDir
 	}
+	tier := os.Getenv("SYRINGE_TIER")
+	if tier == "" {
+		return nil, errors.New("SYRINGE_TIER is a required variable.")
+	} else {
+		if tier != "prod" && tier != "ptr" && tier != "local" {
+			return nil, errors.New("SYRINGE_TIER set to incorrect value")
+		} else {
+			config.Tier = tier
+		}
+	}
 
 	/*
 		OPTIONAL
 	*/
-
 	grpcPort, err := strconv.Atoi(os.Getenv("SYRINGE_GRPC_PORT"))
 	if grpcPort == 0 || err != nil {
 		config.GRPCPort = 50099

@@ -52,7 +52,7 @@ endif
 
 docker:
 	docker build -t antidotelabs/syringe .
-	docker push antidotelabs/syringe
+	docker push antidotelabs/syringe:latest
 
 test: 
 	@go test ./... -cover

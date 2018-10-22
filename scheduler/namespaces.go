@@ -49,8 +49,8 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 		panic(err)
 	}
 	nameSpaces, err := coreclient.Namespaces().List(metav1.ListOptions{
-		// VERY Important. Only delete those with this label, otherwise you'll nuke the cluster.
-		LabelSelector: "syringeManaged",
+		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
 	})
 	if err != nil {
 		return err
@@ -130,6 +130,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
+				"syringeTier":    ls.SyringeConfig.Tier,
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
 				"created":        strconv.Itoa(int(time.Now().Unix())),
 			},
@@ -161,8 +162,8 @@ func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 		panic(err)
 	}
 	nameSpaces, err := coreclient.Namespaces().List(metav1.ListOptions{
-		// VERY Important. Only delete those with this label, otherwise you'll nuke the cluster.
-		LabelSelector: "syringeManaged",
+		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
 	})
 	if err != nil {
 		return nil, err
