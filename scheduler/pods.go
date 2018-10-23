@@ -95,9 +95,9 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 						"/usr/local/git/git-clone.sh",
 					},
 					Args: []string{
-						"https://github.com/nre-learning/antidote.git",
-						"master",
-						"/antidote",
+						ls.SyringeConfig.LessonRepoRemote,
+						ls.SyringeConfig.LessonRepoBranch,
+						ls.SyringeConfig.LessonRepoDir,
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						{
@@ -108,7 +108,7 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 						{
 							Name:      "git-volume",
 							ReadOnly:  false,
-							MountPath: "/antidote",
+							MountPath: ls.SyringeConfig.LessonRepoDir,
 						},
 					},
 				},
@@ -128,7 +128,7 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 						{
 							Name:      "git-volume",
 							ReadOnly:  false,
-							MountPath: "/antidote",
+							MountPath: ls.SyringeConfig.LessonRepoDir,
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{

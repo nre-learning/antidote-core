@@ -16,7 +16,13 @@ type SyringeConfig struct {
 	HealthCheckInterval int
 	TSDBExportInterval  int
 	TSDBEnabled         bool
-	IgnoreDisabled      bool // This ignores the "disabled" field in lesson definitions. Useful for showing lessons in any state when running in dev, etc. Will load lesson regardless.
+
+	LessonRepoRemote string
+	LessonRepoBranch string
+	LessonRepoDir    string
+
+	// SOON TO BE DEPRECATED IN FAVOR OF TIER
+	IgnoreDisabled bool // This ignores the "disabled" field in lesson definitions. Useful for showing lessons in any state when running in dev, etc. Will load lesson regardless.
 }
 
 func LoadConfigVars() (*SyringeConfig, error) {
@@ -65,6 +71,27 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.IgnoreDisabled = true
 	} else {
 		config.IgnoreDisabled = false
+	}
+
+	remote := os.Getenv("SYRINGE_LESSON_REPO_REMOTE")
+	if remote == "" {
+		config.LessonRepoRemote = "https://github.com/nre-learning/antidote.git"
+	} else {
+		config.LessonRepoRemote = remote
+	}
+
+	branch := os.Getenv("SYRINGE_LESSON_REPO_BRANCH")
+	if remote == "" {
+		config.LessonRepoBranch = "master"
+	} else {
+		config.LessonRepoBranch = branch
+	}
+
+	dir := os.Getenv("SYRINGE_LESSON_REPO_DIR")
+	if remote == "" {
+		config.LessonRepoDir = "/antidote"
+	} else {
+		config.LessonRepoDir = dir
 	}
 
 	return &config, nil
