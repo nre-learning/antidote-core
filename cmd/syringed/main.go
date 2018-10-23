@@ -25,7 +25,8 @@ func main() {
 
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {
-		log.Fatalf("Invalid configuraiton. Please re-run Syringe with appropriate env variables")
+		log.Error(err)
+		log.Fatalf("Invalid configuration. Please re-run Syringe with appropriate env variables")
 	}
 
 	kubeConfig, err := rest.InClusterConfig()
@@ -53,10 +54,11 @@ func main() {
 
 	// Start lesson scheduler
 	lessonScheduler := scheduler.LessonScheduler{
-		KubeConfig: kubeConfig,
-		Requests:   make(chan *scheduler.LessonScheduleRequest),
-		Results:    make(chan *scheduler.LessonScheduleResult),
-		LessonDefs: lessonDefs,
+		KubeConfig:    kubeConfig,
+		Requests:      make(chan *scheduler.LessonScheduleRequest),
+		Results:       make(chan *scheduler.LessonScheduleResult),
+		LessonDefs:    lessonDefs,
+		SyringeConfig: syringeConfig,
 	}
 	go func() {
 		err = lessonScheduler.Start()
