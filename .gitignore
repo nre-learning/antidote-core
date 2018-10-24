@@ -1,0 +1,13 @@
+*temp*
+build/
+.vagrant/
+docs/.Python
+docs/bin/
+docs/include/
+docs/lib/
+docs/_build/
+*.out
+*.DS_Store*
+*.retry
+api/exp/generated/
+cmd/syringed/buildinfo.go
