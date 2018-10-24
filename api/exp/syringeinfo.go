@@ -14,8 +14,13 @@ func (s *server) GetSyringeInfo(ctx context.Context, _ *empty.Empty) (*pb.Syring
 		return &pb.SyringeInfo{}, errors.New("Build SHA not found")
 	}
 
+	if _, ok := s.buildInfo["antidoteSha"]; !ok {
+		return &pb.SyringeInfo{}, errors.New("Antidote SHA not found")
+	}
+
 	si := pb.SyringeInfo{
-		BuildSha: s.buildInfo["buildSha"],
+		BuildSha:    s.buildInfo["buildSha"],
+		AntidoteSha: s.buildInfo["antidoteSha"],
 	}
 
 	return &si, nil
