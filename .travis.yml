@@ -1,0 +1,9 @@
+language: go
+go:
+ - 1.10.3
+notifications:
+  email: false
+install:
+  - make
+  - make test
+sudo: false
