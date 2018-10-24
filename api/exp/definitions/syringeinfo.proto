@@ -1,0 +1,20 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service SyringeInfoService {
+
+  rpc GetSyringeInfo(google.protobuf.Empty) returns (SyringeInfo) {
+    option (google.api.http) = {
+        get: "/exp/syringeinfo"
+      };
+  }
+}
+
+message SyringeInfo {
+  string buildSha = 1;
+}
+
+
