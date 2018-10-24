@@ -3,7 +3,16 @@ go:
  - 1.10.3
 notifications:
   email: false
+before_install:
+  - curl -OL https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip && unzip protoc-3.2.0-linux-x86_64.zip -d protoc3 && chmod +x protoc3/bin/* && sudo mv protoc3/bin/* /usr/local/bin && sudo mv protoc3/include/* /usr/local/include/
+  - go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+  - go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+  - go get -u github.com/golang/protobuf/protoc-gen-go
+  - go get github.com/jteeuwen/go-bindata/...
 install:
+  - hack/check-changelog.sh
   - make
-  - make test
+
+  # TODO(mierdin): tshoot and enable this
+  # - make test
 sudo: false

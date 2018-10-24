@@ -29,7 +29,7 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
+func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo map[string]string) error {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
@@ -40,6 +40,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int) error {
 		liveLessons: make(map[string]*pb.LiveLesson),
 		sessions:    make(map[string]map[int32]string),
 		scheduler:   ls,
+		buildInfo:   buildInfo,
 	}
 
 	s := grpc.NewServer()
@@ -146,6 +147,8 @@ type server struct {
 
 	// map of session IDs maps containing lesson ID and corresponding lesson UUID
 	sessions map[string]map[int32]string
+
+	buildInfo map[string]string
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

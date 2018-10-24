@@ -69,7 +69,7 @@ func main() {
 
 	// Start API, and feed it pointer to lesson scheduler so they can talk
 	go func() {
-		err = api.StartAPI(&lessonScheduler, syringeConfig.GRPCPort, syringeConfig.HTTPPort)
+		err = api.StartAPI(&lessonScheduler, syringeConfig.GRPCPort, syringeConfig.HTTPPort, buildInfo)
 		if err != nil {
 			log.Fatalf("Problem starting API: %s", err)
 		}
