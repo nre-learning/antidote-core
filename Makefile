@@ -13,6 +13,7 @@ compile:
 	@rm -f pkg/ui/data/swagger/datafile.go
 
 	@rm -f /tmp/datafile.go
+	@rm -f cmd/syringed/buildinfo.go
 
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 
@@ -41,6 +42,9 @@ compile:
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/
 	@hack/build-ui.sh
+
+	@echo "Generating build info file..."
+	@hack/gen-build-info.sh
 
 	@echo "Compiling syringe binaries..."
 
