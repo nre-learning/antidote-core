@@ -81,14 +81,14 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	}
 
 	branch := os.Getenv("SYRINGE_LESSON_REPO_BRANCH")
-	if remote == "" {
+	if branch == "" {
 		config.LessonRepoBranch = "master"
 	} else {
 		config.LessonRepoBranch = branch
 	}
 
 	dir := os.Getenv("SYRINGE_LESSON_REPO_DIR")
-	if remote == "" {
+	if dir == "" {
 		config.LessonRepoDir = "/antidote"
 	} else {
 		config.LessonRepoDir = dir
