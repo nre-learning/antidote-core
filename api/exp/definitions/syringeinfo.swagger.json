@@ -1,0 +1,45 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/exp/definitions/syringeinfo.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/syringeinfo": {
+      "get": {
+        "operationId": "GetSyringeInfo",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expSyringeInfo"
+            }
+          }
+        },
+        "tags": [
+          "SyringeInfoService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expSyringeInfo": {
+      "type": "object",
+      "properties": {
+        "buildSha": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
