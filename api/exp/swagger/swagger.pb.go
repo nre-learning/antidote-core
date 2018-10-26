@@ -439,6 +439,9 @@ Syringeinfo = `{
       "properties": {
         "buildSha": {
           "type": "string"
+        },
+        "antidoteSha": {
+          "type": "string"
         }
       }
     }

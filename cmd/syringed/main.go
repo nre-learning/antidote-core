@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -66,6 +67,14 @@ func main() {
 			log.Fatalf("Problem starting lesson scheduler: %s", err)
 		}
 	}()
+
+	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.LessonRepoDir, syringeConfig.LessonRepoBranch))
+	if err != nil {
+		log.Error("Encountered problem getting antidote SHA")
+		buildInfo["antidoteSha"] = "null"
+	} else {
+		buildInfo["antidoteSha"] = string(antidoteSha)
+	}
 
 	// Start API, and feed it pointer to lesson scheduler so they can talk
 	go func() {
