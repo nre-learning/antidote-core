@@ -46,6 +46,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	s := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(s, apiServer)
 	pb.RegisterLessonDefServiceServer(s, apiServer)
+	pb.RegisterSyringeInfoServiceServer(s, apiServer)
 	defer s.Stop()
 
 	// Start grpc server
@@ -66,6 +67,10 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	if err != nil {
 		return err
 	}
+	err = gw.RegisterSyringeInfoServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/", gwmux)
@@ -75,7 +80,9 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	mux.HandleFunc("/lessondef.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Lessondef))
 	})
-
+	mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Syringeinfo))
+	})
 	serveSwagger(mux)
 
 	srv := &http.Server{
