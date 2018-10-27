@@ -20,9 +20,6 @@ type SyringeConfig struct {
 	LessonRepoRemote string
 	LessonRepoBranch string
 	LessonRepoDir    string
-
-	// SOON TO BE DEPRECATED IN FAVOR OF TIER
-	IgnoreDisabled bool // This ignores the "disabled" field in lesson definitions. Useful for showing lessons in any state when running in dev, etc. Will load lesson regardless.
 }
 
 func LoadConfigVars() (*SyringeConfig, error) {
@@ -39,16 +36,6 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		return nil, errors.New("SYRINGE_LESSONS is a required variable.")
 	} else {
 		config.LessonsDir = searchDir
-	}
-	tier := os.Getenv("SYRINGE_TIER")
-	if tier == "" {
-		return nil, errors.New("SYRINGE_TIER is a required variable.")
-	} else {
-		if tier != "prod" && tier != "ptr" && tier != "local" {
-			return nil, errors.New("SYRINGE_TIER set to incorrect value")
-		} else {
-			config.Tier = tier
-		}
 	}
 
 	/*
@@ -67,10 +54,15 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.HTTPPort = httpPort
 	}
 
-	if os.Getenv("SYRINGE_IGNORE_DISABLED") == "true" {
-		config.IgnoreDisabled = true
+	tier := os.Getenv("SYRINGE_TIER")
+	if tier == "" {
+		config.Tier = "local"
 	} else {
-		config.IgnoreDisabled = false
+		if tier != "prod" && tier != "ptr" && tier != "local" {
+			return nil, errors.New("SYRINGE_TIER set to incorrect value")
+		} else {
+			config.Tier = tier
+		}
 	}
 
 	remote := os.Getenv("SYRINGE_LESSON_REPO_REMOTE")

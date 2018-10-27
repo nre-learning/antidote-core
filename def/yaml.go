@@ -24,6 +24,7 @@ type LessonDefinition struct {
 	Category      string                 `json:"category" yaml:"category"`
 	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
 	LessonVideo   string                 `json:"lessonvideo" yaml:"lessonvideo"`
+	Tier          string                 `json:"tier" yaml:"tier"`
 }
 
 type Endpoint struct {
@@ -103,8 +104,20 @@ FILES:
 			continue FILES
 		}
 
-		if lessonDef.Disabled && !syringeConfig.IgnoreDisabled {
-			log.Warnf("Lesson %d is marked as 'disabled'. Skipping import.", lessonDef.LessonID)
+		if lessonDef.Tier == "" {
+			log.Errorf("Failed to import %s: %s", file, errors.New("Must provide tier"))
+			continue FILES
+		}
+
+		if lessonDef.Tier != "local" && lessonDef.Tier != "ptr" && lessonDef.Tier != "prod" {
+			log.Errorf("Failed to import %s: %s", file, errors.New("Invalid tier value"))
+			continue FILES
+		}
+
+		if lessonDef.Tier == "ptr" && syringeConfig.Tier == "local" {
+			continue FILES
+		}
+		if lessonDef.Tier == "local" && syringeConfig.Tier != "local" {
 			continue FILES
 		}
 
