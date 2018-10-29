@@ -7,6 +7,13 @@
 ### Other
 
 
+## 0.1.2 - October 29, 2018
+
+### Curriculum
+
+### Other
+
+
 ## 0.1.1 - October 28, 2018
 
 - Provide build info via API - [#12](https://github.com/nre-learning/syringe/pull/12), [#14](https://github.com/nre-learning/syringe/pull/14)
