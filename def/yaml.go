@@ -14,7 +14,6 @@ import (
 type LessonDefinition struct {
 	LessonName    string                 `json:"lessonName" yaml:"lessonName"`
 	LessonID      int32                  `json:"lessonID" yaml:"lessonID"`
-	Disabled      bool                   `json:"disabled" yaml:"disabled"`
 	Devices       []*Endpoint            `json:"devices" yaml:"devices"`
 	Utilities     []*Endpoint            `json:"utilities" yaml:"utilities"`
 	Blackboxes    []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
