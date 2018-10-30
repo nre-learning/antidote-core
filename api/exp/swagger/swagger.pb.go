@@ -18,28 +18,18 @@ Lessondef = `{
     "application/json"
   ],
   "paths": {
-    "/exp/lessondef": {
-      "post": {
+    "/exp/lessondef/all": {
+      "get": {
         "summary": "Retrieve all LessonDefs with filter",
         "operationId": "ListLessonDefs",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/expLessonDefs"
+              "$ref": "#/definitions/expLessonCategoryMap"
             }
           }
         },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/expLessonDefFilter"
-            }
-          }
-        ],
         "tags": [
           "LessonDefService"
         ]
@@ -72,6 +62,17 @@ Lessondef = `{
     }
   },
   "definitions": {
+    "expLessonCategoryMap": {
+      "type": "object",
+      "properties": {
+        "lessonCategories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expLessonDefs"
+          }
+        }
+      }
+    },
     "expLessonDef": {
       "type": "object",
       "properties": {
@@ -90,25 +91,14 @@ Lessondef = `{
         }
       }
     },
-    "expLessonDefFilter": {
-      "type": "object",
-      "properties": {
-        "Category": {
-          "type": "string"
-        }
-      }
-    },
     "expLessonDefs": {
       "type": "object",
       "properties": {
-        "lessondefs": {
+        "lessonDefs": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expLessonDef"
           }
-        },
-        "Category": {
-          "type": "string"
         }
       }
     },
