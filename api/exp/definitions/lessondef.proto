@@ -2,14 +2,14 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
 service LessonDefService {
 
   // Retrieve all LessonDefs with filter
-  rpc ListLessonDefs(LessonDefFilter) returns (LessonDefs) {
+  rpc ListLessonDefs(google.protobuf.Empty) returns (LessonCategoryMap) {
     option (google.api.http) = {
-      post: "/exp/lessondef"
-      body: "*"
+      get: "/exp/lessondef/all"
     };
   }
 
@@ -21,9 +21,12 @@ service LessonDefService {
 
 }
 
+message LessonCategoryMap {
+  map<string, LessonDefs> lessonCategories = 1;
+}
+
 message LessonDefs {
-  repeated LessonDef lessondefs = 1;
-  string Category = 2;
+  repeated LessonDef lessonDefs = 1;
 }
 
 message LessonID {
