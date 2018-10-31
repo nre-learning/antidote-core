@@ -597,7 +597,7 @@ if [ -d "$DIR" ]; then
 fi
 git clone $REPO $DIR
 cd $DIR
-git reset --hard $REF`
+git checkout --force $REF`
 
 	svc := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

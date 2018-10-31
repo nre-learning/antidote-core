@@ -103,6 +103,8 @@ FILES:
 			continue FILES
 		}
 
+		// TODO: check for existing lesson ID
+
 		if lessonDef.Tier == "" {
 			log.Errorf("Failed to import %s: %s", file, errors.New("Must provide tier"))
 			continue FILES
