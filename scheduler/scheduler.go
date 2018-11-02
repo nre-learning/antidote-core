@@ -439,7 +439,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		iframePod, _ := ls.createPod(
 			&def.Endpoint{
 				Name:  req.LessonDef.Stages[req.Stage].IframeResource.Name,
-				Image: "antidotelabs/jupyter",
+				Image: req.LessonDef.Stages[req.Stage].IframeResource.Image,
 				Ports: []int32{},
 			},
 			pb.Endpoint_IFRAME,

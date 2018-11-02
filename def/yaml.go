@@ -43,6 +43,7 @@ type LessonStage struct {
 
 type IframeDetails struct {
 	Name     string `json:"name" yaml:"name"`
+	Image    string `json:"image" yaml:"image"`
 	Protocol string `json:"protocol" yaml:"protocol"`
 	URI      string `json:"uri" yaml:"uri"`
 	Port     int32  `json:"port" yaml:"port"`
