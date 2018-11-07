@@ -12,18 +12,19 @@ import (
 )
 
 type LessonDefinition struct {
-	LessonName    string                 `json:"lessonName" yaml:"lessonName"`
-	LessonID      int32                  `json:"lessonID" yaml:"lessonID"`
-	Devices       []*Endpoint            `json:"devices" yaml:"devices"`
-	Utilities     []*Endpoint            `json:"utilities" yaml:"utilities"`
-	Blackboxes    []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
-	Connections   []*Connection          `json:"connections" yaml:"connections"`
-	TopologyType  string                 `json:"topologyType" yaml:"topologyType"`
-	Stages        map[int32]*LessonStage `json:"stages" yaml:"stages"`
-	Category      string                 `json:"category" yaml:"category"`
-	LessonDiagram string                 `json:"lessondiagram" yaml:"lessondiagram"`
-	LessonVideo   string                 `json:"lessonvideo" yaml:"lessonvideo"`
-	Tier          string                 `json:"tier" yaml:"tier"`
+	LessonName      string                 `json:"lessonName" yaml:"lessonName"`
+	LessonID        int32                  `json:"lessonID" yaml:"lessonID"`
+	IframeResources []*IframeResource      `json:"iframeresources" yaml:"iframeresources"`
+	Devices         []*Endpoint            `json:"devices" yaml:"devices"`
+	Utilities       []*Endpoint            `json:"utilities" yaml:"utilities"`
+	Blackboxes      []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
+	Connections     []*Connection          `json:"connections" yaml:"connections"`
+	TopologyType    string                 `json:"topologyType" yaml:"topologyType"`
+	Stages          map[int32]*LessonStage `json:"stages" yaml:"stages"`
+	Category        string                 `json:"category" yaml:"category"`
+	LessonDiagram   string                 `json:"lessondiagram" yaml:"lessondiagram"`
+	LessonVideo     string                 `json:"lessonvideo" yaml:"lessonvideo"`
+	Tier            string                 `json:"tier" yaml:"tier"`
 }
 
 type Endpoint struct {
@@ -35,13 +36,12 @@ type Endpoint struct {
 }
 
 type LessonStage struct {
-	LabGuide       string            `json:"labguide" yaml:"labguide"`
-	Configs        map[string]string `json:"configs" yaml:"configs"`
-	IframeResource IframeDetails     `json:"iframeresource" yaml:"iframeresource"`
-	Description    string            `json:"description" yaml:"description"`
+	LabGuide    string            `json:"labguide" yaml:"labguide"`
+	Configs     map[string]string `json:"configs" yaml:"configs"`
+	Description string            `json:"description" yaml:"description"`
 }
 
-type IframeDetails struct {
+type IframeResource struct {
 	Name     string `json:"name" yaml:"name"`
 	Image    string `json:"image" yaml:"image"`
 	Protocol string `json:"protocol" yaml:"protocol"`

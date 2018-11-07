@@ -119,9 +119,9 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 					Image: dep.Image,
 
 					// Omitting in order to keep things speedy. For debugging, uncomment this, and the image will be pulled every time.
-					// ImagePullPolicy: "Always",
+					ImagePullPolicy: "Always",
 
-					ImagePullPolicy: "IfNotPresent",
+					// ImagePullPolicy: "IfNotPresent",
 
 					Ports: []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: []corev1.VolumeMount{
@@ -180,10 +180,12 @@ func (ls *LessonScheduler) createPod(dep *def.Endpoint, etype pb.Endpoint_Endpoi
 		// Add back in at the beginning, and append the rest.
 		dep.Ports = append([]int32{22}, newports...)
 
-	} else if etype.String() == "IFRAME" {
-		port := req.LessonDef.Stages[req.Stage].IframeResource.Port
-		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
 	}
+
+	// else if etype.String() == "IFRAME" {
+	// 	port := req.LessonDef.Stages[req.Stage].IframeResource.Port
+	// 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
+	// }
 
 	// Add any remaining ports not specified by the user
 	for p := range dep.Ports {

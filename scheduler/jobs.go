@@ -168,6 +168,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 								fmt.Sprintf("--optional_args=port=%d", ep.Port),
 								ep.Host,
 								"configure",
+								// req.LessonDef.Stages[req.Stage].Configs[ep.Name],
 								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonID, req.Stage, ep.Name),
 								"--strategy=merge",
 							},
@@ -229,53 +230,3 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 	}
 	return result, err
 }
-
-// ---
-// apiVersion: batch/v1
-// kind: Job
-// metadata:
-//   name: configure-lab0-vqfx1
-// spec:
-//   template:
-//     metadata:
-//       name: napalm
-//     spec:
-//       initContainers:
-//       - name: git-clone
-//         image: alpine/git # Any image with git will do
-//         command:
-//         - /usr/local/git/git-clone.sh
-//         args:
-//         - "https://github.com/nre-learning/antidote.git"
-//         - "master"
-//         - "/antidote"
-//         volumeMounts:
-//         - name: git-clone
-//           mountPath: /usr/local/git
-//         - name: git-volume
-//           mountPath: /antidote
-
-//       containers:
-//       - name: napalm
-//         image: antidotelabs/napalm
-//         command:
-//          - napalm
-//          - --user=root
-//          - --password=VR-netlab9
-//          - --vendor=junos
-//          - --optional_args=port=30021
-//          - vip.labs.networkreliability.engineering
-//          - configure
-//          - /antidote/platform/sharedlab/vqfx1.txt
-//          - --strategy=merge
-//         volumeMounts:
-//           - mountPath: /antidote
-//             name: git-volume
-//       volumes:
-//         - name: git-volume
-//           emptyDir: {}
-//         - name: git-clone
-//           configMap:
-//             name: git-clone
-//             defaultMode: 0755
-//       restartPolicy: Never

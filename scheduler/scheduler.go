@@ -13,10 +13,11 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/def"
+	def "github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	netv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -315,6 +316,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Networks:       map[string]*crd.NetworkAttachmentDefinition{},
 		Pods:           map[string]*corev1.Pod{},
 		Services:       map[string]*corev1.Service{},
+		Ingresses:      map[string]*v1beta1.Ingress{},
 		LabConnections: map[string]string{},
 	}
 
@@ -434,13 +436,16 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		}
 	}
 
-	if req.LessonDef.Stages[req.Stage].IframeResource.URI != "" {
+	// Create pods, services, and ingresses for iframe resources
+	for d := range req.LessonDef.IframeResources {
+
+		ifr := req.LessonDef.IframeResources[d]
 
 		iframePod, _ := ls.createPod(
 			&def.Endpoint{
-				Name:  req.LessonDef.Stages[req.Stage].IframeResource.Name,
-				Image: req.LessonDef.Stages[req.Stage].IframeResource.Image,
-				Ports: []int32{},
+				Name:  ifr.Name,
+				Image: ifr.Image,
+				Ports: []int32{ifr.Port},
 			},
 			pb.Endpoint_IFRAME,
 			[]string{},
@@ -454,8 +459,14 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			req,
 		)
 		kl.Services[iframeSvc.ObjectMeta.Name] = iframeSvc
-	}
 
+		iframeIngress, _ := ls.createIngress(
+			iframeSvc,
+			ifr,
+		)
+		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
+
+	}
 	return kl, nil
 }
 
@@ -489,6 +500,7 @@ type KubeLab struct {
 	Networks       map[string]*crd.NetworkAttachmentDefinition
 	Pods           map[string]*corev1.Pod
 	Services       map[string]*corev1.Service
+	Ingresses      map[string]*v1beta1.Ingress
 	LabConnections map[string]string
 	NetPolicy      *netv1.NetworkPolicy
 }
@@ -562,12 +574,11 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			// ApiPort
 		}
 
+		// The configuration is in the ingress, so we just need to pass the name to the web side and it can
+		// figure out the path itself.
 		if endpoint.Type == pb.Endpoint_IFRAME {
 			endpoint.IframeDetails = &pb.IFDetails{
-				Name:     kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.Name,
-				URI:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.URI,
-				Protocol: kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].IframeResource.Protocol,
-				Port:     kl.Services[s].Spec.Ports[0].NodePort,
+				Name: endpoint.Name,
 			}
 		}
 
