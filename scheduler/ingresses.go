@@ -20,15 +20,6 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 		panic(err)
 	}
 
-	//TODO: Make this configurable
-	domain := "ptr.labs.networkreliability.engineering"
-	// var domain string
-	// if ls.SyringeConfig.Tier == "ptr" {
-	// 	domain = "ptr.labs.networkreliability.engineering"
-	// } else {
-	// 	domain = "labs.networkreliability.engineering"
-	// }
-
 	nsName := svcBuddy.ObjectMeta.Namespace
 
 	newIngress := v1beta1.Ingress{
@@ -54,13 +45,13 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
 				{
-					Hosts:      []string{domain},
+					Hosts:      []string{ls.SyringeConfig.Domain},
 					SecretName: "tls-certificate",
 				},
 			},
 			Rules: []v1beta1.IngressRule{
 				{
-					Host: domain,
+					Host: ls.SyringeConfig.Domain,
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{

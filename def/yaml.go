@@ -39,9 +39,8 @@ type Endpoint struct {
 }
 
 type LessonStage struct {
-	LabGuide    string            `json:"labguide" yaml:"labguide"`
-	Configs     map[string]string `json:"configs" yaml:"configs"`
-	Description string            `json:"description" yaml:"description"`
+	LabGuide    string `json:"labguide" yaml:"labguide"`
+	Description string `json:"description" yaml:"description"`
 }
 
 type IframeResource struct {

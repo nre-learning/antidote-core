@@ -9,6 +9,7 @@ import (
 type SyringeConfig struct {
 	LessonsDir          string
 	Tier                string
+	Domain              string
 	GRPCPort            int
 	HTTPPort            int
 	DeviceGCAge         int
@@ -36,6 +37,13 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		return nil, errors.New("SYRINGE_LESSONS is a required variable.")
 	} else {
 		config.LessonsDir = searchDir
+	}
+
+	domain := os.Getenv("SYRINGE_DOMAIN")
+	if domain == "" {
+		return nil, errors.New("SYRINGE_DOMAIN is a required variable.")
+	} else {
+		config.Domain = domain
 	}
 
 	/*
