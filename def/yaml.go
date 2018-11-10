@@ -19,12 +19,15 @@ type LessonDefinition struct {
 	Utilities       []*Endpoint            `json:"utilities" yaml:"utilities"`
 	Blackboxes      []*Endpoint            `json:"blackboxes" yaml:"blackboxes"`
 	Connections     []*Connection          `json:"connections" yaml:"connections"`
-	TopologyType    string                 `json:"topologyType" yaml:"topologyType"`
 	Stages          map[int32]*LessonStage `json:"stages" yaml:"stages"`
 	Category        string                 `json:"category" yaml:"category"`
 	LessonDiagram   string                 `json:"lessondiagram" yaml:"lessondiagram"`
 	LessonVideo     string                 `json:"lessonvideo" yaml:"lessonvideo"`
 	Tier            string                 `json:"tier" yaml:"tier"`
+}
+
+func (ld *LessonDefinition) HasDevices() bool {
+	return len(ld.Devices) > 0
 }
 
 type Endpoint struct {
@@ -36,9 +39,8 @@ type Endpoint struct {
 }
 
 type LessonStage struct {
-	LabGuide    string            `json:"labguide" yaml:"labguide"`
-	Configs     map[string]string `json:"configs" yaml:"configs"`
-	Description string            `json:"description" yaml:"description"`
+	LabGuide    string `json:"labguide" yaml:"labguide"`
+	Description string `json:"description" yaml:"description"`
 }
 
 type IframeResource struct {
@@ -116,24 +118,14 @@ FILES:
 			continue FILES
 		}
 
-		if lessonDef.Tier == "ptr" && syringeConfig.Tier == "local" {
-			continue FILES
-		}
-		if lessonDef.Tier == "local" && syringeConfig.Tier != "local" {
-			continue FILES
-		}
-
-		if lessonDef.TopologyType != "none" && lessonDef.TopologyType != "shared" && lessonDef.TopologyType != "custom" {
-			lessonDef.TopologyType = "none"
-		}
-
-		if lessonDef.TopologyType == "custom" {
-			if len(lessonDef.Devices) == 0 {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Devices list is empty and TopologyType is set to custom"))
+		if syringeConfig.Tier == "prod" {
+			if lessonDef.Tier != "prod" {
+				log.Errorf("Skipping %s: lower tier than configured", file)
 				continue FILES
 			}
-			if len(lessonDef.Connections) == 0 {
-				log.Errorf("Failed to import %s: %s", file, errors.New("Connections list is empty and TopologyType is set to custom"))
+		} else if syringeConfig.Tier == "ptr" {
+			if lessonDef.Tier != "prod" && lessonDef.Tier != "ptr" {
+				log.Errorf("Skipping %s: lower tier than configured", file)
 				continue FILES
 			}
 		}

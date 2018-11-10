@@ -158,7 +158,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			break
 		}
 
-		if newRequest.LessonDef.TopologyType == "custom" {
+		if newRequest.LessonDef.HasDevices() {
 			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
 			err := ls.configureStuff(nsName, liveLesson, newRequest)
 			if err != nil {
@@ -212,7 +212,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		kubeLabs[newRequest.Uuid].CreateRequest = newRequest
 		liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
 
-		if newRequest.LessonDef.TopologyType == "custom" {
+		if newRequest.LessonDef.HasDevices() {
 			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
 			err := ls.configureStuff(nsName, liveLesson, newRequest)
 			if err != nil {
@@ -310,6 +310,11 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		log.Error(err)
 	}
 
+	err = ls.syncSecret(ns.ObjectMeta.Name)
+	if err != nil {
+		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
+	}
+
 	kl := &KubeLab{
 		Namespace:      ns,
 		CreateRequest:  req,
@@ -333,8 +338,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
 
 	// Only bother making connections and device pod/services if we have a custom topology
-	log.Infof("New KubeLab for lesson %d is of TopologyType %s", kl.CreateRequest.LessonDef.LessonID, kl.CreateRequest.LessonDef.TopologyType)
-	if kl.CreateRequest.LessonDef.TopologyType == "custom" {
+	if kl.CreateRequest.LessonDef.HasDevices() {
 
 		log.Debug("Creating devices and connections")
 
@@ -529,24 +533,6 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		// You may consider moving this field to kubelab or something.
 		Ready: true,
 	}
-
-	// if kl.CreateRequest.LessonDef.TopologyType == "shared" {
-	// 	ret.Endpoints = []*pb.Endpoint{
-	// 		{
-	// 			Name: "vqfx1",
-	// 			Type: pb.Endpoint_DEVICE,
-	// 			Port: 30021,
-	// 		}, {
-	// 			Name: "vqfx2",
-	// 			Type: pb.Endpoint_DEVICE,
-	// 			Port: 30022,
-	// 		}, {
-	// 			Name: "vqfx3",
-	// 			Type: pb.Endpoint_DEVICE,
-	// 			Port: 30023,
-	// 		},
-	// 	}
-	// }
 
 	for s := range kl.Services {
 
