@@ -44,8 +44,8 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 				"ingress.kubernetes.io/ssl-services":            ifr.Name,
 				"ingress.kubernetes.io/ssl-redirect":            "true",
 				"ingress.kubernetes.io/force-ssl-redirect":      "true",
-				"ingress.kubernetes.io/rewrite-target":          fmt.Sprintf("/%s-%s", nsName, ifr.Name),
-				"nginx.ingress.kubernetes.io/rewrite-target":    fmt.Sprintf("/%s-%s", nsName, ifr.Name),
+				"ingress.kubernetes.io/rewrite-target":          ifr.URI,
+				"nginx.ingress.kubernetes.io/rewrite-target":    ifr.URI,
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
 				"nginx.ingress.kubernetes.io/limit-rps":         "5",
 			},
@@ -54,9 +54,7 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
 				{
-					Hosts: []string{domain},
-
-					//TODO(mierdin): Prudent to do a check for this
+					Hosts:      []string{domain},
 					SecretName: "tls-certificate",
 				},
 			},
@@ -67,7 +65,7 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{
 								{
-									Path: ifr.URI,
+									Path: fmt.Sprintf("/%s-%s", nsName, ifr.Name),
 									Backend: v1beta1.IngressBackend{
 										ServiceName: ifr.Name,
 										ServicePort: intstr.FromInt(int(ifr.Port)),
@@ -91,7 +89,7 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 
 		result, err := betaclient.Ingresses(nsName).Get(ifr.Name, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
+			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
