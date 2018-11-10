@@ -28,13 +28,6 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
 
-	serviceTypeMap := map[string]corev1.ServiceType{
-		"UTILITY":  corev1.ServiceTypeClusterIP,
-		"BLACKBOX": corev1.ServiceTypeClusterIP,
-		"DEVICE":   corev1.ServiceTypeClusterIP,
-		"IFRAME":   corev1.ServiceTypeNodePort,
-	}
-
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
@@ -56,7 +49,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below
 
-			Type: serviceTypeMap[pod.ObjectMeta.Labels["endpointType"]],
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 
