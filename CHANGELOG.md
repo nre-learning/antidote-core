@@ -5,18 +5,7 @@
 - Modified lessondefs api to output all lessons in one call - [#18](https://github.com/nre-learning/syringe/pull/18)
 - Make iframe resource image configurable - [#19](https://github.com/nre-learning/syringe/pull/19)
 - Use ingresses for all iframe resources - [#28](https://github.com/nre-learning/syringe/pull/28)
-
-### Curriculum
-
-### Other
-
-
-## 0.1.2 - October 29, 2018
-
-### Curriculum
-
-### Other
-
+- Removed some unnecessary fields from lesson metadata - [#29](https://github.com/nre-learning/syringe/pull/29)
 
 ## 0.1.1 - October 28, 2018
 
