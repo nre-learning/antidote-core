@@ -3,17 +3,14 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	log "github.com/Sirupsen/logrus"
 	api "github.com/nre-learning/syringe/api/exp"
 	config "github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/def"
 	"github.com/nre-learning/syringe/scheduler"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 )
 
@@ -35,23 +32,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Get lesson definitions
-	fileList := []string{}
-	log.Debugf("Searching %s for lesson definitions", syringeConfig.LessonsDir)
-	err = filepath.Walk(syringeConfig.LessonsDir, func(path string, f os.FileInfo, err error) error {
-		syringeFileLocation := fmt.Sprintf("%s/syringe.yaml", path)
-		if _, err := os.Stat(syringeFileLocation); err == nil {
-			log.Debugf("Found lesson definition at: %s", syringeFileLocation)
-			fileList = append(fileList, syringeFileLocation)
-		}
-		return nil
-	})
-
-	lessonDefs, err := def.ImportLessonDefs(syringeConfig, fileList)
+	lessonDefs, err := api.ImportLessonDefs(syringeConfig, syringeConfig.LessonsDir)
 	if err != nil {
 		log.Warn(err)
 	}
-	log.Infof("Imported %d lesson definitions.", len(lessonDefs))
 
 	// Start lesson scheduler
 	lessonScheduler := scheduler.LessonScheduler{

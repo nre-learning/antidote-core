@@ -1,8 +1,10 @@
 syntax = "proto3";
 package syringe.api.exp;
 
+// import "validate/validate.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "validate/validate.proto";
 
 service LessonDefService {
 
@@ -34,16 +36,65 @@ message LessonID {
 }
 
 message LessonDef {
-  int32 LessonId = 1;
-  repeated LessonStage Stages = 2;
-  string LessonName = 3;
-}
+  int32 LessonId = 1 [(validate.rules).int32.gt = 0];
+  map<int32, LessonStage> Stages = 2 [(validate.rules).map = {min_pairs: 1}];
+  string LessonName = 3 [(validate.rules).string.min_len = 10];
+  repeated IframeResource IframeResources = 4;
+  repeated Device Devices = 5;
+  repeated Utility Utilities = 6;
+  repeated Blackbox Blackboxes = 7;
+  repeated Connection Connections = 8;
+  string Category = 9 [(validate.rules).string = {in: ["introductory", "troubleshooting", "verification", "configuration"]}];
+  string LessonDiagram = 10;
+  string LessonVideo = 11;
+  string Tier = 12 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
 
-message LessonStage {
-  int32 StageId = 1;
-  string Description = 2;
 }
 
 message LessonDefFilter {
   string Category = 1;
+}
+
+message LessonStage {
+  int32 Id = 1 [(validate.rules).int32.gt = 0];
+  string Description = 2;
+  string LabGuide = 3;
+}
+
+message Utility {
+  string Name = 1 [(validate.rules).string.min_len = 1];
+  string Image = 2 [(validate.rules).string.min_len = 1];
+  string Sshuser = 3 [(validate.rules).string.min_len = 1];
+  string Sshpassword = 4 [(validate.rules).string.min_len = 1];
+  repeated int32 Ports = 5;
+}
+
+message Blackbox {
+  string Name = 1 [(validate.rules).string.min_len = 1];
+  string Image = 2 [(validate.rules).string.min_len = 1];
+  string Sshuser = 3;
+  string Sshpassword = 4;
+  repeated int32 Ports = 5;
+}
+
+message Device {
+  string Name = 1 [(validate.rules).string.min_len = 1];
+  string Image = 2 [(validate.rules).string.min_len = 1];
+  string Sshuser = 3 [(validate.rules).string.min_len = 1];
+  string Sshpassword = 4 [(validate.rules).string.min_len = 1];
+  repeated int32 Ports = 5;
+}
+
+message IframeResource {
+  string Name = 1 [(validate.rules).string.min_len = 1];
+  string Image = 2 [(validate.rules).string.min_len = 1];
+  string Protocol = 3 [(validate.rules).string.min_len = 1];
+  string Path = 4 [(validate.rules).string.min_len = 1];
+  int32 Port = 5 [(validate.rules).int32.gt = 0];
+}
+
+message Connection {
+  string A = 1 [(validate.rules).string.min_len = 1];
+  string B = 2 [(validate.rules).string.min_len = 1];
+  string Subnet = 3 [(validate.rules).string.min_len = 1];
 }

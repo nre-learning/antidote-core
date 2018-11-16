@@ -1,3 +1,23 @@
+v1.6.4 [2018-10-23]
+-------------------
+
+### Features
+
+-	[#10347](https://github.com/influxdata/influxdb/pull/10347): Set cache size when building TSI index.
+
+### Bugfixes
+
+-	[#10320](https://github.com/influxdata/influxdb/pull/10320): Fix tsi1 sketch locking.
+-	[#10334](https://github.com/influxdata/influxdb/pull/10334): Fix subquery functionality when a function references a tag from the subquery.
+-	[#10334](https://github.com/influxdata/influxdb/pull/10334): Strip tags from a subquery when the outer query does not group by that tag.
+-	[#10316](https://github.com/influxdata/influxdb/pull/10316): Add -series-file flag to dumptsi command help.
+-	[#10348](https://github.com/influxdata/influxdb/pull/10348): Cleanup failed TSM snapshots.
+-	[#10355](https://github.com/influxdata/influxdb/pull/10355): Fix TSM1 panic on reader error.
+-	[#10356](https://github.com/influxdata/influxdb/pull/10356): Fix series file tombstoning.
+-	[#10364](https://github.com/influxdata/influxdb/pull/10364): Fixing the stream iterator to not ignore the error.
+-	[#10371](https://github.com/influxdata/influxdb/pull/10371): Do not panic when a series id iterator is nil.
+-	[#10343](https://github.com/influxdata/influxdb/pull/10343): Fix append of possible nil iterator.
+
 v1.6.3 [2018-09-14]
 -------------------
 

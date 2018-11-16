@@ -3,8 +3,8 @@ package scheduler
 import (
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
-	def "github.com/nre-learning/syringe/def"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	betav1client "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 )
 
-func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.IframeResource) (*v1beta1.Ingress, error) {
+func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
 
 	betaclient, err := betav1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -35,8 +35,8 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *def.Ifra
 				"ingress.kubernetes.io/ssl-services":            ifr.Name,
 				"ingress.kubernetes.io/ssl-redirect":            "true",
 				"ingress.kubernetes.io/force-ssl-redirect":      "true",
-				"ingress.kubernetes.io/rewrite-target":          ifr.URI,
-				"nginx.ingress.kubernetes.io/rewrite-target":    ifr.URI,
+				"ingress.kubernetes.io/rewrite-target":          ifr.Path,
+				"nginx.ingress.kubernetes.io/rewrite-target":    ifr.Path,
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
 				"nginx.ingress.kubernetes.io/limit-rps":         "5",
 			},

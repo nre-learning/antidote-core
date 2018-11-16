@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
+	log "github.com/sirupsen/logrus"
 )
 
 func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
@@ -202,13 +202,13 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 	}
 
 	// Remove all blackbox entries
-	newEndpoints := []*pb.Endpoint{}
-	for e := range ll.Endpoints {
-		if ll.Endpoints[e].Type != pb.Endpoint_BLACKBOX {
-			newEndpoints = append(newEndpoints, ll.Endpoints[e])
+	newEndpoints := []*pb.LiveEndpoint{}
+	for e := range ll.LiveEndpoints {
+		if ll.LiveEndpoints[e].Type != pb.LiveEndpoint_BLACKBOX {
+			newEndpoints = append(newEndpoints, ll.LiveEndpoints[e])
 		}
 	}
-	ll.Endpoints = newEndpoints
+	ll.LiveEndpoints = newEndpoints
 
 	return ll, nil
 

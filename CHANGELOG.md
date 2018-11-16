@@ -2,6 +2,8 @@
 
 ## In development
 
+- Consolidate lesson definition logic, and provide local validation tool (syrctl) [#30](https://github.com/nre-learning/syringe/pull/30)
+
 
 ## 0.1.3 - November 15, 2018
 

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,7 +119,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
 
 	log.Infof("Creating namespace: %s", req.Session)
 
@@ -127,7 +127,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 				"syringeTier":    ls.SyringeConfig.Tier,

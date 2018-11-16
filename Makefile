@@ -17,27 +17,19 @@ compile:
 
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 
-	@protoc -I/usr/local/include -I. \
-	-I api/exp/definitions/ \
-	-I$$GOPATH/src \
-	-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	--grpc-gateway_out=logtostderr=true,allow_delete_body=true:. \
-	api/exp/definitions/*.proto
-
-	@mv api/exp/definitions/*.pb.gw.go api/exp/generated/
-
 	@protoc -I api/exp/definitions/ -I. \
 	-I api/exp/definitions/ \
 	  api/exp/definitions/*.proto \
 		-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	--go_out=plugins=grpc:api/exp/generated/
+		-I$$GOPATH/src/github.com/lyft/protoc-gen-validate \
+	--go_out=plugins=grpc:api/exp/generated/ \
+    --grpc-gateway_out=logtostderr=true,allow_delete_body=true:api/exp/generated/ \
+    --validate_out=lang=go:api/exp/generated/ \
+	--swagger_out=logtostderr=true,allow_delete_body=true:api/exp/definitions/
 
-	@protoc -I/usr/local/include -I. \
-	-I api/exp/definitions/ \
-	  -I$$GOPATH/src \
-	  -I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	  --swagger_out=logtostderr=true,allow_delete_body=true:. \
-	  api/exp/definitions/*.proto
+	@# Adding equivalent YAML tags so we can import lesson definitions into protobuf-created structs
+	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lessondef.pb.go
+	@rm -f api/exp/generated/lessondef.pb.go.bak
 
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/

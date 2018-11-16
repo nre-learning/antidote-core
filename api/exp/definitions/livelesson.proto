@@ -55,7 +55,7 @@ message LiveLessonMap {
 message LiveLesson {
   string LessonUUID = 1;
   int32 LessonId = 2;
-  repeated Endpoint Endpoints  = 3;
+  repeated LiveEndpoint LiveEndpoints  = 3;
   int32 LessonStage = 4;
   string LabGuide = 5;
   bool Ready = 6;
@@ -66,7 +66,7 @@ message LiveLesson {
   bool Error = 11;
 }
 
-message Endpoint {
+message LiveEndpoint {
   string Name  = 1;
 
   // This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc.

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	log "github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +55,7 @@ func (ls *LessonScheduler) killAllJobs(nsName string) error {
 
 func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
 
 	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -92,24 +92,24 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 }
 
-func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
 
 	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
 
-	jobName := fmt.Sprintf("config-%s", ep.Name)
-	podName := fmt.Sprintf("config-%s", ep.Name)
+	jobName := fmt.Sprintf("config-%s", ep.GetName())
+	podName := fmt.Sprintf("config-%s", ep.GetName())
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 				"stageId":        strconv.Itoa(int(req.Stage)),
@@ -122,7 +122,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
+						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 						"sessionId":      req.Session,
 						"syringeManaged": "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
@@ -169,7 +169,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 								ep.Host,
 								"configure",
 								// req.LessonDef.Stages[req.Stage].Configs[ep.Name],
-								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonID, req.Stage, ep.Name),
+								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonId, req.Stage, ep.Name),
 								"--strategy=merge",
 							},
 

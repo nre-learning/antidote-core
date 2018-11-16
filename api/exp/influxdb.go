@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes"
 	influx "github.com/influxdata/influxdb/client/v2"
 	scheduler "github.com/nre-learning/syringe/scheduler"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -45,18 +45,18 @@ func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonId":   strconv.Itoa(int(req.LessonDef.LessonID)),
+		"lessonId":   strconv.Itoa(int(req.LessonDef.LessonId)),
 		"lessonName": req.LessonDef.LessonName,
 		"sessionId":  req.Session,
 		"operation":  string(req.Operation),
 	}
 
 	fields := map[string]interface{}{
-		"lessonId":     strconv.Itoa(int(req.LessonDef.LessonID)),
+		"lessonId":     strconv.Itoa(int(req.LessonDef.LessonId)),
 		"sessionId":    req.Session,
 		"operation":    req.Operation,
 		"lessonName":   req.LessonDef.LessonName,
-		"lessonIDName": fmt.Sprintf("%d - %s", req.LessonDef.LessonID, req.LessonDef.LessonName),
+		"lessonIDName": fmt.Sprintf("%d - %s", req.LessonDef.LessonId, req.LessonDef.LessonName),
 	}
 
 	// can you get length of time used from namespace labels?

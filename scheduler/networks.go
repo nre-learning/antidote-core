@@ -5,12 +5,13 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
-	"github.com/nre-learning/syringe/def"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/nre-learning/syringe/pkg/client"
 	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,8 +51,8 @@ func (ls *LessonScheduler) lockDownNetworkPolicy(np *netv1.NetworkPolicy) error 
 		panic(err)
 	}
 
-	var tcp v1.Protocol = "TCP"
-	var udp v1.Protocol = "UDP"
+	var tcp corev1.Protocol = "TCP"
+	var udp corev1.Protocol = "UDP"
 	fivethree := intstr.IntOrString{IntVal: 53}
 
 	np.Spec.Egress = []netv1.NetworkPolicyEgressRule{
@@ -158,7 +159,7 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonID, req.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
 
 	// Create a CRD client interface
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
@@ -166,7 +167,7 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
 	// https://access.redhat.com/solutions/652593
-	strLid := strconv.Itoa(int(req.LessonDef.LessonID))
+	strLid := strconv.Itoa(int(req.LessonDef.LessonId))
 	chars := 12 - len(strLid)
 
 	bridgeName := fmt.Sprintf("%s-%s", strLid, req.Session)
@@ -197,7 +198,7 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonID),
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 			},
@@ -230,7 +231,7 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 }
 
 // getMemberNetworks gets the names of all networks a device belongs to based on definition.
-func getMemberNetworks(deviceName string, connections []*def.Connection) []string {
+func getMemberNetworks(deviceName string, connections []*pb.Connection) []string {
 	// We want the management network to be first always.
 	// EDIT: Commented out since the management network is provided implicitly for now. We may want to move to an explicit model soon.
 	// memberNets := []string{
