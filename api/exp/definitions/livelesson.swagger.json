@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "api/exp/definitions/livelesson.proto",
+    "title": "livelesson.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -102,7 +102,7 @@
     }
   },
   "definitions": {
-    "EndpointEndpointType": {
+    "LiveEndpointEndpointType": {
       "type": "string",
       "enum": [
         "UNKNOWN",
@@ -113,34 +113,6 @@
       ],
       "default": "UNKNOWN",
       "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
-    "expEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "$ref": "#/definitions/EndpointEndpointType"
-        },
-        "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "IframeDetails": {
-          "$ref": "#/definitions/expIFDetails"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
-          "type": "string"
-        }
-      }
     },
     "expHealthCheckMessage": {
       "type": "object"
@@ -198,6 +170,34 @@
         }
       }
     },
+    "expLiveEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/LiveEndpointEndpointType"
+        },
+        "Host": {
+          "type": "string",
+          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "IframeDetails": {
+          "$ref": "#/definitions/expIFDetails"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        }
+      }
+    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
@@ -208,10 +208,10 @@
           "type": "integer",
           "format": "int32"
         },
-        "Endpoints": {
+        "LiveEndpoints": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/expEndpoint"
+            "$ref": "#/definitions/expLiveEndpoint"
           }
         },
         "LessonStage": {

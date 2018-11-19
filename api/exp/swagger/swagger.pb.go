@@ -4,7 +4,7 @@ const (
 Lessondef = `{
   "swagger": "2.0",
   "info": {
-    "title": "api/exp/definitions/lessondef.proto",
+    "title": "lessondef.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -62,6 +62,89 @@ Lessondef = `{
     }
   },
   "definitions": {
+    "expBlackbox": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expConnection": {
+      "type": "object",
+      "properties": {
+        "A": {
+          "type": "string"
+        },
+        "B": {
+          "type": "string"
+        },
+        "Subnet": {
+          "type": "string"
+        }
+      }
+    },
+    "expDevice": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expIframeResource": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "expLessonCategoryMap": {
       "type": "object",
       "properties": {
@@ -81,12 +164,54 @@ Lessondef = `{
           "format": "int32"
         },
         "Stages": {
-          "type": "array",
-          "items": {
+          "type": "object",
+          "additionalProperties": {
             "$ref": "#/definitions/expLessonStage"
           }
         },
         "LessonName": {
+          "type": "string"
+        },
+        "IframeResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expIframeResource"
+          }
+        },
+        "Devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expDevice"
+          }
+        },
+        "Utilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expUtility"
+          }
+        },
+        "Blackboxes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expBlackbox"
+          }
+        },
+        "Connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expConnection"
+          }
+        },
+        "Category": {
+          "type": "string"
+        },
+        "LessonDiagram": {
+          "type": "string"
+        },
+        "LessonVideo": {
+          "type": "string"
+        },
+        "Tier": {
           "type": "string"
         }
       }
@@ -105,12 +230,39 @@ Lessondef = `{
     "expLessonStage": {
       "type": "object",
       "properties": {
-        "StageId": {
+        "Id": {
           "type": "integer",
           "format": "int32"
         },
         "Description": {
           "type": "string"
+        },
+        "LabGuide": {
+          "type": "string"
+        }
+      }
+    },
+    "expUtility": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       }
     }
@@ -120,7 +272,7 @@ Lessondef = `{
 Livelesson = `{
   "swagger": "2.0",
   "info": {
-    "title": "api/exp/definitions/livelesson.proto",
+    "title": "livelesson.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -221,7 +373,7 @@ Livelesson = `{
     }
   },
   "definitions": {
-    "EndpointEndpointType": {
+    "LiveEndpointEndpointType": {
       "type": "string",
       "enum": [
         "UNKNOWN",
@@ -232,34 +384,6 @@ Livelesson = `{
       ],
       "default": "UNKNOWN",
       "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
-    "expEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "$ref": "#/definitions/EndpointEndpointType"
-        },
-        "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "IframeDetails": {
-          "$ref": "#/definitions/expIFDetails"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
-          "type": "string"
-        }
-      }
     },
     "expHealthCheckMessage": {
       "type": "object"
@@ -317,6 +441,34 @@ Livelesson = `{
         }
       }
     },
+    "expLiveEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/LiveEndpointEndpointType"
+        },
+        "Host": {
+          "type": "string",
+          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "IframeDetails": {
+          "$ref": "#/definitions/expIFDetails"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        }
+      }
+    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
@@ -327,10 +479,10 @@ Livelesson = `{
           "type": "integer",
           "format": "int32"
         },
-        "Endpoints": {
+        "LiveEndpoints": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/expEndpoint"
+            "$ref": "#/definitions/expLiveEndpoint"
           }
         },
         "LessonStage": {
@@ -392,7 +544,7 @@ Livelesson = `{
 Syringeinfo = `{
   "swagger": "2.0",
   "info": {
-    "title": "api/exp/definitions/syringeinfo.proto",
+    "title": "syringeinfo.proto",
     "version": "version not set"
   },
   "schemes": [

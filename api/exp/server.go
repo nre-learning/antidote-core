@@ -18,12 +18,12 @@ import (
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
-	log "github.com/Sirupsen/logrus"
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
 	assetfs "github.com/philips/go-bindata-assetfs"
+	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
 
 	gw "github.com/nre-learning/syringe/api/exp/generated"

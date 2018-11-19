@@ -9,12 +9,11 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
-	def "github.com/nre-learning/syringe/def"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -42,8 +41,17 @@ var (
 	kubeLabs                 = map[string]*KubeLab{}
 )
 
+// Endpoint should be satisfied by Utility, Blackbox, and Device
+type Endpoint interface {
+	GetName() string
+	GetImage() string
+	GetSshuser() string
+	GetSshpassword() string
+	GetPorts() []int32
+}
+
 type LessonScheduleRequest struct {
-	LessonDef *def.LessonDefinition
+	LessonDef *pb.LessonDef
 	Operation OperationType
 	Uuid      string
 	Session   string
@@ -53,7 +61,7 @@ type LessonScheduleRequest struct {
 type LessonScheduleResult struct {
 	Success   bool
 	Stage     int32
-	LessonDef *def.LessonDefinition
+	LessonDef *pb.LessonDef
 	Operation OperationType
 	Message   string
 	KubeLab   *KubeLab
@@ -66,7 +74,7 @@ type LessonScheduler struct {
 	KubeConfig    *rest.Config
 	Requests      chan *LessonScheduleRequest
 	Results       chan *LessonScheduleResult
-	LessonDefs    map[int32]*def.LessonDefinition
+	LessonDefs    map[int32]*pb.LessonDef
 	SyringeConfig *config.SyringeConfig
 }
 
@@ -118,7 +126,7 @@ func (ls *LessonScheduler) Start() error {
 }
 
 func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
-	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
 	if newRequest.Operation == OperationType_CREATE {
 		newKubeLab, err := ls.createKubeLab(newRequest)
 		if err != nil {
@@ -139,7 +147,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			time.Sleep(1 * time.Second)
 
 			if tries > 600 {
-				log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonID)
+				log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonId)
 				ls.Results <- &LessonScheduleResult{
 					Success:   false,
 					LessonDef: newRequest.LessonDef,
@@ -158,8 +166,8 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			break
 		}
 
-		if newRequest.LessonDef.HasDevices() {
-			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonID)
+		if HasDevices(newRequest.LessonDef) {
+			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonId)
 			err := ls.configureStuff(nsName, liveLesson, newRequest)
 			if err != nil {
 				ls.Results <- &LessonScheduleResult{
@@ -172,7 +180,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				}
 			}
 		} else {
-			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonID)
+			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonId)
 		}
 
 		// Finish locking down networkpolicy now that lesson is online and reachable
@@ -212,8 +220,8 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		kubeLabs[newRequest.Uuid].CreateRequest = newRequest
 		liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
 
-		if newRequest.LessonDef.HasDevices() {
-			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
+		if HasDevices(newRequest.LessonDef) {
+			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
 			err := ls.configureStuff(nsName, liveLesson, newRequest)
 			if err != nil {
 				ls.Results <- &LessonScheduleResult{
@@ -227,10 +235,10 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				return
 			}
 		} else {
-			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonID)
+			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
 		}
 
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {
@@ -247,7 +255,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		}
 
 	} else if newRequest.Operation == OperationType_BOOP {
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonID, newRequest.Session)
+		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {
@@ -262,10 +270,10 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 	ls.killAllJobs(nsName)
 
 	// Perform configuration changes for devices only
-	var deviceEndpoints []*pb.Endpoint
-	for i := range liveLesson.Endpoints {
-		ep := liveLesson.Endpoints[i]
-		if ep.Type == pb.Endpoint_DEVICE {
+	var deviceEndpoints []*pb.LiveEndpoint
+	for i := range liveLesson.LiveEndpoints {
+		ep := liveLesson.LiveEndpoints[i]
+		if ep.Type == pb.LiveEndpoint_DEVICE {
 			deviceEndpoints = append(deviceEndpoints, ep)
 		}
 	}
@@ -338,7 +346,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
 
 	// Only bother making connections and device pod/services if we have a custom topology
-	if kl.CreateRequest.LessonDef.HasDevices() {
+	if HasDevices(kl.CreateRequest.LessonDef) {
 
 		log.Debug("Creating devices and connections")
 
@@ -362,7 +370,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			device := req.LessonDef.Devices[d]
 			newPod, err := ls.createPod(
 				device,
-				pb.Endpoint_DEVICE,
+				pb.LiveEndpoint_DEVICE,
 				getMemberNetworks(device.Name, req.LessonDef.Connections),
 				req,
 			)
@@ -392,7 +400,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		utility := req.LessonDef.Utilities[d]
 		newPod, err := ls.createPod(
 			utility,
-			pb.Endpoint_UTILITY,
+			pb.LiveEndpoint_UTILITY,
 			getMemberNetworks(utility.Name, req.LessonDef.Connections),
 			req,
 		)
@@ -418,7 +426,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		blackbox := req.LessonDef.Blackboxes[d]
 		newPod, err := ls.createPod(
 			blackbox,
-			pb.Endpoint_BLACKBOX,
+			pb.LiveEndpoint_BLACKBOX,
 			getMemberNetworks(blackbox.Name, req.LessonDef.Connections),
 			req,
 		)
@@ -445,13 +453,15 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 
 		ifr := req.LessonDef.IframeResources[d]
 
+		// TODO(mierdin): Defining this as a blackbox to get it into the createPod function is a little wonky.
+		// You might have to modify the endpoint interface to include iframe resources as a first class citizen
 		iframePod, _ := ls.createPod(
-			&def.Endpoint{
+			&pb.Blackbox{
 				Name:  ifr.Name,
 				Image: ifr.Image,
 				Ports: []int32{ifr.Port},
 			},
-			pb.Endpoint_IFRAME,
+			pb.LiveEndpoint_IFRAME,
 			[]string{},
 			req,
 		)
@@ -516,8 +526,8 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 	ret := pb.LiveLesson{
 		LessonUUID:    kl.CreateRequest.Uuid,
-		LessonId:      kl.CreateRequest.LessonDef.LessonID,
-		Endpoints:     []*pb.Endpoint{},
+		LessonId:      kl.CreateRequest.LessonDef.LessonId,
+		LiveEndpoints: []*pb.LiveEndpoint{},
 		LessonStage:   kl.CreateRequest.Stage,
 		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
 		LessonVideo:   kl.CreateRequest.LessonDef.LessonVideo,
@@ -550,9 +560,9 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		host, port, _ := getConnectivityInfo(kl.Services[s])
 		// portInt, _ := strconv.Atoi(port)
 
-		endpoint := &pb.Endpoint{
+		endpoint := &pb.LiveEndpoint{
 			Name:        podBuddy.ObjectMeta.Name,
-			Type:        pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
+			Type:        pb.LiveEndpoint_EndpointType(pb.LiveEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
 			Host:        host,
 			Port:        int32(port),
 			Sshuser:     kl.Services[s].ObjectMeta.Labels["sshUser"],
@@ -562,13 +572,13 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 		// The configuration is in the ingress, so we just need to pass the name to the web side and it can
 		// figure out the path itself.
-		if endpoint.Type == pb.Endpoint_IFRAME {
+		if endpoint.Type == pb.LiveEndpoint_IFRAME {
 			endpoint.IframeDetails = &pb.IFDetails{
 				Name: endpoint.Name,
 			}
 		}
 
-		ret.Endpoints = append(ret.Endpoints, endpoint)
+		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
 	}
 
 	ret.LabGuide = kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide
@@ -629,13 +639,13 @@ func isReachable(ll *pb.LiveLesson) bool {
 	reachableMap := map[string]bool{}
 
 	wg := new(sync.WaitGroup)
-	wg.Add(len(ll.Endpoints))
+	wg.Add(len(ll.LiveEndpoints))
 
 	var mapMutex = &sync.Mutex{}
 
-	for d := range ll.Endpoints {
+	for d := range ll.LiveEndpoints {
 
-		ep := ll.Endpoints[d]
+		ep := ll.LiveEndpoints[d]
 
 		go func() {
 			defer wg.Done()
@@ -643,9 +653,9 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 			testResult := false
 
-			if ep.GetType() == pb.Endpoint_DEVICE || ep.GetType() == pb.Endpoint_UTILITY {
+			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
 				testResult = sshTest(ep)
-			} else if ep.GetType() == pb.Endpoint_IFRAME || ep.GetType() == pb.Endpoint_BLACKBOX {
+			} else if ep.GetType() == pb.LiveEndpoint_IFRAME || ep.GetType() == pb.LiveEndpoint_BLACKBOX {
 				testResult = connectTest(ep)
 			}
 			mapMutex.Lock()
@@ -667,7 +677,7 @@ func isReachable(ll *pb.LiveLesson) bool {
 	return true
 }
 
-func sshTest(ep *pb.Endpoint) bool {
+func sshTest(ep *pb.LiveEndpoint) bool {
 	intPort := strconv.Itoa(int(ep.Port))
 	sshConfig := &ssh.ClientConfig{
 		User:            ep.Sshuser,
@@ -688,7 +698,7 @@ func sshTest(ep *pb.Endpoint) bool {
 	return true
 }
 
-func connectTest(ep *pb.Endpoint) bool {
+func connectTest(ep *pb.LiveEndpoint) bool {
 	intPort := strconv.Itoa(int(ep.Port))
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
 	if err != nil {
@@ -698,4 +708,8 @@ func connectTest(ep *pb.Endpoint) bool {
 
 	log.Debugf("done connect testing %s", ep.Host)
 	return true
+}
+
+func HasDevices(ld *pb.LessonDef) bool {
+	return len(ld.Devices) > 0
 }

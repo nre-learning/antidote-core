@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "api/exp/definitions/lessondef.proto",
+    "title": "lessondef.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -59,6 +59,89 @@
     }
   },
   "definitions": {
+    "expBlackbox": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expConnection": {
+      "type": "object",
+      "properties": {
+        "A": {
+          "type": "string"
+        },
+        "B": {
+          "type": "string"
+        },
+        "Subnet": {
+          "type": "string"
+        }
+      }
+    },
+    "expDevice": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expIframeResource": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "expLessonCategoryMap": {
       "type": "object",
       "properties": {
@@ -78,12 +161,54 @@
           "format": "int32"
         },
         "Stages": {
-          "type": "array",
-          "items": {
+          "type": "object",
+          "additionalProperties": {
             "$ref": "#/definitions/expLessonStage"
           }
         },
         "LessonName": {
+          "type": "string"
+        },
+        "IframeResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expIframeResource"
+          }
+        },
+        "Devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expDevice"
+          }
+        },
+        "Utilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expUtility"
+          }
+        },
+        "Blackboxes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expBlackbox"
+          }
+        },
+        "Connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expConnection"
+          }
+        },
+        "Category": {
+          "type": "string"
+        },
+        "LessonDiagram": {
+          "type": "string"
+        },
+        "LessonVideo": {
+          "type": "string"
+        },
+        "Tier": {
           "type": "string"
         }
       }
@@ -102,12 +227,39 @@
     "expLessonStage": {
       "type": "object",
       "properties": {
-        "StageId": {
+        "Id": {
           "type": "integer",
           "format": "int32"
         },
         "Description": {
           "type": "string"
+        },
+        "LabGuide": {
+          "type": "string"
+        }
+      }
+    },
+    "expUtility": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Sshuser": {
+          "type": "string"
+        },
+        "Sshpassword": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
         }
       }
     }
