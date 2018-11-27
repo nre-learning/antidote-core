@@ -122,6 +122,12 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 
 					// ImagePullPolicy: "IfNotPresent",
 
+					Env: []corev1.EnvVar{
+
+						// Passing in full ref as an env var in case the pod needs to configure a base URL for ingress purposes.
+						{Name: "SYRINGE_FULL_REF", Value: fmt.Sprintf("%s-%s", nsName, ep.GetName())},
+					},
+
 					Ports: []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: []corev1.VolumeMount{
 						{

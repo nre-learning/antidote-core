@@ -552,12 +552,17 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			// ApiPort
 		}
 
-		// The configuration is in the ingress, so we just need to pass the name to the web side and it can
-		// figure out the path itself.
-		if endpoint.Type == pb.LiveEndpoint_IFRAME {
-			endpoint.IframeDetails = &pb.IFDetails{
-				Name: endpoint.Name,
-			}
+		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
+	}
+
+	for i := range kl.CreateRequest.LessonDef.IframeResources {
+
+		ifr := kl.CreateRequest.LessonDef.IframeResources[i]
+
+		endpoint := &pb.LiveEndpoint{
+			Name:       ifr.Ref,
+			Type:       pb.LiveEndpoint_IFRAME,
+			IframePath: ifr.Path,
 		}
 
 		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
@@ -637,8 +642,10 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
 				testResult = sshTest(ep)
-			} else if ep.GetType() == pb.LiveEndpoint_IFRAME || ep.GetType() == pb.LiveEndpoint_BLACKBOX {
+			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
 				testResult = connectTest(ep)
+			} else {
+				testResult = true
 			}
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
