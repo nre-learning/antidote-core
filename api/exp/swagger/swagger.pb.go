@@ -127,10 +127,7 @@ Lessondef = `{
     "expIframeResource": {
       "type": "object",
       "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
+        "Ref": {
           "type": "string"
         },
         "Protocol": {

@@ -138,12 +138,31 @@ FILES:
 			}
 		}
 
+		if len(lessonDef.IframeResources) > 0 {
+			for i := range lessonDef.IframeResources {
+				ifr := lessonDef.IframeResources[i]
+				if !entityInLabDef(ifr.Ref, &lessonDef) {
+					log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Iframe resource refers to nonexistent entity %s", ifr.Ref)))
+					continue FILES
+				}
+			}
+		}
+
 		// TODO(mierdin): Make sure lesson ID, lesson name, stage ID and stage name are unique. If you try to read a value in, make sure it doesn't exist. If it does, error out
+
+		// TODO(mierdin): Need to validate that each name is unique across blackboxes, utilities, and devices.
 
 		// TODO(mierdin): Need to run checks to see that files are located where they need to be. Things like
 		// configs, and lesson guides
 
-		log.Infof("Successfully imported lesson %d: %s", lessonDef.LessonId, lessonDef.LessonName)
+		log.Infof("Successfully imported lesson %d: %s --- BLACKBOX: %d, IFR: %d, UTILITY: %d, DEVICE: %d, CONNECTIONS: %d", lessonDef.LessonId, lessonDef.LessonName,
+			len(lessonDef.Blackboxes),
+			len(lessonDef.IframeResources),
+			len(lessonDef.Utilities),
+			len(lessonDef.Devices),
+			len(lessonDef.Connections),
+		)
+
 		retLds[lessonDef.LessonId] = &lessonDef
 	}
 
