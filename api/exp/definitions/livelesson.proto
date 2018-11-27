@@ -84,18 +84,11 @@ message LiveEndpoint {
   string Host = 3;
   int32 Port  = 4;
 
-  IFDetails IframeDetails = 5;
+  string IframePath = 5;
 
   string Sshuser = 6;
   string Sshpassword = 7;
 
-}
-
-message IFDetails {
-    string name = 1;
-    string Protocol = 2;
-    string URI = 3;
-    int32 Port = 4;
 }
 
 message LessonParams {

@@ -127,10 +127,7 @@ Lessondef = `{
     "expIframeResource": {
       "type": "object",
       "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
+        "Ref": {
           "type": "string"
         },
         "Protocol": {
@@ -388,24 +385,6 @@ Livelesson = `{
     "expHealthCheckMessage": {
       "type": "object"
     },
-    "expIFDetails": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "Protocol": {
-          "type": "string"
-        },
-        "URI": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
     "expLessonParams": {
       "type": "object",
       "properties": {
@@ -458,8 +437,8 @@ Livelesson = `{
           "type": "integer",
           "format": "int32"
         },
-        "IframeDetails": {
-          "$ref": "#/definitions/expIFDetails"
+        "IframePath": {
+          "type": "string"
         },
         "Sshuser": {
           "type": "string"

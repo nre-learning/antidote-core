@@ -5,7 +5,6 @@ import (
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,32 +12,31 @@ import (
 	betav1client "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 )
 
-func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
+func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
 
 	betaclient, err := betav1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	nsName := svcBuddy.ObjectMeta.Namespace
-
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ifr.Name,
+			Name:      ifr.Ref,
 			Namespace: nsName,
 			Labels: map[string]string{
 				"syringeManaged": "yes",
-				"endpointType":   svcBuddy.ObjectMeta.Labels["endpointType"],
 			},
 			Annotations: map[string]string{
-				"ingress.kubernetes.io/ingress.class":           "nginx",
-				"ingress.kubernetes.io/ssl-services":            ifr.Name,
-				"ingress.kubernetes.io/ssl-redirect":            "true",
-				"ingress.kubernetes.io/force-ssl-redirect":      "true",
-				"ingress.kubernetes.io/rewrite-target":          ifr.Path,
-				"nginx.ingress.kubernetes.io/rewrite-target":    ifr.Path,
+				"ingress.kubernetes.io/ingress.class":      "nginx",
+				"ingress.kubernetes.io/ssl-services":       ifr.Ref,
+				"ingress.kubernetes.io/ssl-redirect":       "true",
+				"ingress.kubernetes.io/force-ssl-redirect": "true",
+				// "ingress.kubernetes.io/rewrite-target":          "/",
+				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
 				"nginx.ingress.kubernetes.io/limit-rps":         "5",
+				"nginx.ingress.kubernetes.io/add-base-url":      "true",
+				"nginx.ingress.kubernetes.io/app-root":          "/13-jjtigg867ghr3gye-ns-jupyter/",
 			},
 		},
 
@@ -52,13 +50,15 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *pb.Ifram
 			Rules: []v1beta1.IngressRule{
 				{
 					Host: ls.SyringeConfig.Domain,
+
+					// TODO(mierdin): need to build this based on incoming protocol from syringefile. Might need to be HTTPS
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{
 								{
-									Path: fmt.Sprintf("/%s-%s", nsName, ifr.Name),
+									Path: fmt.Sprintf("/%s-%s", nsName, ifr.Ref),
 									Backend: v1beta1.IngressBackend{
-										ServiceName: ifr.Name,
+										ServiceName: ifr.Ref,
 										ServicePort: intstr.FromInt(int(ifr.Port)),
 									},
 								},
@@ -76,16 +76,16 @@ func (ls *LessonScheduler) createIngress(svcBuddy *corev1.Service, ifr *pb.Ifram
 		}).Infof("Created ingress: %s", result.ObjectMeta.Name)
 
 	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Ingress %s already exists.", ifr.Name)
+		log.Warnf("Ingress %s already exists.", ifr.Ref)
 
-		result, err := betaclient.Ingresses(nsName).Get(ifr.Name, metav1.GetOptions{})
+		result, err := betaclient.Ingresses(nsName).Get(ifr.Ref, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
 	} else {
-		log.Errorf("Problem creating ingress %s: %s", ifr.Name, err)
+		log.Errorf("Problem creating ingress %s: %s", ifr.Ref, err)
 		return nil, err
 	}
 

@@ -453,29 +453,11 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 
 		ifr := req.LessonDef.IframeResources[d]
 
-		// TODO(mierdin): Defining this as a blackbox to get it into the createPod function is a little wonky.
-		// You might have to modify the endpoint interface to include iframe resources as a first class citizen
-		iframePod, _ := ls.createPod(
-			&pb.Blackbox{
-				Name:  ifr.Name,
-				Image: ifr.Image,
-				Ports: []int32{ifr.Port},
-			},
-			pb.LiveEndpoint_IFRAME,
-			[]string{},
-			req,
-		)
-		kl.Pods[iframePod.ObjectMeta.Name] = iframePod
-
-		// Create service for this pod
-		iframeSvc, _ := ls.createService(
-			iframePod,
-			req,
-		)
-		kl.Services[iframeSvc.ObjectMeta.Name] = iframeSvc
+		// Iframe resources don't create pods/services on their own. You must define a blackbox/utility/device endpoint
+		// and then refer to that in the iframeresource definition. We're just creating an ingress here to access that endpoint.
 
 		iframeIngress, _ := ls.createIngress(
-			iframeSvc,
+			ns.ObjectMeta.Name,
 			ifr,
 		)
 		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
@@ -570,12 +552,17 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			// ApiPort
 		}
 
-		// The configuration is in the ingress, so we just need to pass the name to the web side and it can
-		// figure out the path itself.
-		if endpoint.Type == pb.LiveEndpoint_IFRAME {
-			endpoint.IframeDetails = &pb.IFDetails{
-				Name: endpoint.Name,
-			}
+		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
+	}
+
+	for i := range kl.CreateRequest.LessonDef.IframeResources {
+
+		ifr := kl.CreateRequest.LessonDef.IframeResources[i]
+
+		endpoint := &pb.LiveEndpoint{
+			Name:       ifr.Ref,
+			Type:       pb.LiveEndpoint_IFRAME,
+			IframePath: ifr.Path,
 		}
 
 		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
@@ -655,8 +642,10 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
 				testResult = sshTest(ep)
-			} else if ep.GetType() == pb.LiveEndpoint_IFRAME || ep.GetType() == pb.LiveEndpoint_BLACKBOX {
+			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
 				testResult = connectTest(ep)
+			} else {
+				testResult = true
 			}
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
