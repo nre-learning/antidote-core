@@ -163,6 +163,10 @@ FILES:
 			len(lessonDef.Connections),
 		)
 
+		// Insert stage at zero-index so we can use slice indexes to refer to each stage without jumping through hoops
+		// or making the user use 0 as a stage ID
+		lessonDef.Stages = append([]*pb.LessonStage{{Id: 0}}, lessonDef.Stages...)
+
 		retLds[lessonDef.LessonId] = &lessonDef
 	}
 

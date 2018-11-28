@@ -161,8 +161,8 @@ Lessondef = `{
           "format": "int32"
         },
         "Stages": {
-          "type": "object",
-          "additionalProperties": {
+          "type": "array",
+          "items": {
             "$ref": "#/definitions/expLessonStage"
           }
         },

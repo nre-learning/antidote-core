@@ -26,23 +26,26 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return nil, errors.New(msg)
 	}
 
+	if lp.LessonStage == 0 {
+		msg := "Stage ID cannot be nil"
+		log.Error(msg)
+		return nil, errors.New(msg)
+	}
+
 	// Identify lesson definition - return error if doesn't exist by ID
 	if _, ok := s.scheduler.LessonDefs[lp.LessonId]; !ok {
 		log.Errorf("Couldn't find lesson ID %d", lp.LessonId)
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
 
-	// TODO(mierdin): need to handle invalid stage
-	if _, ok := s.scheduler.LessonDefs[lp.LessonId].Stages[lp.LessonStage]; !ok {
-		msg := "Lesson ID cannot be nil"
+	// Ensure requested stage is present. We add a zero-index stage on import to each lesson so that
+	// stage ID 1 refers to the second index (1) in the stage slice.
+	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
+	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
+	if len(s.scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage+1) {
+		msg := "Invalid stage ID for this lesson"
 		log.Error(msg)
 		return nil, errors.New(msg)
-	}
-
-	var lessonStage int32 = 1
-	// If the incoming stageID is valid, we can use it. Otherwise, leave it at 1
-	if _, ok := s.scheduler.LessonDefs[lp.LessonId].Stages[lp.LessonStage]; ok {
-		lessonStage = lp.LessonStage
 	}
 
 	// Check to see if it already exists in memory. If it does, don't send provision request.
@@ -50,7 +53,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	if _, ok := s.sessions[lp.SessionId]; ok {
 		if lessonUuid, ok := s.sessions[lp.SessionId][lp.LessonId]; ok {
 
-			if s.liveLessons[lessonUuid].LessonStage != lessonStage {
+			if s.liveLessons[lessonUuid].LessonStage != lp.LessonStage {
 
 				// 10.32.0.16 - - [28/Sep/2018:23:21:17 +0000] "POST /exp/livelesson HTTP/1.1" 408 66
 				// panic: runtime error: invalid memory address or nil pointer dereference
@@ -71,13 +74,13 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 				// Since this already existed, we don't need to update the sessions map, or the livelessons map
 				// Just update the stage and ready properties before sending modify request
-				s.liveLessons[lessonUuid].LessonStage = lessonStage
+				s.liveLessons[lessonUuid].LessonStage = lp.LessonStage
 				s.liveLessons[lessonUuid].Ready = false
 
 				req := &scheduler.LessonScheduleRequest{
 					LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 					Operation: scheduler.OperationType_MODIFY,
-					Stage:     lessonStage,
+					Stage:     lp.LessonStage,
 					Uuid:      lessonUuid,
 					Session:   lp.SessionId,
 				}
@@ -132,7 +135,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	req := &scheduler.LessonScheduleRequest{
 		LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 		Operation: scheduler.OperationType_CREATE,
-		Stage:     lessonStage,
+		Stage:     lp.LessonStage,
 		Uuid:      newUuid,
 		Session:   lp.SessionId,
 	}
@@ -142,7 +145,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 	// Pre-emptively populate livelessons map with non-ready livelesson.
 	// This will be updated when the scheduler response comes back.
-	s.liveLessons[newUuid] = &pb.LiveLesson{Ready: false, LessonId: lp.LessonId, LessonUUID: newUuid, LessonStage: lessonStage}
+	s.liveLessons[newUuid] = &pb.LiveLesson{Ready: false, LessonId: lp.LessonId, LessonUUID: newUuid, LessonStage: lp.LessonStage}
 	log.Infof("LiveLessons map: %v", s.liveLessons)
 
 	return &pb.LessonUUID{Id: newUuid}, nil
