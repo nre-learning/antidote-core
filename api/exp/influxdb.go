@@ -112,7 +112,7 @@ func (s *server) startTSDBExport() error {
 		})
 		if err != nil {
 			log.Error("Couldn't connect to Influxdb: ", err)
-			return err
+			continue
 		}
 
 		for lessonId, _ := range s.scheduler.LessonDefs {
@@ -135,7 +135,7 @@ func (s *server) startTSDBExport() error {
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
 			if err != nil {
 				log.Error("Error creating InfluxDB Point: ", err)
-				return err
+				continue
 			}
 
 			bp.AddPoint(pt)
@@ -146,7 +146,7 @@ func (s *server) startTSDBExport() error {
 		err = c.Write(bp)
 		if err != nil {
 			log.Error("Error writing InfluxDB Batch Points: ", err)
-			return err
+			continue
 		}
 
 		log.Debugf("Wrote session data to influxdb: %v", bp)
