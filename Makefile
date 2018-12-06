@@ -69,3 +69,14 @@ gengo:
 	github.com/nre-learning/syringe/pkg/client \
 	github.com/nre-learning/syringe/pkg/apis \
 	k8s.cni.cncf.io:v1
+
+install_bins_linux:
+
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-grpc-gateway-v1.5.1-linux-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-swagger-v1.5.1-linux-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
+
+install_bins_mac:
+
+	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.2.0/protoc-3.2.0-osx-x86_64.zip && rm -rf protoc3 && unzip protoc-3.2.0-osx-x86_64.zip -d protoc3 && chmod +x protoc3/bin/* && sudo mv protoc3/bin/* /usr/local/bin && sudo mv protoc3/include/* /usr/local/include/
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-grpc-gateway-v1.5.1-darwin-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-swagger-v1.5.1-darwin-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
