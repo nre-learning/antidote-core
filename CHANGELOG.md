@@ -4,6 +4,7 @@
 
 - Consolidate lesson definition logic, and provide local validation tool (syrctl) [#30](https://github.com/nre-learning/syringe/pull/30)
 - Redesign and fix the way iframe resources are created and presented to the API[#32](https://github.com/nre-learning/syringe/pull/32)
+- Migrate to `dep` for dependency management [#36](https://github.com/nre-learning/syringe/pull/36)
 
 ## 0.1.3 - November 15, 2018
 
