@@ -7,6 +7,7 @@
 - Keep trying to serve metrics after an influxdb connection failure, instead of returning immediately [#35](https://github.com/nre-learning/syringe/pull/35)
 - Migrate to `dep` for dependency management [#36](https://github.com/nre-learning/syringe/pull/36)
 - Use the 'replace' strategy when applying config changes with NAPALM [#37](https://github.com/nre-learning/syringe/pull/37)
+- Record lesson provisioning time in TSDB [#39](https://github.com/nre-learning/syringe/pull/39)
 
 ## 0.1.3 - November 15, 2018
 
