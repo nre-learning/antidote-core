@@ -88,6 +88,7 @@ message IframeResource {
   string Protocol = 2 [(validate.rules).string.min_len = 1];
   string Path = 3 [(validate.rules).string.min_len = 1];
   int32 Port = 4 [(validate.rules).int32.gt = 0];
+  string RewriteDestination = 5;
 }
 
 message Connection {

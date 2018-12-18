@@ -19,6 +19,13 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 		panic(err)
 	}
 
+	log.Warnf("Detected rwd as |%s|", ifr.RewriteDestination)
+
+	rwd := "/"
+	if ifr.RewriteDestination != "" {
+		rwd = ifr.RewriteDestination
+	}
+
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ifr.Ref,
@@ -27,12 +34,12 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
-				"ingress.kubernetes.io/ingress.class":      "nginx",
-				"ingress.kubernetes.io/ssl-services":       ifr.Ref,
-				"ingress.kubernetes.io/ssl-redirect":       "true",
-				"ingress.kubernetes.io/force-ssl-redirect": "true",
-				// "ingress.kubernetes.io/rewrite-target":          "/",
-				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
+				"ingress.kubernetes.io/ingress.class":           "nginx",
+				"ingress.kubernetes.io/ssl-services":            ifr.Ref,
+				"ingress.kubernetes.io/ssl-redirect":            "true",
+				"ingress.kubernetes.io/force-ssl-redirect":      "true",
+				"ingress.kubernetes.io/rewrite-target":          rwd,
+				"nginx.ingress.kubernetes.io/rewrite-target":    rwd,
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
 				"nginx.ingress.kubernetes.io/limit-rps":         "5",
 				"nginx.ingress.kubernetes.io/add-base-url":      "true",

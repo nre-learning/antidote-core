@@ -139,6 +139,9 @@ Lessondef = `{
         "Port": {
           "type": "integer",
           "format": "int32"
+        },
+        "RewriteDestination": {
+          "type": "string"
         }
       }
     },
