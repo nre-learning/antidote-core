@@ -71,7 +71,7 @@ func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonSched
 		return err
 	}
 
-	log.Debugf("Wrote request data to influxdb: %v", bp)
+	log.Debugf("Wrote provisioning time to influxdb: %v", bp)
 
 	return nil
 }
