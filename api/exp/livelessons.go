@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -137,6 +138,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		Operation: scheduler.OperationType_CREATE,
 		Stage:     lp.LessonStage,
 		Uuid:      newUuid,
+		Created:   time.Now(),
 		Session:   lp.SessionId,
 	}
 	s.scheduler.Requests <- req

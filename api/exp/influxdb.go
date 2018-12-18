@@ -16,6 +16,66 @@ var (
 	influxUDPUrl = "influxdb:8089"
 )
 
+func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
+
+	// Make client
+	c, err := influx.NewUDPClient(influx.UDPConfig{
+		Addr: influxUDPUrl,
+	})
+	if err != nil {
+		log.Error("Error creating InfluxDB UDP Client: ", err.Error())
+		return err
+	}
+	defer c.Close()
+
+	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
+	if response, err := c.Query(q); err == nil && response.Error() == nil {
+		//
+	}
+
+	// Create a new point batch
+	bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+		Database:  "syringe_metrics",
+		Precision: "s",
+	})
+	if err != nil {
+		log.Error("Couldn't connect to Influxdb: ", err)
+		return err
+	}
+
+	// Create a point and add to batch
+	tags := map[string]string{
+		"lessonId":   strconv.Itoa(int(res.LessonDef.LessonId)),
+		"lessonName": res.LessonDef.LessonName,
+	}
+
+	fields := map[string]interface{}{
+		"lessonId":         strconv.Itoa(int(res.LessonDef.LessonId)),
+		"provisioningTime": timeSecs,
+		"lessonName":       res.LessonDef.LessonName,
+		"lessonIDName":     fmt.Sprintf("%d - %s", res.LessonDef.LessonId, res.LessonDef.LessonName),
+	}
+
+	pt, err := influx.NewPoint("provisioningTime", tags, fields, time.Now())
+	if err != nil {
+		log.Error("Error creating InfluxDB Point: ", err)
+		return err
+	}
+
+	bp.AddPoint(pt)
+
+	// Write the batch
+	err = c.Write(bp)
+	if err != nil {
+		log.Error("Error writing InfluxDB Batch Points: ", err)
+		return err
+	}
+
+	log.Debugf("Wrote provisioning time to influxdb: %v", bp)
+
+	return nil
+}
+
 func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 
 	// Make client

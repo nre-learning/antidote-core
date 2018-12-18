@@ -108,6 +108,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 			if result.Operation == scheduler.OperationType_CREATE {
 
 				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
+				apiServer.recordProvisioningTime(result.ProvisioningTime, result)
 				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
 			} else if result.Operation == scheduler.OperationType_DELETE {
 				delete(apiServer.liveLessons, result.Uuid)

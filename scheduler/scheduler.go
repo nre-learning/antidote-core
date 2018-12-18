@@ -56,18 +56,20 @@ type LessonScheduleRequest struct {
 	Uuid      string
 	Session   string
 	Stage     int32
+	Created   time.Time
 }
 
 type LessonScheduleResult struct {
-	Success   bool
-	Stage     int32
-	LessonDef *pb.LessonDef
-	Operation OperationType
-	Message   string
-	KubeLab   *KubeLab
-	Uuid      string
-	Session   string
-	GCLessons []string
+	Success          bool
+	Stage            int32
+	LessonDef        *pb.LessonDef
+	Operation        OperationType
+	Message          string
+	KubeLab          *KubeLab
+	ProvisioningTime int
+	Uuid             string
+	Session          string
+	GCLessons        []string
 }
 
 type LessonScheduler struct {
@@ -126,6 +128,7 @@ func (ls *LessonScheduler) Start() error {
 }
 
 func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
+
 	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
 	if newRequest.Operation == OperationType_CREATE {
 		newKubeLab, err := ls.createKubeLab(newRequest)
@@ -189,12 +192,13 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		kubeLabs[newRequest.Uuid] = newKubeLab
 
 		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   newKubeLab,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+			Success:          true,
+			LessonDef:        newRequest.LessonDef,
+			KubeLab:          newKubeLab,
+			Uuid:             newRequest.Uuid,
+			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
+			Operation:        newRequest.Operation,
+			Stage:            newRequest.Stage,
 		}
 	} else if newRequest.Operation == OperationType_DELETE {
 		err := ls.deleteNamespace(nsName)
