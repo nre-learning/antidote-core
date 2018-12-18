@@ -170,7 +170,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 								"configure",
 								// req.LessonDef.Stages[req.Stage].Configs[ep.Name],
 								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonId, req.Stage, ep.Name),
-								"--strategy=merge",
+								"--strategy=replace", // To preserve atomicity between stages. All stages must provide full configurations.
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
