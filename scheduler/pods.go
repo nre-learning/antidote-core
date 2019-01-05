@@ -53,8 +53,6 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 				"endpointType":   etype.String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
-				"sshUser":        ep.GetSshuser(),
-				"sshPassword":    ep.GetSshpassword(),
 			},
 			Annotations: map[string]string{
 				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJson),

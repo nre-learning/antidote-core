@@ -71,12 +71,6 @@ Lessondef = `{
         "Image": {
           "type": "string"
         },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
-          "type": "string"
-        },
         "Ports": {
           "type": "array",
           "items": {
@@ -107,12 +101,6 @@ Lessondef = `{
           "type": "string"
         },
         "Image": {
-          "type": "string"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
           "type": "string"
         },
         "Ports": {
@@ -246,12 +234,6 @@ Lessondef = `{
           "type": "string"
         },
         "Image": {
-          "type": "string"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
           "type": "string"
         },
         "Ports": {
@@ -438,12 +420,6 @@ Livelesson = `{
           "format": "int32"
         },
         "IframePath": {
-          "type": "string"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
           "type": "string"
         }
       }
