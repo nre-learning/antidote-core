@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## 0.1.4 - January 08, 2019
+
 - Consolidate lesson definition logic, and provide local validation tool (syrctl) [#30](https://github.com/nre-learning/syringe/pull/30)
 - Redesign and fix the way iframe resources are created and presented to the API[#32](https://github.com/nre-learning/syringe/pull/32)
 - Keep trying to serve metrics after an influxdb connection failure, instead of returning immediately [#35](https://github.com/nre-learning/syringe/pull/35)
