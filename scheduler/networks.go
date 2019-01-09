@@ -183,7 +183,8 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 			"forceAddress": false,
 			"hairpinMode": false,
 			"delegate": {
-					"hairpinMode": false
+					"hairpinMode": false,
+					"groupFwdMask": 16384
 			},
 			"ipam": {
 			  "type": "host-local",
