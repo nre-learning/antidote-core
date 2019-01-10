@@ -162,8 +162,8 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 							Image: "antidotelabs/napalm",
 							Command: []string{
 								"napalm",
-								"--user=root",
-								"--password=VR-netlab9",
+								"--user=antidote",
+								"--password=antidotepassword",
 								"--vendor=junos",
 								fmt.Sprintf("--optional_args=port=%d", ep.Port),
 								ep.Host,
