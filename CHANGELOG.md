@@ -2,6 +2,7 @@
 
 ## In development
 
+- Simplified authentication by using consistent credentials, statically [#40](https://github.com/nre-learning/syringe/pull/40)
 
 ## 0.1.4 - January 08, 2019
 
