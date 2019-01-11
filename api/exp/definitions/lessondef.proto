@@ -62,24 +62,18 @@ message LessonStage {
 message Utility {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
-  string Sshuser = 3 [(validate.rules).string.min_len = 1];
-  string Sshpassword = 4 [(validate.rules).string.min_len = 1];
   repeated int32 Ports = 5;
 }
 
 message Blackbox {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
-  string Sshuser = 3;
-  string Sshpassword = 4;
   repeated int32 Ports = 5;
 }
 
 message Device {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
-  string Sshuser = 3 [(validate.rules).string.min_len = 1];
-  string Sshpassword = 4 [(validate.rules).string.min_len = 1];
   repeated int32 Ports = 5;
 }
 

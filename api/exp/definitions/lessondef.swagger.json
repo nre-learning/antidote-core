@@ -68,12 +68,6 @@
         "Image": {
           "type": "string"
         },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
-          "type": "string"
-        },
         "Ports": {
           "type": "array",
           "items": {
@@ -104,12 +98,6 @@
           "type": "string"
         },
         "Image": {
-          "type": "string"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
           "type": "string"
         },
         "Ports": {
@@ -243,12 +231,6 @@
           "type": "string"
         },
         "Image": {
-          "type": "string"
-        },
-        "Sshuser": {
-          "type": "string"
-        },
-        "Sshpassword": {
           "type": "string"
         },
         "Ports": {

@@ -45,8 +45,6 @@ var (
 type Endpoint interface {
 	GetName() string
 	GetImage() string
-	GetSshuser() string
-	GetSshpassword() string
 	GetPorts() []int32
 }
 
@@ -293,9 +291,9 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < 600; i++ {
+			for i := 0; i < 120; i++ {
 				completed, _ := ls.isCompleted(job, newRequest)
-				time.Sleep(1 * time.Second)
+				time.Sleep(5 * time.Second)
 				if completed {
 					return
 				}
@@ -547,12 +545,10 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		// portInt, _ := strconv.Atoi(port)
 
 		endpoint := &pb.LiveEndpoint{
-			Name:        podBuddy.ObjectMeta.Name,
-			Type:        pb.LiveEndpoint_EndpointType(pb.LiveEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
-			Host:        host,
-			Port:        int32(port),
-			Sshuser:     kl.Services[s].ObjectMeta.Labels["sshUser"],
-			Sshpassword: kl.Services[s].ObjectMeta.Labels["sshPassword"],
+			Name: podBuddy.ObjectMeta.Name,
+			Type: pb.LiveEndpoint_EndpointType(pb.LiveEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
+			Host: host,
+			Port: int32(port),
 			// ApiPort
 		}
 
@@ -671,23 +667,23 @@ func isReachable(ll *pb.LiveLesson) bool {
 }
 
 func sshTest(ep *pb.LiveEndpoint) bool {
-	intPort := strconv.Itoa(int(ep.Port))
+	port := strconv.Itoa(int(ep.Port))
 	sshConfig := &ssh.ClientConfig{
-		User:            ep.Sshuser,
+		User:            "antidote",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password(ep.Sshpassword),
+			ssh.Password("antidotepassword"),
 		},
 		Timeout: time.Second * 2,
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), sshConfig)
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ep.Host, port), sshConfig)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	log.Debugf("done ssh testing %s", ep.Host)
+	log.Debugf("%s is live at %s:%s", ep.Name, ep.Host, port)
 	return true
 }
 

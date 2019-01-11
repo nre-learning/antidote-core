@@ -86,9 +86,6 @@ message LiveEndpoint {
 
   string IframePath = 5;
 
-  string Sshuser = 6;
-  string Sshpassword = 7;
-
 }
 
 message LessonParams {
