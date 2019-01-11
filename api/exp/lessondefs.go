@@ -155,6 +155,18 @@ FILES:
 		// TODO(mierdin): Need to run checks to see that files are located where they need to be. Things like
 		// configs, and lesson guides
 
+		// Iterate over stages, and retrieve lesson guide content
+		for l := range lessonDef.Stages {
+			s := lessonDef.Stages[l]
+			fileName := fmt.Sprintf("%s/stage%d/guide.md", filepath.Dir(file), s.Id)
+			contents, err := ioutil.ReadFile(fileName)
+			if err != nil {
+				log.Errorf("Encountered problem reading lesson guide: %s", err)
+				continue FILES
+			}
+			lessonDef.Stages[l].LabGuide = string(contents)
+		}
+
 		log.Infof("Successfully imported lesson %d: %s --- BLACKBOX: %d, IFR: %d, UTILITY: %d, DEVICE: %d, CONNECTIONS: %d", lessonDef.LessonId, lessonDef.LessonName,
 			len(lessonDef.Blackboxes),
 			len(lessonDef.IframeResources),
