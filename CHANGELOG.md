@@ -4,6 +4,7 @@
 
 - Simplified authentication by using consistent credentials, statically [#40](https://github.com/nre-learning/syringe/pull/40)
 - Serve lab guide directly from lesson definition API [#41](https://github.com/nre-learning/syringe/pull/41)
+- Simplify and improve safety of in-memory state model [#42](https://github.com/nre-learning/syringe/pull/42)
 
 ## 0.1.4 - January 08, 2019
 

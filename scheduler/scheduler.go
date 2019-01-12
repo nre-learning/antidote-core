@@ -28,10 +28,9 @@ type OperationType int32
 
 var (
 	OperationType_CREATE OperationType = 0
-	OperationType_DELETE OperationType = 1
-	OperationType_MODIFY OperationType = 2
-	OperationType_BOOP   OperationType = 3
-	OperationType_GC     OperationType = 4
+	OperationType_MODIFY OperationType = 1
+	OperationType_BOOP   OperationType = 2
+	OperationType_GC     OperationType = 3
 	// _typePortMap                       = map[string]int32{
 	// 	"DEVICE":  22,
 	// 	"UTILITY": 22,
@@ -52,7 +51,6 @@ type LessonScheduleRequest struct {
 	LessonDef *pb.LessonDef
 	Operation OperationType
 	Uuid      string
-	Session   string
 	Stage     int32
 	Created   time.Time
 }
@@ -66,7 +64,6 @@ type LessonScheduleResult struct {
 	KubeLab          *KubeLab
 	ProvisioningTime int
 	Uuid             string
-	Session          string
 	GCLessons        []string
 }
 
@@ -119,7 +116,12 @@ func (ls *LessonScheduler) Start() error {
 	for {
 		newRequest := <-ls.Requests
 		go ls.handleRequest(newRequest)
-		log.Debugf("Scheduler received new request - %v", newRequest)
+
+		log.WithFields(log.Fields{
+			"Operation": newRequest.Operation,
+			"Uuid":      newRequest.Uuid,
+			"Stage":     newRequest.Stage,
+		}).Debug("Scheduler received new request.")
 	}
 
 	return nil
@@ -127,7 +129,8 @@ func (ls *LessonScheduler) Start() error {
 
 func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
-	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+
 	if newRequest.Operation == OperationType_CREATE {
 		newKubeLab, err := ls.createKubeLab(newRequest)
 		if err != nil {
@@ -181,7 +184,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				}
 			}
 		} else {
-			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonId)
+			log.Infof("Nothing to configure in %s", newRequest.Uuid)
 		}
 
 		// Finish locking down networkpolicy now that lesson is online and reachable
@@ -197,25 +200,6 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
 			Operation:        newRequest.Operation,
 			Stage:            newRequest.Stage,
-		}
-	} else if newRequest.Operation == OperationType_DELETE {
-		err := ls.deleteNamespace(nsName)
-		if err != nil {
-			log.Errorf("Error deleting lesson: %s", err)
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   nil,
-				Uuid:      "",
-				Operation: newRequest.Operation,
-			}
-		}
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   nil,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
 		}
 	} else if newRequest.Operation == OperationType_MODIFY {
 
@@ -240,7 +224,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
 		}
 
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {
@@ -257,7 +241,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		}
 
 	} else if newRequest.Operation == OperationType_BOOP {
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {

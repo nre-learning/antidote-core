@@ -119,16 +119,15 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	log.Infof("Creating namespace: %s", req.Session)
+	log.Infof("Creating namespace: %s", nsName)
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 				"syringeTier":    ls.SyringeConfig.Tier,
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),

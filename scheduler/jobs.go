@@ -55,7 +55,7 @@ func (ls *LessonScheduler) killAllJobs(nsName string) error {
 
 func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -99,7 +99,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	jobName := fmt.Sprintf("config-%s", ep.GetName())
 	podName := fmt.Sprintf("config-%s", ep.GetName())
@@ -110,7 +110,6 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 				"stageId":        strconv.Itoa(int(req.Stage)),
 			},
@@ -123,7 +122,6 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 					Namespace: nsName,
 					Labels: map[string]string{
 						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-						"sessionId":      req.Session,
 						"syringeManaged": "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
 					},

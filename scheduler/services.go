@@ -26,26 +26,22 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":         fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"lessonInstanceId": req.Session,
-				"syringeManaged":   "yes",
-				"endpointType":     pod.ObjectMeta.Labels["endpointType"],
-				"sshUser":          pod.ObjectMeta.Labels["sshUser"],
-				"sshPassword":      pod.ObjectMeta.Labels["sshPassword"],
+				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"syringeManaged": "yes",
+				"endpointType":   pod.ObjectMeta.Labels["endpointType"],
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"lessonId":  fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"sessionId": req.Session,
-				"podName":   pod.ObjectMeta.Name,
+				"lessonId": fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"podName":  pod.ObjectMeta.Name,
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below
 

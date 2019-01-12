@@ -2,17 +2,14 @@ package api
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"mime"
 	"net"
 	"net/http"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
+	"sync"
 
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 
@@ -37,20 +34,20 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	}
 
 	apiServer := &server{
-		liveLessons: make(map[string]*pb.LiveLesson),
-		sessions:    make(map[string]map[int32]string),
-		scheduler:   ls,
-		buildInfo:   buildInfo,
+		liveLessonState: make(map[string]*pb.LiveLesson),
+		liveLessonsMu:   &sync.Mutex{},
+		scheduler:       ls,
+		buildInfo:       buildInfo,
 	}
 
-	s := grpc.NewServer()
-	pb.RegisterLiveLessonsServiceServer(s, apiServer)
-	pb.RegisterLessonDefServiceServer(s, apiServer)
-	pb.RegisterSyringeInfoServiceServer(s, apiServer)
-	defer s.Stop()
+	grpcServer := grpc.NewServer()
+	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
+	pb.RegisterLessonDefServiceServer(grpcServer, apiServer)
+	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
+	defer grpcServer.Stop()
 
 	// Start grpc server
-	go s.Serve(lis)
+	go grpcServer.Serve(lis)
 
 	// Start REST proxy
 	ctx := context.Background()
@@ -87,7 +84,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", httpPort),
-		Handler: grpcHandlerFunc(s, mux),
+		Handler: grpcHandlerFunc(grpcServer, mux),
 	}
 	go srv.ListenAndServe()
 
@@ -102,42 +99,32 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	for {
 		result := <-ls.Results
 
-		log.Debugf("Received result message: %v", result)
+		log.WithFields(log.Fields{
+			"Operation": result.Operation,
+			"Success":   result.Success,
+			"Uuid":      result.Uuid,
+		}).Debug("Received result from scheduler.")
 
 		if result.Success {
+
+			// Scheduler operation successful - just need to update the state in memory accordingly
 			if result.Operation == scheduler.OperationType_CREATE {
-
-				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
 				apiServer.recordProvisioningTime(result.ProvisioningTime, result)
-				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
-			} else if result.Operation == scheduler.OperationType_DELETE {
-				delete(apiServer.liveLessons, result.Uuid)
+				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_MODIFY {
-				log.Debugf("Setting liveLesson %s: %v", result.Uuid, result.KubeLab.ToLiveLesson())
-				apiServer.liveLessons[result.Uuid] = result.KubeLab.ToLiveLesson()
-
+				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_GC {
 				for i := range result.GCLessons {
-					cleanedNs := result.GCLessons[i]
-					// 14-6viedvg5rctwdpcc-ns
-					lessonId, _ := strconv.ParseInt(strings.Split(cleanedNs, "-")[0], 10, 32)
-					sessionId := strings.Split(cleanedNs, "-")[1]
-
-					if _, ok := apiServer.sessions[sessionId]; ok {
-						if lessonUuid, ok := apiServer.sessions[sessionId][int32(lessonId)]; ok {
-
-							// Delete UUID from livelessons, and then delete from sessions map
-							delete(apiServer.liveLessons, lessonUuid)
-							delete(apiServer.sessions[sessionId], int32(lessonId))
-						}
-					}
+					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
+					apiServer.DeleteLiveLesson(uuid)
 				}
+
 			} else {
 				log.Error("FOO")
 			}
 		} else {
 			log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
-			apiServer.liveLessons[result.Uuid] = &pb.LiveLesson{Error: true}
+			apiServer.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
 		}
 	}
 
@@ -149,14 +136,45 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 type server struct {
 
 	// in-memory map of liveLessons, indexed by UUID
-	liveLessons map[string]*pb.LiveLesson
+	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
+	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
+	// will result in 19-582k2aidfjekxefi.
+	liveLessonState map[string]*pb.LiveLesson
+	liveLessonsMu   *sync.Mutex
 
 	scheduler *scheduler.LessonScheduler
 
-	// map of session IDs maps containing lesson ID and corresponding lesson UUID
-	sessions map[string]map[int32]string
-
 	buildInfo map[string]string
+}
+
+func (s *server) LiveLessonExists(uuid string) bool {
+	_, ok := s.liveLessonState[uuid]
+	return ok
+}
+
+func (s *server) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
+	s.liveLessonsMu.Lock()
+	defer s.liveLessonsMu.Unlock()
+
+	s.liveLessonState[uuid] = ll
+}
+
+func (s *server) UpdateLiveLessonStage(uuid string, stage int32) {
+	s.liveLessonsMu.Lock()
+	defer s.liveLessonsMu.Unlock()
+
+	s.liveLessonState[uuid].LessonStage = stage
+	s.liveLessonState[uuid].Ready = false
+}
+
+func (s *server) DeleteLiveLesson(uuid string) {
+	if _, ok := s.liveLessonState[uuid]; !ok {
+		// Nothing to do
+		return
+	}
+	s.liveLessonsMu.Lock()
+	defer s.liveLessonsMu.Unlock()
+	delete(s.liveLessonState, uuid)
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
@@ -189,41 +207,4 @@ func serveSwagger(mux *http.ServeMux) {
 	})
 	prefix := "/swagger/"
 	mux.Handle(prefix, http.StripPrefix(prefix, fileServer))
-}
-
-var validShortID = regexp.MustCompile("^[a-z0-9]{12}$")
-
-// IsShortID determine if an arbitrary string *looks like* a short ID.
-func IsShortID(id string) bool {
-	return validShortID.MatchString(id)
-}
-
-// TruncateID returns a shorthand version of a string identifier for convenience.
-// A collision with other shorthands is very unlikely, but possible.
-// In case of a collision a lookup with TruncIndex.Get() will fail, and the caller
-// will need to use a langer prefix, or the full-length Id.
-func TruncateID(id string) string {
-	trimTo := 12
-	if len(id) < trimTo {
-		trimTo = len(id)
-	}
-	return id[:trimTo]
-}
-
-// GenerateUUID returns an unique id
-func GenerateUUID() string {
-	for {
-		id := make([]byte, 32)
-		if _, err := io.ReadFull(rand.Reader, id); err != nil {
-			panic(err) // This shouldn't happen
-		}
-		value := hex.EncodeToString(id)
-		// if we try to parse the truncated for as an int and we don't have
-		// an error then the value is all numberic and causes issues when
-		// used as a hostname. ref #3869
-		if _, err := strconv.ParseInt(TruncateID(value), 10, 64); err == nil {
-			continue
-		}
-		return value
-	}
 }

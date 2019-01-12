@@ -46,8 +46,6 @@ func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.Lesson
 
 	lessonDef := s.scheduler.LessonDefs[lid.Id]
 
-	log.Debugf("Received request for lesson definition: %v", lessonDef)
-
 	return lessonDef, nil
 }
 
