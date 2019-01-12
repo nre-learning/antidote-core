@@ -220,7 +220,7 @@ func (s *server) getCountAndDuration(lessonId int32) (int64, int64) {
 	count := 0
 
 	durations := []int64{}
-	for _, liveLesson := range s.liveLessons {
+	for _, liveLesson := range s.liveLessonState {
 		if liveLesson.LessonId != lessonId {
 			continue
 		}

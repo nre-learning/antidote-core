@@ -29,25 +29,19 @@ service LiveLessonsService {
   }
 
   // Retrieve all livelessons
-  rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessonMap) {
-    option (google.api.http) = {
-      get: "/exp/livelessonall"
-    };
-  }
+  // SENSITIVE - do not expose via REST
+  rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
 }
 
 message HealthCheckMessage {}
 
-message UUIDtoLiveLessonMap {
+message SyringeState {
+
+  // Map that contains a mapping of UUIDs to LiveLesson messages
   map<string, LiveLesson> Livelessons = 1;
-}
 
-message LessontoUUIDMap {
-  map<int32, UUIDtoLiveLessonMap> Uuids = 1;
-}
-
-message LiveLessonMap {
-  map<string, LessontoUUIDMap> Sessions = 1;
+  // Map that contains a mapping of session IDs (19-abcdef) to LiveLesson UUID maps
+  map<string, string> Sessions = 2;
 }
 
 // A provisioned lab without the scheduler details. The server will translate from an underlying type

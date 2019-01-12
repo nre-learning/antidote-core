@@ -28,10 +28,9 @@ type OperationType int32
 
 var (
 	OperationType_CREATE OperationType = 0
-	OperationType_DELETE OperationType = 1
-	OperationType_MODIFY OperationType = 2
-	OperationType_BOOP   OperationType = 3
-	OperationType_GC     OperationType = 4
+	OperationType_MODIFY OperationType = 1
+	OperationType_BOOP   OperationType = 2
+	OperationType_GC     OperationType = 3
 	// _typePortMap                       = map[string]int32{
 	// 	"DEVICE":  22,
 	// 	"UTILITY": 22,
@@ -197,25 +196,6 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
 			Operation:        newRequest.Operation,
 			Stage:            newRequest.Stage,
-		}
-	} else if newRequest.Operation == OperationType_DELETE {
-		err := ls.deleteNamespace(nsName)
-		if err != nil {
-			log.Errorf("Error deleting lesson: %s", err)
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   nil,
-				Uuid:      "",
-				Operation: newRequest.Operation,
-			}
-		}
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   nil,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
 		}
 	} else if newRequest.Operation == OperationType_MODIFY {
 

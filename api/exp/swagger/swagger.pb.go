@@ -332,23 +332,6 @@ Livelesson = `{
           "LiveLessonsService"
         ]
       }
-    },
-    "/exp/livelessonall": {
-      "get": {
-        "summary": "Retrieve all livelessons",
-        "operationId": "ListLiveLessons",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/expLiveLessonMap"
-            }
-          }
-        },
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
     }
   },
   "definitions": {
@@ -388,17 +371,6 @@ Livelesson = `{
       "properties": {
         "id": {
           "type": "string"
-        }
-      }
-    },
-    "expLessontoUUIDMap": {
-      "type": "object",
-      "properties": {
-        "Uuids": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/expUUIDtoLiveLessonMap"
-          }
         }
       }
     },
@@ -471,25 +443,22 @@ Livelesson = `{
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
     },
-    "expLiveLessonMap": {
-      "type": "object",
-      "properties": {
-        "Sessions": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/expLessontoUUIDMap"
-          }
-        }
-      }
-    },
-    "expUUIDtoLiveLessonMap": {
+    "expSyringeState": {
       "type": "object",
       "properties": {
         "Livelessons": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
-          }
+          },
+          "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
+        },
+        "Sessions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Map that contains a mapping of session IDs (19-abcdef) to LiveLesson UUID maps"
         }
       }
     }
