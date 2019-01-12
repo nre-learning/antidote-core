@@ -34,7 +34,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return nil, errors.New(msg)
 	}
 
-	lessonUuid := fmt.Sprintf("%s-%s", lp.LessonId, lp.SessionId)
+	lessonUuid := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
 
 	// Identify lesson definition - return error if doesn't exist by ID
 	if _, ok := s.scheduler.LessonDefs[lp.LessonId]; !ok {
@@ -67,7 +67,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				Operation: scheduler.OperationType_MODIFY,
 				Stage:     lp.LessonStage,
 				Uuid:      lessonUuid,
-				Session:   lp.SessionId,
 			}
 
 			s.scheduler.Requests <- req
@@ -81,8 +80,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 				Operation: scheduler.OperationType_BOOP,
 				Stage:     0,
-				Uuid:      "",
-				Session:   lp.SessionId,
+				Uuid:      lessonUuid,
 			}
 
 			s.scheduler.Requests <- req
@@ -100,7 +98,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		Stage:     lp.LessonStage,
 		Uuid:      lessonUuid,
 		Created:   time.Now(),
-		Session:   lp.SessionId,
 	}
 	s.scheduler.Requests <- req
 

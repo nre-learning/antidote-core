@@ -51,7 +51,6 @@ type LessonScheduleRequest struct {
 	LessonDef *pb.LessonDef
 	Operation OperationType
 	Uuid      string
-	Session   string
 	Stage     int32
 	Created   time.Time
 }
@@ -65,7 +64,6 @@ type LessonScheduleResult struct {
 	KubeLab          *KubeLab
 	ProvisioningTime int
 	Uuid             string
-	Session          string
 	GCLessons        []string
 }
 
@@ -118,7 +116,12 @@ func (ls *LessonScheduler) Start() error {
 	for {
 		newRequest := <-ls.Requests
 		go ls.handleRequest(newRequest)
-		log.Debugf("Scheduler received new request - %v", newRequest)
+
+		log.WithFields(log.Fields{
+			"Operation": newRequest.Operation,
+			"Uuid":      newRequest.Uuid,
+			"Stage":     newRequest.Stage,
+		}).Debug("Scheduler received new request.")
 	}
 
 	return nil
@@ -126,7 +129,8 @@ func (ls *LessonScheduler) Start() error {
 
 func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
-	nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+
 	if newRequest.Operation == OperationType_CREATE {
 		newKubeLab, err := ls.createKubeLab(newRequest)
 		if err != nil {
@@ -220,7 +224,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
 		}
 
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {
@@ -237,7 +241,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		}
 
 	} else if newRequest.Operation == OperationType_BOOP {
-		nsName := fmt.Sprintf("%d-%s-ns", newRequest.LessonDef.LessonId, newRequest.Session)
+		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {

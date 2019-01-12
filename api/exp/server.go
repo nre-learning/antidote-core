@@ -35,6 +35,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 
 	apiServer := &server{
 		liveLessonState: make(map[string]*pb.LiveLesson),
+		liveLessonsMu:   &sync.Mutex{},
 		scheduler:       ls,
 		buildInfo:       buildInfo,
 	}
@@ -98,7 +99,13 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	for {
 		result := <-ls.Results
 
-		log.Debugf("Received result message: %v", result)
+		log.Debugf(": %v", result)
+
+		log.WithFields(log.Fields{
+			"Operation": result.Operation,
+			"Success":   result.Success,
+			"Uuid":      result.Uuid,
+		}).Debug("Received result from scheduler.")
 
 		if result.Success {
 
@@ -149,6 +156,9 @@ func (s *server) LiveLessonExists(uuid string) bool {
 
 func (s *server) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
 	s.liveLessonsMu.Lock()
+	defer s.liveLessonsMu.Unlock()
+
+	s.liveLessonState[uuid] = ll
 }
 
 func (s *server) UpdateLiveLessonStage(uuid string, stage int32) {

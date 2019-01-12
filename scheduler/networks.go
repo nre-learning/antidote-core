@@ -159,7 +159,7 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	// Create a CRD client interface
 	crdclient := client.CrdClient(crdcs, scheme, nsName)
@@ -170,9 +170,9 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 	strLid := strconv.Itoa(int(req.LessonDef.LessonId))
 	chars := 12 - len(strLid)
 
-	bridgeName := fmt.Sprintf("%s-%s", strLid, req.Session)
-	if len(req.Session) > chars {
-		bridgeName = fmt.Sprintf("%s-%s", strLid, req.Session[0:chars])
+	bridgeName := fmt.Sprintf("%s-%s", strLid, req.Uuid)
+	if len(req.Uuid) > chars {
+		bridgeName = fmt.Sprintf("%s-%s", strLid, req.Uuid[0:chars])
 	}
 
 	networkArgs := fmt.Sprintf(`{
@@ -199,7 +199,6 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"sessionId":      req.Session,
 				"syringeManaged": "yes",
 			},
 		},

@@ -27,7 +27,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 		panic(err)
 	}
 
-	nsName := fmt.Sprintf("%d-%s-ns", req.LessonDef.LessonId, req.Session)
+	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	b := true
 
@@ -49,7 +49,6 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"sessionId":      req.Session,
 				"endpointType":   etype.String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
@@ -71,7 +70,6 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-									"sessionId":      req.Session,
 									"syringeManaged": "yes",
 								},
 							},

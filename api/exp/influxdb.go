@@ -107,13 +107,13 @@ func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 	tags := map[string]string{
 		"lessonId":   strconv.Itoa(int(req.LessonDef.LessonId)),
 		"lessonName": req.LessonDef.LessonName,
-		"sessionId":  req.Session,
+		"uuid":       req.Uuid,
 		"operation":  string(req.Operation),
 	}
 
 	fields := map[string]interface{}{
 		"lessonId":     strconv.Itoa(int(req.LessonDef.LessonId)),
-		"sessionId":    req.Session,
+		"uuid":         req.Uuid,
 		"operation":    req.Operation,
 		"lessonName":   req.LessonDef.LessonName,
 		"lessonIDName": fmt.Sprintf("%d - %s", req.LessonDef.LessonId, req.LessonDef.LessonName),
