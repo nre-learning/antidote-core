@@ -184,7 +184,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				}
 			}
 		} else {
-			log.Infof("Skipping configuration of new instance of lesson %d", newRequest.LessonDef.LessonId)
+			log.Infof("Nothing to configure in %s", newRequest.Uuid)
 		}
 
 		// Finish locking down networkpolicy now that lesson is online and reachable

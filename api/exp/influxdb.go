@@ -39,7 +39,7 @@ func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonSched
 		Precision: "s",
 	})
 	if err != nil {
-		log.Error("Couldn't connect to Influxdb: ", err)
+		log.Error("Unable to create metrics batch point: ", err)
 		return err
 	}
 
@@ -67,11 +67,9 @@ func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonSched
 	// Write the batch
 	err = c.Write(bp)
 	if err != nil {
-		log.Error("Error writing InfluxDB Batch Points: ", err)
+		log.Warn("Unable to push provisioning time to Influx: ", err)
 		return err
 	}
-
-	log.Debugf("Wrote provisioning time to influxdb: %v", bp)
 
 	return nil
 }
@@ -99,7 +97,7 @@ func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 		Precision: "s",
 	})
 	if err != nil {
-		log.Error("Couldn't connect to Influxdb: ", err)
+		log.Error("Unable to create metrics batch point: ", err)
 		return err
 	}
 
@@ -134,11 +132,9 @@ func (s *server) recordRequestTSDB(req *scheduler.LessonScheduleRequest) error {
 	// Write the batch
 	err = c.Write(bp)
 	if err != nil {
-		log.Error("Error writing InfluxDB Batch Points: ", err)
+		log.Warn("Unable to push request metrics to Influx: ", err)
 		return err
 	}
-
-	log.Debugf("Wrote request data to influxdb: %v", bp)
 
 	return nil
 }
@@ -171,7 +167,7 @@ func (s *server) startTSDBExport() error {
 			Precision: "s",
 		})
 		if err != nil {
-			log.Error("Couldn't connect to Influxdb: ", err)
+			log.Error("Unable to create metrics batch point: ", err)
 			continue
 		}
 
@@ -205,11 +201,9 @@ func (s *server) startTSDBExport() error {
 		// Write the batch
 		err = c.Write(bp)
 		if err != nil {
-			log.Error("Error writing InfluxDB Batch Points: ", err)
+			log.Warn("Unable to push periodic metrics to Influx: ", err)
 			continue
 		}
-
-		log.Debugf("Wrote session data to influxdb: %v", bp)
 	}
 
 	return nil

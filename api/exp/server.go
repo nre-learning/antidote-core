@@ -99,8 +99,6 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	for {
 		result := <-ls.Results
 
-		log.Debugf(": %v", result)
-
 		log.WithFields(log.Fields{
 			"Operation": result.Operation,
 			"Success":   result.Success,
