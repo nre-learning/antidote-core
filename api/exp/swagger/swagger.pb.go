@@ -427,9 +427,6 @@ Livelesson = `{
           "type": "string",
           "format": "date-time"
         },
-        "sessionId": {
-          "type": "string"
-        },
         "LessonDiagram": {
           "type": "string"
         },
@@ -452,13 +449,6 @@ Livelesson = `{
             "$ref": "#/definitions/expLiveLesson"
           },
           "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
-        },
-        "Sessions": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Map that contains a mapping of session IDs (19-abcdef) to LiveLesson UUID maps"
         }
       }
     }

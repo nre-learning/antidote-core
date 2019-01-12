@@ -40,8 +40,6 @@ message SyringeState {
   // Map that contains a mapping of UUIDs to LiveLesson messages
   map<string, LiveLesson> Livelessons = 1;
 
-  // Map that contains a mapping of session IDs (19-abcdef) to LiveLesson UUID maps
-  map<string, string> Sessions = 2;
 }
 
 // A provisioned lab without the scheduler details. The server will translate from an underlying type
@@ -54,10 +52,9 @@ message LiveLesson {
   string LabGuide = 5;
   bool Ready = 6;
   google.protobuf.Timestamp createdTime = 7;
-  string sessionId = 8;
-  string LessonDiagram = 9;
-  string LessonVideo = 10;
-  bool Error = 11;
+  string LessonDiagram = 8;
+  string LessonVideo = 9;
+  bool Error = 10;
 }
 
 message LiveEndpoint {
