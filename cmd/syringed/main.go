@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
 
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	api "github.com/nre-learning/syringe/api/exp"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
@@ -44,6 +46,8 @@ func main() {
 		Results:       make(chan *scheduler.LessonScheduleResult),
 		LessonDefs:    lessonDefs,
 		SyringeConfig: syringeConfig,
+		GcWhiteList:   make(map[string]*pb.Session),
+		GcWhiteListMu: &sync.Mutex{},
 	}
 	go func() {
 		err = lessonScheduler.Start()

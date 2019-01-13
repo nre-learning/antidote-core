@@ -73,6 +73,8 @@ type LessonScheduler struct {
 	Results       chan *LessonScheduleResult
 	LessonDefs    map[int32]*pb.LessonDef
 	SyringeConfig *config.SyringeConfig
+	GcWhiteList   map[string]*pb.Session
+	GcWhiteListMu *sync.Mutex
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -183,9 +184,18 @@ func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 			panic(err)
 		}
 		lastAccessed := time.Unix(i, 0)
-		if time.Since(lastAccessed) > 30*time.Minute {
-			oldNameSpaces = append(oldNameSpaces, nameSpaces.Items[n].ObjectMeta.Name)
+		if time.Since(lastAccessed) < 30*time.Minute {
+			continue
 		}
+
+		// Skip GC if this session is in whitelist
+		session := strings.Split(nameSpaces.Items[n].Name, "-")[1]
+		if _, ok := ls.GcWhiteList[session]; ok {
+			log.Debugf("Skipping GC of expired namespace %s because this session is in the whitelist.", nameSpaces.Items[n].Name)
+			continue
+		}
+
+		oldNameSpaces = append(oldNameSpaces, nameSpaces.Items[n].ObjectMeta.Name)
 	}
 
 	// No need to GC if no old namespaces exist

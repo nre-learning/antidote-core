@@ -440,6 +440,25 @@ Livelesson = `{
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
     },
+    "expSession": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "expSessions": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expSession"
+          }
+        }
+      }
+    },
     "expSyringeState": {
       "type": "object",
       "properties": {

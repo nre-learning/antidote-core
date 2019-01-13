@@ -177,8 +177,8 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
-			"type": "bridge",
-			"plugin": "bridge",
+			"type": "antibridge",
+			"plugin": "antibridge",
 			"bridge": "%s",
 			"forceAddress": false,
 			"hairpinMode": false,
