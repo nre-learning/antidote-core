@@ -28,9 +28,19 @@ service LiveLessonsService {
     };
   }
 
-  // Retrieve all livelessons
-  // SENSITIVE - do not expose via REST
+  // THESE ARE SENSITIVE - do not expose via REST
   rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
+  rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
+  rpc RemoveSessionFromGCWhitelist(Session) returns (HealthCheckMessage) {}
+  rpc GetGCWhitelist(google.protobuf.Empty) returns (Sessions) {}
+}
+
+message Session {
+  string id = 1;
+}
+
+message Sessions {
+  repeated Session sessions = 1;
 }
 
 message HealthCheckMessage {}

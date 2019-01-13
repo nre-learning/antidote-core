@@ -150,3 +150,42 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 	return ll, nil
 
 }
+
+func (s *server) AddSessiontoGCWhitelist(ctx context.Context, session *pb.Session) (*pb.HealthCheckMessage, error) {
+	s.scheduler.GcWhiteListMu.Lock()
+	defer s.scheduler.GcWhiteListMu.Unlock()
+
+	if _, ok := s.scheduler.GcWhiteList[session.Id]; ok {
+		return nil, fmt.Errorf("session %s already present in whitelist", session.Id)
+	}
+
+	s.scheduler.GcWhiteList[session.Id] = session
+
+	return nil, nil
+}
+
+func (s *server) RemoveSessionFromGCWhitelist(ctx context.Context, session *pb.Session) (*pb.HealthCheckMessage, error) {
+	s.scheduler.GcWhiteListMu.Lock()
+	defer s.scheduler.GcWhiteListMu.Unlock()
+
+	if _, ok := s.scheduler.GcWhiteList[session.Id]; !ok {
+		return nil, fmt.Errorf("session %s not found in whitelist", session.Id)
+	}
+
+	delete(s.scheduler.GcWhiteList, session.Id)
+
+	return nil, nil
+
+}
+
+func (s *server) GetGCWhitelist(ctx context.Context, _ *empty.Empty) (*pb.Sessions, error) {
+	sessions := []*pb.Session{}
+
+	for id := range s.scheduler.GcWhiteList {
+		sessions = append(sessions, &pb.Session{Id: id})
+	}
+
+	return &pb.Sessions{
+		Sessions: sessions,
+	}, nil
+}

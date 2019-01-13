@@ -1,20 +1,21 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	cli "github.com/codegangsta/cli"
 	"github.com/fatih/color"
+	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/nre-learning/syringe/api/exp"
 	"github.com/nre-learning/syringe/config"
+	grpc "google.golang.org/grpc"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
 func main() {
-
-	type APIExpClient struct {
-		Conf map[string]string
-	}
-	var client APIExpClient
 
 	app := cli.NewApp()
 	app.Name = "syrctl"
@@ -39,12 +40,6 @@ func main() {
 		},
 	}
 
-	// TODO(mierdin): This MAY not work. These vars may not execute until after app.Run
-	client.Conf = map[string]string{
-		"host": host,
-		"port": port,
-	}
-
 	app.Commands = []cli.Command{
 		{
 			Name:    "validate",
@@ -60,6 +55,102 @@ func main() {
 					color.Green("All detected lesson files imported successfully.")
 					os.Exit(0)
 				}
+			},
+		},
+		{
+			Name:    "whitelist",
+			Aliases: []string{"wl"},
+			Usage:   "syrctl whitelist <subcommand>",
+			Subcommands: []cli.Command{
+				{
+					Name:  "show",
+					Usage: "Show whitelisted sessions",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						whitelist, err := client.GetGCWhitelist(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						sessions := whitelist.Sessions
+
+						if len(sessions) == 0 {
+							fmt.Println("No exempt sessions found.")
+							os.Exit(0)
+						}
+
+						fmt.Println("EXEMPT SESSIONS")
+
+						for i := range sessions {
+							fmt.Println(sessions[i].Id)
+						}
+					},
+				},
+				{
+					Name:  "add",
+					Usage: "Add session to GC whitelist",
+					Action: func(c *cli.Context) {
+
+						sid := c.Args().First()
+						if sid == "" {
+							fmt.Println("Please provide session ID to add to whitelist")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						client.AddSessiontoGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("%s added to whitelist\n", sid)
+					},
+				},
+				{
+					Name:  "remove",
+					Usage: "Remove session from GC whitelist",
+					Action: func(c *cli.Context) {
+
+						sid := c.Args().First()
+						if sid == "" {
+							fmt.Println("Please provide session ID to remove from whitelist")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("%s removed from whitelist\n", sid)
+					},
+				},
 			},
 		},
 	}
