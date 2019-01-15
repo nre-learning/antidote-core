@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -151,7 +150,7 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 
 }
 
-func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
+func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
 
 	// Create a new clientset which include our CRD schema
 	crdcs, scheme, err := crd.NewClient(ls.KubeConfig)
@@ -166,13 +165,10 @@ func (ls *LessonScheduler) createNetwork(netName string, req *LessonScheduleRequ
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
-	// https://access.redhat.com/solutions/652593
-	strLid := strconv.Itoa(int(req.LessonDef.LessonId))
-	chars := 12 - len(strLid)
-
-	bridgeName := fmt.Sprintf("%s-%s", strLid, req.Uuid)
-	if len(req.Uuid) > chars {
-		bridgeName = fmt.Sprintf("%s-%s", strLid, req.Uuid[0:chars])
+	// Max of 15 characters in the bridge name - https://access.redhat.com/solutions/652593
+	bridgeName := fmt.Sprintf("%d-%s", netIndex, req.Uuid)
+	if len(bridgeName) > 15 {
+		bridgeName = bridgeName[0:15]
 	}
 
 	networkArgs := fmt.Sprintf(`{
