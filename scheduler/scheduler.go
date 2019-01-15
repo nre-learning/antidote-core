@@ -148,28 +148,28 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 		liveLesson := newKubeLab.ToLiveLesson()
 
-		tries := 0
+		var success = false
 		for i := 0; i < 600; i++ {
 			time.Sleep(1 * time.Second)
-
-			if tries > 600 {
-				log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonId)
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   newKubeLab,
-					Uuid:      newRequest.Uuid,
-					Operation: newRequest.Operation,
-					Stage:     newRequest.Stage,
-				}
-				return
-			}
-
 			if !isReachable(liveLesson) {
-				tries++
 				continue
 			}
+			success = true
 			break
+
+		}
+
+		if !success {
+			log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonId)
+			ls.Results <- &LessonScheduleResult{
+				Success:   false,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   newKubeLab,
+				Uuid:      newRequest.Uuid,
+				Operation: newRequest.Operation,
+				Stage:     newRequest.Stage,
+			}
+			return
 		}
 
 		if HasDevices(newRequest.LessonDef) {
@@ -321,14 +321,8 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		LabConnections: map[string]string{},
 	}
 
-	// Lock it doooooooown
+	// Apply network policy so this namespace is not able to access the internet
 	kl.NetPolicy, _ = ls.createNetworkPolicy(ns.ObjectMeta.Name)
-
-	// TODO(mierdin): is this still needed?
-	// _, err = ls.createNetwork("mgmt-net", req, false, "")
-	// if err != nil {
-	// 	log.Error(err)
-	// }
 
 	// Create our configmap for the initContainer for cloning the antidote repo
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
@@ -341,7 +335,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		// Create networks from connections property
 		for c := range req.LessonDef.Connections {
 			connection := req.LessonDef.Connections[c]
-			newNet, err := ls.createNetwork(fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
+			newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
 			if err != nil {
 				log.Error(err)
 			}
