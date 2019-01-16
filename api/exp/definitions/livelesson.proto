@@ -52,15 +52,24 @@ message SyringeState {
 
 }
 
+enum Status {
+  DONOTUSE = 0;   // Protobuf doesn't encode the default value. Throwing this one away.
+  INITIAL_BOOT = 1;
+  CONFIGURATION = 2;
+  READY = 3;
+}
+
 // A provisioned lab without the scheduler details. The server will translate from an underlying type
 // (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
 message LiveLesson {
   string LessonUUID = 1;
   int32 LessonId = 2;
-  repeated LiveEndpoint LiveEndpoints  = 3;
+  map <string, LiveEndpoint> LiveEndpoints  = 3;
   int32 LessonStage = 4;
   string LabGuide = 5;
-  bool Ready = 6;
+
+  Status LiveLessonStatus = 6;
+
   google.protobuf.Timestamp createdTime = 7;
   string LessonDiagram = 8;
   string LessonVideo = 9;
@@ -87,6 +96,7 @@ message LiveEndpoint {
 
   string IframePath = 5;
 
+  bool Reachable = 6;
 }
 
 message LessonParams {

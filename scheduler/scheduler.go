@@ -31,13 +31,8 @@ var (
 	OperationType_MODIFY OperationType = 1
 	OperationType_BOOP   OperationType = 2
 	OperationType_GC     OperationType = 3
-	// _typePortMap                       = map[string]int32{
-	// 	"DEVICE":  22,
-	// 	"UTILITY": 22,
-	// 	"IFRAME":  8888,
-	// }
-	defaultGitFileMode int32 = 0755
-	kubeLabs                 = map[string]*KubeLab{}
+	defaultGitFileMode   int32         = 0755
+	kubeLabs                           = map[string]*KubeLab{}
 )
 
 // Endpoint should be satisfied by Utility, Blackbox, and Device
@@ -146,14 +141,51 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			}
 		}
 
+		// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
+		// populate the entry in the API server with data about endpoints that it doesn't have yet.
+		log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
+		newKubeLab.Status = pb.Status_INITIAL_BOOT
+		ls.Results <- &LessonScheduleResult{
+			Success:   true,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   newKubeLab,
+			Uuid:      newRequest.Uuid,
+			Operation: OperationType_MODIFY,
+			Stage:     newRequest.Stage,
+		}
+
 		liveLesson := newKubeLab.ToLiveLesson()
 
 		var success = false
 		for i := 0; i < 600; i++ {
 			time.Sleep(1 * time.Second)
-			if !isReachable(liveLesson) {
+
+			epr := testEndpointReachability(liveLesson)
+
+			// Update reachability status
+			endpointUnreachable := false
+			for epName, reachable := range epr {
+				if reachable {
+					newKubeLab.setEndpointReachable(epName)
+				} else {
+					endpointUnreachable = true
+				}
+			}
+
+			ls.Results <- &LessonScheduleResult{
+				Success:   true,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   newKubeLab,
+				Uuid:      newRequest.Uuid,
+				Operation: OperationType_MODIFY,
+				Stage:     newRequest.Stage,
+			}
+
+			// Begin again if one of the endpoints isn't reachable
+			if endpointUnreachable {
 				continue
 			}
+
 			success = true
 			break
 
@@ -170,6 +202,20 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				Stage:     newRequest.Stage,
 			}
 			return
+		} else {
+
+			log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
+			newKubeLab.Status = pb.Status_CONFIGURATION
+
+			// Send a result back to the API
+			ls.Results <- &LessonScheduleResult{
+				Success:   true,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   newKubeLab,
+				Uuid:      newRequest.Uuid,
+				Operation: OperationType_MODIFY,
+				Stage:     newRequest.Stage,
+			}
 		}
 
 		if HasDevices(newRequest.LessonDef) {
@@ -193,6 +239,9 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		ls.lockDownNetworkPolicy(newKubeLab.NetPolicy)
 
 		kubeLabs[newRequest.Uuid] = newKubeLab
+
+		log.Debugf("Setting %s to READY", newRequest.Uuid)
+		newKubeLab.Status = pb.Status_READY
 
 		ls.Results <- &LessonScheduleResult{
 			Success:          true,
@@ -473,14 +522,33 @@ func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
 
 // KubeLab is the collection of kubernetes resources that makes up a lab instance
 type KubeLab struct {
-	Namespace      *corev1.Namespace
-	CreateRequest  *LessonScheduleRequest // The request that originally resulted in this KubeLab
-	Networks       map[string]*crd.NetworkAttachmentDefinition
-	Pods           map[string]*corev1.Pod
-	Services       map[string]*corev1.Service
-	Ingresses      map[string]*v1beta1.Ingress
-	LabConnections map[string]string
-	NetPolicy      *netv1.NetworkPolicy
+	Namespace          *corev1.Namespace
+	CreateRequest      *LessonScheduleRequest // The request that originally resulted in this KubeLab
+	Networks           map[string]*crd.NetworkAttachmentDefinition
+	Pods               map[string]*corev1.Pod
+	Services           map[string]*corev1.Service
+	Ingresses          map[string]*v1beta1.Ingress
+	LabConnections     map[string]string
+	NetPolicy          *netv1.NetworkPolicy
+	Status             pb.Status
+	ReachableEndpoints []string // endpoint names
+}
+
+func (kl *KubeLab) isReachable(epName string) bool {
+	for _, b := range kl.ReachableEndpoints {
+		if b == epName {
+			return true
+		}
+	}
+	return false
+}
+
+func (kl *KubeLab) setEndpointReachable(epName string) {
+	// Return if already in slice
+	if kl.isReachable(epName) {
+		return
+	}
+	kl.ReachableEndpoints = append(kl.ReachableEndpoints, epName)
 }
 
 // ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it
@@ -491,7 +559,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 	ret := pb.LiveLesson{
 		LessonUUID:    kl.CreateRequest.Uuid,
 		LessonId:      kl.CreateRequest.LessonDef.LessonId,
-		LiveEndpoints: []*pb.LiveEndpoint{},
+		LiveEndpoints: map[string]*pb.LiveEndpoint{},
 		LessonStage:   kl.CreateRequest.Stage,
 		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
 		LessonVideo:   kl.CreateRequest.LessonDef.LessonVideo,
@@ -499,13 +567,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,
 		},
-
-		// Previously we were overriding this value, so it was set to false, and then the API would perform the health check.
-		// Now, the health check is done by the scheduler, and is only returned to the API when everything is ready. So we
-		// need this to be set to true.
-		//
-		// You may consider moving this field to kubelab or something.
-		Ready: true,
+		LiveLessonStatus: kl.Status,
 	}
 
 	for s := range kl.Services {
@@ -532,7 +594,12 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			// ApiPort
 		}
 
-		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
+		// Convert kubelab reachability to livelesson reachability
+		if kl.isReachable(endpoint.Name) {
+			endpoint.Reachable = true
+		}
+
+		ret.LiveEndpoints[endpoint.Name] = endpoint
 	}
 
 	for i := range kl.CreateRequest.LessonDef.IframeResources {
@@ -545,7 +612,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			IframePath: ifr.Path,
 		}
 
-		ret.LiveEndpoints = append(ret.LiveEndpoints, endpoint)
+		ret.LiveEndpoints[endpoint.Name] = endpoint
 	}
 
 	ret.LabGuide = kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide
@@ -601,7 +668,7 @@ git checkout --force $REF`
 	return nil
 }
 
-func isReachable(ll *pb.LiveLesson) bool {
+func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
 	reachableMap := map[string]bool{}
 
@@ -637,13 +704,7 @@ func isReachable(ll *pb.LiveLesson) bool {
 
 	log.Debugf("Livelesson %s health check results: %v", ll.LessonUUID, reachableMap)
 
-	for _, reachable := range reachableMap {
-		if !reachable {
-			return false
-		}
-	}
-
-	return true
+	return reachableMap
 }
 
 func sshTest(ep *pb.LiveEndpoint) bool {

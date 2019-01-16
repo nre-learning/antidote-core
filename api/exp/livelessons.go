@@ -103,9 +103,14 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 	s.recordRequestTSDB(req)
 
-	// Pre-emptively populate livelessons map with non-ready livelesson.
+	// Pre-emptively populate livelessons map with initial status.
 	// This will be updated when the scheduler response comes back.
-	s.SetLiveLesson(lessonUuid, &pb.LiveLesson{Ready: false, LessonId: lp.LessonId, LessonUUID: lessonUuid, LessonStage: lp.LessonStage})
+	s.SetLiveLesson(lessonUuid, &pb.LiveLesson{
+		LiveLessonStatus: pb.Status_INITIAL_BOOT,
+		LessonId:         lp.LessonId,
+		LessonUUID:       lessonUuid,
+		LessonStage:      lp.LessonStage,
+	})
 
 	return &pb.LessonUUID{Id: lessonUuid}, nil
 }
@@ -139,10 +144,10 @@ func (s *server) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.Li
 	}
 
 	// Remove all blackbox entries
-	newEndpoints := []*pb.LiveEndpoint{}
-	for e := range ll.LiveEndpoints {
-		if ll.LiveEndpoints[e].Type != pb.LiveEndpoint_BLACKBOX {
-			newEndpoints = append(newEndpoints, ll.LiveEndpoints[e])
+	newEndpoints := map[string]*pb.LiveEndpoint{}
+	for name, e := range ll.LiveEndpoints {
+		if e.Type != pb.LiveEndpoint_BLACKBOX {
+			newEndpoints[name] = e
 		}
 	}
 	ll.LiveEndpoints = newEndpoints

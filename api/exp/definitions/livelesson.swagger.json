@@ -143,6 +143,10 @@
         },
         "IframePath": {
           "type": "string"
+        },
+        "Reachable": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -157,8 +161,8 @@
           "format": "int32"
         },
         "LiveEndpoints": {
-          "type": "array",
-          "items": {
+          "type": "object",
+          "additionalProperties": {
             "$ref": "#/definitions/expLiveEndpoint"
           }
         },
@@ -169,9 +173,8 @@
         "LabGuide": {
           "type": "string"
         },
-        "Ready": {
-          "type": "boolean",
-          "format": "boolean"
+        "LiveLessonStatus": {
+          "$ref": "#/definitions/expStatus"
         },
         "createdTime": {
           "type": "string",
@@ -208,6 +211,16 @@
           }
         }
       }
+    },
+    "expStatus": {
+      "type": "string",
+      "enum": [
+        "DONOTUSE",
+        "INITIAL_BOOT",
+        "CONFIGURATION",
+        "READY"
+      ],
+      "default": "DONOTUSE"
     },
     "expSyringeState": {
       "type": "object",
