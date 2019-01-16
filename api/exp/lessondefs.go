@@ -49,17 +49,6 @@ func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.Lesson
 	return lessonDef, nil
 }
 
-// JSON exports the lesson definition as JSON
-// func (ld *pb.LessonDef) JSON() string {
-// 	lessonJSON, err := json.MarshalIndent(ld, "", "  ")
-// 	if err != nil {
-// 		log.Error(err)
-// 		return ""
-// 	}
-
-// 	return string(lessonJSON)
-// }
-
 func ImportLessonDefs(syringeConfig *config.SyringeConfig, lessonDir string) (map[int32]*pb.LessonDef, error) {
 
 	// Get lesson definitions
@@ -101,6 +90,11 @@ FILES:
 		err = lessonDef.Validate()
 		if err != nil {
 			log.Errorf("Basic validation failed on %s: %s", file, err)
+			continue FILES
+		}
+
+		if _, ok := retLds[lessonDef.LessonId]; ok {
+			log.Errorf("Failed to import %s: Lesson ID %d already exists in another lesson definition.", file, lessonDef.LessonId)
 			continue FILES
 		}
 
