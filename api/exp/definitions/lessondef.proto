@@ -47,6 +47,7 @@ message LessonDef {
   string LessonDiagram = 10;
   string LessonVideo = 11;
   string Tier = 12 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
+  bool JuniperSpecific = 13;
 }
 
 message LessonDefFilter {

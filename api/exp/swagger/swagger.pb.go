@@ -198,6 +198,10 @@ Lessondef = `{
         },
         "Tier": {
           "type": "string"
+        },
+        "JuniperSpecific": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -437,6 +441,10 @@ Livelesson = `{
           "type": "string"
         },
         "Error": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "JuniperSpecific": {
           "type": "boolean",
           "format": "boolean"
         }

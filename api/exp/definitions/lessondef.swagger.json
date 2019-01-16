@@ -195,6 +195,10 @@
         },
         "Tier": {
           "type": "string"
+        },
+        "JuniperSpecific": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

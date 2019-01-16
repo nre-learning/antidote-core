@@ -74,6 +74,7 @@ message LiveLesson {
   string LessonDiagram = 8;
   string LessonVideo = 9;
   bool Error = 10;
+  bool JuniperSpecific = 11;
 }
 
 message LiveEndpoint {

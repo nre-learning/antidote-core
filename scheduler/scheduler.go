@@ -563,6 +563,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		LessonStage:   kl.CreateRequest.Stage,
 		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
 		LessonVideo:   kl.CreateRequest.LessonDef.LessonVideo,
+		JuniperSpecific:   kl.CreateRequest.LessonDef.JuniperSpecific,
 		LabGuide:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,
