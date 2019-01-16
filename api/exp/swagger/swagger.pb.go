@@ -393,6 +393,10 @@ Livelesson = `{
         },
         "IframePath": {
           "type": "string"
+        },
+        "Reachable": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -407,8 +411,8 @@ Livelesson = `{
           "format": "int32"
         },
         "LiveEndpoints": {
-          "type": "array",
-          "items": {
+          "type": "object",
+          "additionalProperties": {
             "$ref": "#/definitions/expLiveEndpoint"
           }
         },
@@ -419,9 +423,8 @@ Livelesson = `{
         "LabGuide": {
           "type": "string"
         },
-        "Ready": {
-          "type": "boolean",
-          "format": "boolean"
+        "LiveLessonStatus": {
+          "$ref": "#/definitions/expStatus"
         },
         "createdTime": {
           "type": "string",
@@ -458,6 +461,16 @@ Livelesson = `{
           }
         }
       }
+    },
+    "expStatus": {
+      "type": "string",
+      "enum": [
+        "DONOTUSE",
+        "INITIAL_BOOT",
+        "CONFIGURATION",
+        "READY"
+      ],
+      "default": "DONOTUSE"
     },
     "expSyringeState": {
       "type": "object",

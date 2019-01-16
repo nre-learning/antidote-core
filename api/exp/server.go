@@ -118,7 +118,6 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
 					apiServer.DeleteLiveLesson(uuid)
 				}
-
 			} else {
 				log.Error("FOO")
 			}
@@ -164,7 +163,7 @@ func (s *server) UpdateLiveLessonStage(uuid string, stage int32) {
 	defer s.liveLessonsMu.Unlock()
 
 	s.liveLessonState[uuid].LessonStage = stage
-	s.liveLessonState[uuid].Ready = false
+	s.liveLessonState[uuid].LiveLessonStatus = pb.Status_CONFIGURATION
 }
 
 func (s *server) DeleteLiveLesson(uuid string) {
