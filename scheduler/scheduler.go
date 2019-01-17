@@ -683,13 +683,14 @@ func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
 		go func() {
 			defer wg.Done()
-			log.Debugf("Connectivity testing endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
 
 			testResult := false
 
 			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
+				log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
 				testResult = sshTest(ep)
 			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
+				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
 				testResult = connectTest(ep)
 			} else {
 				testResult = true
