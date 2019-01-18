@@ -9,6 +9,7 @@
 - Fixed bug with bridge naming and reachability timeout [#51](https://github.com/nre-learning/syringe/pull/51)
 - Add more detail around the status of a livelesson's startup progress [#52](https://github.com/nre-learning/syringe/pull/52)
 - Add check to lesson import to ensure lesson IDs are unique [#53](https://github.com/nre-learning/syringe/pull/53)
+- Use new githelper image instead of configmap script [#55](https://github.com/nre-learning/syringe/pull/55)
 
 ## 0.1.4 - January 08, 2019
 
