@@ -41,7 +41,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 		log.Error(err)
 	}
 
-	defaultGitFileMode := int32(0755)
+	// defaultGitFileMode := int32(0755)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -85,21 +85,13 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 			InitContainers: []corev1.Container{
 				{
 					Name:  "git-clone",
-					Image: "alpine/git",
-					Command: []string{
-						"/usr/local/git/git-clone.sh",
-					},
+					Image: "antidotelabs/githelper",
 					Args: []string{
 						ls.SyringeConfig.LessonRepoRemote,
 						ls.SyringeConfig.LessonRepoBranch,
 						ls.SyringeConfig.LessonRepoDir,
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "git-clone",
-							ReadOnly:  false,
-							MountPath: "/usr/local/git",
-						},
 						{
 							Name:      "git-volume",
 							ReadOnly:  false,
@@ -147,17 +139,6 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 					Name: "git-volume",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "git-clone",
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "git-clone",
-							},
-							DefaultMode: &defaultGitFileMode,
-						},
 					},
 				},
 			},
