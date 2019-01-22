@@ -123,6 +123,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 					Labels: map[string]string{
 						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 						"syringeManaged": "yes",
+						"configPod":      "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
 					},
 				},
