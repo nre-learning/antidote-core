@@ -9,7 +9,6 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/nre-learning/syringe/pkg/client"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -39,11 +38,9 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 	return nil
 }
 
-// lockDownNetworkPolicy overwrites an existing networkpolicy to ensure it can't talk to the internet
-// This removes the initial configuration which allows github traffic.
-// This should be called immediately upon health check pass before returning a Ready status or moving
-// to another stage of lesson provisioning
-func (ls *LessonScheduler) lockDownNetworkPolicy(np *netv1.NetworkPolicy) error {
+// createNetworkPolicy applies a kubernetes networkpolicy object to prohibit traffic out of the created namespace, for all
+// pods that aren't used for configuration purposes.
+func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
 
 	nc, err := netv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
@@ -52,40 +49,6 @@ func (ls *LessonScheduler) lockDownNetworkPolicy(np *netv1.NetworkPolicy) error 
 
 	var tcp corev1.Protocol = "TCP"
 	var udp corev1.Protocol = "UDP"
-	fivethree := intstr.IntOrString{IntVal: 53}
-
-	np.Spec.Egress = []netv1.NetworkPolicyEgressRule{
-		{
-			Ports: []netv1.NetworkPolicyPort{
-				{Protocol: &tcp, Port: &fivethree},
-				{Protocol: &udp, Port: &fivethree},
-			},
-		},
-		{
-			To: []netv1.NetworkPolicyPeer{
-				{
-					NamespaceSelector: &meta_v1.LabelSelector{},
-				},
-			},
-		},
-	}
-
-	_, err = nc.NetworkPolicies(np.ObjectMeta.Namespace).Update(np)
-	return err
-}
-
-// createNetworkPolicy applies a kubernetes networkpolicy object to prohibit internet access out of pods within a namespace
-// By default it permits traffic to Github, but lockDownNetworkPolicy can be called to remove this as well. This is for the init
-// containers to clone the antidote repo properly during initialization
-func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
-
-	nc, err := netv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	var tcp v1.Protocol = "TCP"
-	var udp v1.Protocol = "UDP"
 	fivethree := intstr.IntOrString{IntVal: 53}
 
 	np := netv1.NetworkPolicy{
@@ -98,30 +61,55 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 		},
 		Spec: netv1.NetworkPolicySpec{
 			PodSelector: meta_v1.LabelSelector{
-				MatchLabels: map[string]string{
-					"syringeManaged": "yes",
+				MatchExpressions: []meta_v1.LabelSelectorRequirement{
+					{
+						Key:      "syringeManaged",
+						Operator: meta_v1.LabelSelectorOpIn,
+						Values: []string{
+							"yes",
+						},
+					},
+					{ // do not apply network policy to config pods, they need to get to internet for configs
+						Key:      "configPod",
+						Operator: meta_v1.LabelSelectorOpNotIn,
+						Values: []string{
+							"yes",
+						},
+					},
 				},
 			},
 			PolicyTypes: []netv1.PolicyType{
+				// Apply only egress policy here. We want to permit all ingress traffic,
+				// so that Syringe and Guacamole can reach these endpoints unhindered.
+				//
+				// We really only care about restricting what the pods can access, especially
+				// the internet.
 				"Egress",
-				"Ingress",
 			},
-			Ingress: []netv1.NetworkPolicyIngressRule{{}},
 			Egress: []netv1.NetworkPolicyEgressRule{
-				{
-					Ports: []netv1.NetworkPolicyPort{
-						{Protocol: &tcp, Port: &fivethree},
-						{Protocol: &udp, Port: &fivethree},
-					},
-				},
+
+				// Allow only intra-namespace traffic
 				{
 					To: []netv1.NetworkPolicyPeer{
 						{
-							NamespaceSelector: &meta_v1.LabelSelector{},
+							NamespaceSelector: &meta_v1.LabelSelector{MatchLabels: map[string]string{
+								"name": nsName,
+							}},
 						},
-						{
-							IPBlock: &netv1.IPBlock{CIDR: "0.0.0.0/0"},
-						},
+					},
+				},
+				// Allow traffic to the cluster's DNS service
+				{
+					To: []netv1.NetworkPolicyPeer{
+
+						// Have only been able to get this working with this CIDR.
+						// Tried a /32 directly to the svc IP, but that didn't seem to work.
+						// Should revisit this later.
+						{IPBlock: &netv1.IPBlock{CIDR: "10.0.0.0/8"}},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{Protocol: &tcp, Port: &fivethree},
+						{Protocol: &udp, Port: &fivethree},
 					},
 				},
 			},

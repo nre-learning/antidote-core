@@ -130,6 +130,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"syringeManaged": "yes",
+				"name": nsName,
 				"syringeTier":    ls.SyringeConfig.Tier,
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
 				"created":        strconv.Itoa(int(time.Now().Unix())),

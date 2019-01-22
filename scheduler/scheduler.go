@@ -17,7 +17,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
-	netv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -235,8 +234,10 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Infof("Nothing to configure in %s", newRequest.Uuid)
 		}
 
-		// Finish locking down networkpolicy now that lesson is online and reachable
-		ls.lockDownNetworkPolicy(newKubeLab.NetPolicy)
+		// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
+		// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
+		// won't initially come up at all.
+		ls.createNetworkPolicy(nsName)
 
 		kubeLabs[newRequest.Uuid] = newKubeLab
 
@@ -369,9 +370,6 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Ingresses:      map[string]*v1beta1.Ingress{},
 		LabConnections: map[string]string{},
 	}
-
-	// Apply network policy so this namespace is not able to access the internet
-	kl.NetPolicy, _ = ls.createNetworkPolicy(ns.ObjectMeta.Name)
 
 	// Create our configmap for the initContainer for cloning the antidote repo
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
@@ -529,7 +527,6 @@ type KubeLab struct {
 	Services           map[string]*corev1.Service
 	Ingresses          map[string]*v1beta1.Ingress
 	LabConnections     map[string]string
-	NetPolicy          *netv1.NetworkPolicy
 	Status             pb.Status
 	ReachableEndpoints []string // endpoint names
 }
