@@ -161,6 +161,8 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 			epr := testEndpointReachability(liveLesson)
 
+			log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
+
 			// Update reachability status
 			endpointUnreachable := false
 			for epName, reachable := range epr {
@@ -698,11 +700,19 @@ func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
 		}()
 	}
-	wg.Wait()
 
-	log.Debugf("Livelesson %s health check results: %v", ll.LessonUUID, reachableMap)
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
 
-	return reachableMap
+	select {
+	case <-c:
+		return reachableMap
+	case <-time.After(time.Second * 10):
+		return reachableMap
+	}
 }
 
 func sshTest(ep *pb.LiveEndpoint) bool {
