@@ -9,33 +9,86 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	"github.com/nre-learning/syringe/config"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
-func (s *server) ListLessonDefs(ctx context.Context, _ *empty.Empty) (*pb.LessonCategoryMap, error) {
+func (s *server) ListLessonDefs(ctx context.Context, filter *pb.LessonDefFilter) (*pb.LessonDefs, error) {
 
-	retMap := map[string]*pb.LessonDefs{}
+	defs := []*pb.LessonDef{}
 
 	// TODO(mierdin): Okay for now, but not super efficient. Should store in category keys when loaded.
 	for _, lessonDef := range s.scheduler.LessonDefs {
 
-		// Initialize category
-		if _, ok := retMap[lessonDef.Category]; !ok {
-			retMap[lessonDef.Category] = &pb.LessonDefs{
-				LessonDefs: []*pb.LessonDef{},
-			}
+		for s := range lessonDef.Stages {
+			lessonDef.Stages[s].LabGuide = ""
 		}
 
-		retMap[lessonDef.Category].LessonDefs = append(retMap[lessonDef.Category].LessonDefs, lessonDef)
+		if filter.Category == "" {
+			defs = append(defs, lessonDef)
+			continue
+		}
+
+		if lessonDef.Category == filter.Category {
+			defs = append(defs, lessonDef)
+		}
 	}
 
-	return &pb.LessonCategoryMap{
-		LessonCategories: retMap,
+	return &pb.LessonDefs{
+		LessonDefs: defs,
 	}, nil
+}
+
+// var preReqs []int32
+
+func (s *server) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonID) (*pb.LessonPrereqs, error) {
+
+	// Preload the requested lesson ID so we can strip it before returning
+	pr := s.getPrereqs(lid.Id, []int32{lid.Id})
+	log.Debugf("Getting prerequisites for Lesson %d: %d", lid.Id, pr)
+
+	return &pb.LessonPrereqs{
+		// Remove first item from slice - this is the lesson ID being requested
+		Prereqs: pr[1:],
+	}, nil
+}
+
+func (s *server) getPrereqs(lessonID int32, currentPrereqs []int32) []int32 {
+
+	// Return if lesson ID doesn't exist
+	if _, ok := s.scheduler.LessonDefs[lessonID]; !ok {
+		return currentPrereqs
+	}
+
+	// Add this lessonID to prereqs if doesn't already exist
+	if !isAlreadyInSlice(lessonID, currentPrereqs) {
+		currentPrereqs = append(currentPrereqs, lessonID)
+	}
+
+	// Return if lesson doesn't have prerequisites
+	lesson := s.scheduler.LessonDefs[lessonID]
+	if len(lesson.Prereqs) == 0 {
+		return currentPrereqs
+	}
+
+	// Call recursion for lesson IDs that need it
+	for i := range lesson.Prereqs {
+		pid := lesson.Prereqs[i]
+		currentPrereqs = s.getPrereqs(pid, currentPrereqs)
+	}
+
+	return currentPrereqs
+}
+
+func isAlreadyInSlice(lessonID int32, currentPrereqs []int32) bool {
+	for i := range currentPrereqs {
+		if currentPrereqs[i] == lessonID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.LessonDef, error) {

@@ -13,7 +13,6 @@ import (
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/rest"
 )
 
 func init() {
@@ -29,10 +28,10 @@ func main() {
 		log.Fatalf("Invalid configuration. Please re-run Syringe with appropriate env variables")
 	}
 
-	kubeConfig, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// kubeConfig, err := rest.InClusterConfig()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	lessonDefs, err := api.ImportLessonDefs(syringeConfig, syringeConfig.LessonsDir)
 	if err != nil {
@@ -41,7 +40,7 @@ func main() {
 
 	// Start lesson scheduler
 	lessonScheduler := scheduler.LessonScheduler{
-		KubeConfig:    kubeConfig,
+		// KubeConfig:    kubeConfig,
 		Requests:      make(chan *scheduler.LessonScheduleRequest),
 		Results:       make(chan *scheduler.LessonScheduleResult),
 		LessonDefs:    lessonDefs,
@@ -49,12 +48,12 @@ func main() {
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
 	}
-	go func() {
-		err = lessonScheduler.Start()
-		if err != nil {
-			log.Fatalf("Problem starting lesson scheduler: %s", err)
-		}
-	}()
+	// go func() {
+	// 	err = lessonScheduler.Start()
+	// 	if err != nil {
+	// 		log.Fatalf("Problem starting lesson scheduler: %s", err)
+	// 	}
+	// }()
 
 	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.LessonRepoDir, syringeConfig.LessonRepoBranch))
 	if err != nil {

@@ -18,7 +18,7 @@ Lessondef = `{
     "application/json"
   ],
   "paths": {
-    "/exp/lessondef/all": {
+    "/exp/lessondef": {
       "get": {
         "summary": "Retrieve all LessonDefs with filter",
         "operationId": "ListLessonDefs",
@@ -26,10 +26,18 @@ Lessondef = `{
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/expLessonCategoryMap"
+              "$ref": "#/definitions/expLessonDefs"
             }
           }
         },
+        "parameters": [
+          {
+            "name": "Category",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
         "tags": [
           "LessonDefService"
         ]
@@ -43,6 +51,31 @@ Lessondef = `{
             "description": "",
             "schema": {
               "$ref": "#/definitions/expLessonDef"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "LessonDefService"
+        ]
+      }
+    },
+    "/exp/lessondef/{id}/prereqs": {
+      "get": {
+        "operationId": "GetAllLessonPrereqs",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expLessonPrereqs"
             }
           }
         },
@@ -130,17 +163,6 @@ Lessondef = `{
         }
       }
     },
-    "expLessonCategoryMap": {
-      "type": "object",
-      "properties": {
-        "lessonCategories": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/expLessonDefs"
-          }
-        }
-      }
-    },
     "expLessonDef": {
       "type": "object",
       "properties": {
@@ -198,6 +220,29 @@ Lessondef = `{
         },
         "Tier": {
           "type": "string"
+        },
+        "Prereqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "Tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Collection": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Slug": {
+          "type": "string",
+          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
         }
       }
     },
@@ -208,6 +253,18 @@ Lessondef = `{
           "type": "array",
           "items": {
             "$ref": "#/definitions/expLessonDef"
+          }
+        }
+      }
+    },
+    "expLessonPrereqs": {
+      "type": "object",
+      "properties": {
+        "prereqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       }
