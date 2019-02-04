@@ -2,6 +2,7 @@
 
 ## In development
 
+- Fixed GC goroutine; make GC interval configurable [#63](https://github.com/nre-learning/syringe/pull/63/files)
 
 ## 0.2.0 - January 24, 2019
 

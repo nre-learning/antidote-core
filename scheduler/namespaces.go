@@ -130,7 +130,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"syringeManaged": "yes",
-				"name": nsName,
+				"name":           nsName,
 				"syringeTier":    ls.SyringeConfig.Tier,
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
 				"created":        strconv.Itoa(int(time.Now().Unix())),
@@ -185,7 +185,8 @@ func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 			panic(err)
 		}
 		lastAccessed := time.Unix(i, 0)
-		if time.Since(lastAccessed) < 30*time.Minute {
+
+		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.GCInterval)*time.Minute {
 			continue
 		}
 
@@ -205,14 +206,15 @@ func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 		return []string{}, nil
 	}
 
-	log.Warnf("Garbage-collecting %d old lessons", len(oldNameSpaces))
+	log.Infof("Garbage-collecting %d old lessons", len(oldNameSpaces))
+	log.Debug(oldNameSpaces)
 	var wg sync.WaitGroup
 	wg.Add(len(oldNameSpaces))
 	for n := range oldNameSpaces {
-		go func() {
+		go func(ns string) {
 			defer wg.Done()
-			ls.deleteNamespace(oldNameSpaces[n])
-		}()
+			ls.deleteNamespace(ns)
+		}(oldNameSpaces[n])
 	}
 	wg.Wait()
 	log.Infof("Finished garbage-collecting %d old lessons", len(oldNameSpaces))

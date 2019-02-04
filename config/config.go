@@ -17,6 +17,7 @@ type SyringeConfig struct {
 	HealthCheckInterval int
 	TSDBExportInterval  int
 	TSDBEnabled         bool
+	GCInterval          int
 
 	LessonRepoRemote string
 	LessonRepoBranch string
@@ -92,6 +93,13 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LessonRepoDir = "/antidote"
 	} else {
 		config.LessonRepoDir = dir
+	}
+
+	gc, err := strconv.Atoi(os.Getenv("SYRINGE_GC_INTERVAL"))
+	if gc == 0 || err != nil {
+		config.GCInterval = 30
+	} else {
+		config.GCInterval = gc
 	}
 
 	return &config, nil
