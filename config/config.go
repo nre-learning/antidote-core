@@ -97,7 +97,7 @@ func LoadConfigVars() (*SyringeConfig, error) {
 
 	gc, err := strconv.Atoi(os.Getenv("SYRINGE_GC_INTERVAL"))
 	if gc == 0 || err != nil {
-		config.GCInterval = 5
+		config.GCInterval = 30
 	} else {
 		config.GCInterval = gc
 	}
