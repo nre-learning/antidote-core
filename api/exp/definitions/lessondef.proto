@@ -2,15 +2,21 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
+// import "google/protobuf/empty.proto";
 import "validate/validate.proto";
 
 service LessonDefService {
 
   // Retrieve all LessonDefs with filter
-  rpc ListLessonDefs(google.protobuf.Empty) returns (LessonCategoryMap) {
+  rpc ListLessonDefs(LessonDefFilter) returns (LessonDefs) {
     option (google.api.http) = {
-      get: "/exp/lessondef/all"
+      get: "/exp/lessondef"
+    };
+  }
+
+  rpc GetAllLessonPrereqs(LessonID) returns (LessonPrereqs) {
+    option (google.api.http) = {
+      get: "/exp/lessondef/{id}/prereqs"
     };
   }
 
@@ -22,12 +28,17 @@ service LessonDefService {
 
 }
 
-message LessonCategoryMap {
-  map<string, LessonDefs> lessonCategories = 1;
-}
+// message LessonCategoryMap {
+//   map<string, LessonDefs> lessonCategories = 1;
+// }
+
 
 message LessonDefs {
   repeated LessonDef lessonDefs = 1;
+}
+
+message LessonPrereqs {
+  repeated int32 prereqs = 1;
 }
 
 message LessonID {
@@ -43,14 +54,21 @@ message LessonDef {
   repeated Utility Utilities = 6;
   repeated Blackbox Blackboxes = 7;
   repeated Connection Connections = 8;
-  string Category = 9 [(validate.rules).string = {in: ["introductory", "troubleshooting", "verification", "configuration"]}];
+  string Category = 9 [(validate.rules).string = {in: ["fundamentals", "tools", "workflows"]}];
   string LessonDiagram = 10;
   string LessonVideo = 11;
   string Tier = 12 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
+  repeated int32 Prereqs = 13;
+  repeated string Tags = 14;
+  string Collection = 15;
+  string Description = 16 [(validate.rules).string.min_len = 10];
+
+  // This is meant to fill: "How well do you know <slug>?"
+  string Slug = 17 [(validate.rules).string.min_len = 1];
 }
 
 message LessonDefFilter {
-  string Category = 1;
+  string Category = 2;
 }
 
 message LessonStage {
