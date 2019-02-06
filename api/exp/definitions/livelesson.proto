@@ -28,6 +28,13 @@ service LiveLessonsService {
     };
   }
 
+
+  rpc VerifyLiveLessonCompletion(LessonUUID) returns (VerificationTask) {
+    option (google.api.http) = {
+      get: "/exp/livelesson/{id}/verifycomplete"
+    };
+  }
+
   // THESE ARE SENSITIVE - do not expose via REST
   rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
   rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
@@ -77,6 +84,13 @@ message LiveLesson {
   bool Error = 11;
 }
 
+message VerificationTask {
+  LiveLesson liveLesson = 1;
+  bool success = 2;
+  bool working = 3;
+  string message = 4;
+}
+
 message LiveEndpoint {
   string Name  = 1;
 
@@ -109,5 +123,3 @@ message LessonParams {
 message LessonUUID {
   string id = 1;
 }
-
-

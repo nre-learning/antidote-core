@@ -194,3 +194,42 @@ func (s *server) GetGCWhitelist(ctx context.Context, _ *empty.Empty) (*pb.Sessio
 		Sessions: sessions,
 	}, nil
 }
+
+func (s *server) VerifyLiveLessonCompletion(ctx context.Context, uuid *pb.LessonUUID) (*pb.VerificationTask, error) {
+
+	// Set verify flag in state and reject subsequent requests if they come in while this is locked.
+	if _, ok := s.liveLessonState[uuid.Id]; !ok {
+		return nil, errors.New("Livelesson not found")
+	}
+	ll := s.liveLessonState[uuid.Id]
+
+	vtUUID := fmt.Sprintf("%s-%s", uuid.Id, ll.LessonStage)
+
+	// If it already exists we can return it right away
+	if vt, ok := s.verificationTasks[vtUUID]; ok {
+
+		// If it's still working, just return it as-is
+		if vt.Working {
+			return vt, nil
+		}
+
+		// If it's not still working, regardless of success or failure, we can delete it from our queue
+		// and return it's final state to the client.
+		s.DeleteVerificationTask(vtUUID)
+		return vt, nil
+
+	}
+
+	// Proceed with the creation of a new
+	newVt := &pb.VerificationTask{
+		LiveLesson: ll,
+		Working:    true,
+		Success:    false,
+		Message:    "Starting verification",
+	}
+	s.SetVerificationTask(vtUUID, newVt)
+
+	// Send via channel to scheduler
+
+	return newVt, nil
+}

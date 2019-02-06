@@ -35,10 +35,12 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	}
 
 	apiServer := &server{
-		liveLessonState: make(map[string]*pb.LiveLesson),
-		liveLessonsMu:   &sync.Mutex{},
-		scheduler:       ls,
-		buildInfo:       buildInfo,
+		liveLessonState:     make(map[string]*pb.LiveLesson),
+		liveLessonsMu:       &sync.Mutex{},
+		verificationTasks:   make(map[string]*pb.VerificationTask),
+		verificationTasksMu: &sync.Mutex{},
+		scheduler:           ls,
+		buildInfo:           buildInfo,
 	}
 
 	grpcServer := grpc.NewServer()
@@ -142,6 +144,11 @@ type server struct {
 	liveLessonState map[string]*pb.LiveLesson
 	liveLessonsMu   *sync.Mutex
 
+	// in-memory map of verification tasks, indexed by UUID+stage
+	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
+	verificationTasks   map[string]*pb.VerificationTask
+	verificationTasksMu *sync.Mutex
+
 	scheduler *scheduler.LessonScheduler
 
 	buildInfo map[string]string
@@ -175,6 +182,23 @@ func (s *server) DeleteLiveLesson(uuid string) {
 	s.liveLessonsMu.Lock()
 	defer s.liveLessonsMu.Unlock()
 	delete(s.liveLessonState, uuid)
+}
+
+func (s *server) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
+	s.verificationTasksMu.Lock()
+	defer s.verificationTasksMu.Unlock()
+
+	s.verificationTasks[uuid] = vt
+}
+
+func (s *server) DeleteVerificationTask(uuid string) {
+	if _, ok := s.verificationTasks[uuid]; !ok {
+		// Nothing to do
+		return
+	}
+	s.verificationTasksMu.Lock()
+	defer s.verificationTasksMu.Unlock()
+	delete(s.verificationTasks, uuid)
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

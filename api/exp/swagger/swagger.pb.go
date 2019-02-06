@@ -393,6 +393,30 @@ Livelesson = `{
           "LiveLessonsService"
         ]
       }
+    },
+    "/exp/livelesson/{id}/verifycomplete": {
+      "get": {
+        "operationId": "VerifyLiveLessonCompletion",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expVerificationTask"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LiveLessonsService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -546,6 +570,25 @@ Livelesson = `{
             "$ref": "#/definitions/expLiveLesson"
           },
           "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
+        }
+      }
+    },
+    "expVerificationTask": {
+      "type": "object",
+      "properties": {
+        "liveLesson": {
+          "$ref": "#/definitions/expLiveLesson"
+        },
+        "success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "working": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "message": {
+          "type": "string"
         }
       }
     }
