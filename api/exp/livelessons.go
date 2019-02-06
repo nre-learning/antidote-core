@@ -194,3 +194,12 @@ func (s *server) GetGCWhitelist(ctx context.Context, _ *empty.Empty) (*pb.Sessio
 		Sessions: sessions,
 	}, nil
 }
+
+func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
+	return &pb.LiveLessons{Items: s.liveLessonState}, nil
+}
+
+func (s *server) KillLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.KillLiveLessonStatus, error) {
+
+	// Should add a request to the kubelab here too so it gets cleaned up there, just like you need to do with GC.
+}

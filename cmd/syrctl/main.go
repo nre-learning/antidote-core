@@ -153,6 +153,53 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:    "livelesson",
+			Aliases: []string{"ll"},
+			Usage:   "syrctl livelesson <subcommand>",
+			Subcommands: []cli.Command{
+				{
+					Name:  "list",
+					Usage: "List livelessons",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+					},
+				},
+				{
+					Name:  "kill",
+					Usage: "Kill a livelesson",
+					Action: func(c *cli.Context) {
+
+						sid := c.Args().First()
+						if sid == "" {
+							fmt.Println("Please provide livelesson ID to kill")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Livelesson %s killed.\n", sid)
+					},
+				},
+			},
+		},
 	}
 
 	app.Run(os.Args)

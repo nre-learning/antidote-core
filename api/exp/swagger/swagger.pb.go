@@ -411,6 +411,15 @@ Livelesson = `{
     "expHealthCheckMessage": {
       "type": "object"
     },
+    "expKillLiveLessonStatus": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
     "expLessonParams": {
       "type": "object",
       "properties": {
@@ -507,6 +516,17 @@ Livelesson = `{
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
+    },
+    "expLiveLessons": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expLiveLesson"
+          }
+        }
+      }
     },
     "expSession": {
       "type": "object",

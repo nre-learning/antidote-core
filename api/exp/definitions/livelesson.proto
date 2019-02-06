@@ -33,6 +33,8 @@ service LiveLessonsService {
   rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
   rpc RemoveSessionFromGCWhitelist(Session) returns (HealthCheckMessage) {}
   rpc GetGCWhitelist(google.protobuf.Empty) returns (Sessions) {}
+  rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {}
+  rpc KillLiveLesson(LessonUUID) returns (KillLiveLessonStatus) {}
 }
 
 message Session {
@@ -77,6 +79,10 @@ message LiveLesson {
   bool Error = 11;
 }
 
+message LiveLessons {
+  map<string, LiveLesson> items = 1;
+}
+
 message LiveEndpoint {
   string Name  = 1;
 
@@ -108,6 +114,10 @@ message LessonParams {
 
 message LessonUUID {
   string id = 1;
+}
+
+message KillLiveLessonStatus {
+  bool success = 1;
 }
 
 
