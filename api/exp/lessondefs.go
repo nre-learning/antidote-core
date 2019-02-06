@@ -203,13 +203,24 @@ FILES:
 		// Iterate over stages, and retrieve lesson guide content
 		for l := range lessonDef.Stages {
 			s := lessonDef.Stages[l]
-			fileName := fmt.Sprintf("%s/stage%d/guide.md", filepath.Dir(file), s.Id)
-			contents, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				log.Errorf("Encountered problem reading lesson guide: %s", err)
-				continue FILES
+
+			// Validate presence of jupyter notebook in expected location
+			if s.JupyterLabGuide == true {
+				fileName := fmt.Sprintf("%s/stage%d/notebook.ipynb", filepath.Dir(file), s.Id)
+				_, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Errorf("Stage specified a jupyter notebook lesson guide, but the file was not found: %s", err)
+					continue FILES
+				}
+			} else {
+				fileName := fmt.Sprintf("%s/stage%d/guide.md", filepath.Dir(file), s.Id)
+				contents, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Errorf("Encountered problem reading lesson guide: %s", err)
+					continue FILES
+				}
+				lessonDef.Stages[l].LabGuide = string(contents)
 			}
-			lessonDef.Stages[l].LabGuide = string(contents)
 		}
 
 		log.Infof("Successfully imported lesson %d: %s --- BLACKBOX: %d, IFR: %d, UTILITY: %d, DEVICE: %d, CONNECTIONS: %d", lessonDef.LessonId, lessonDef.LessonName,

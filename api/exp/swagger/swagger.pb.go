@@ -281,6 +281,10 @@ Lessondef = `{
         },
         "LabGuide": {
           "type": "string"
+        },
+        "JupyterLabGuide": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -479,6 +483,10 @@ Livelesson = `{
         },
         "LabGuide": {
           "type": "string"
+        },
+        "JupyterLabGuide": {
+          "type": "boolean",
+          "format": "boolean"
         },
         "LiveLessonStatus": {
           "$ref": "#/definitions/expStatus"

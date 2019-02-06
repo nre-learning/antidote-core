@@ -299,7 +299,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 		err := ls.boopNamespace(nsName)
 		if err != nil {
-			log.Errorf("Problem boop-booping %s: %v", nsName, err)
+			log.Errorf("Problem booping %s: %v", nsName, err)
 		}
 	}
 
@@ -351,6 +351,18 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 	return nil
 }
 
+// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
+// jupyter notebook as a lab guide in any stage.
+func usesJupyterLabGuide(ld *pb.LessonDef) bool {
+	for i := range ld.Stages {
+		if ld.Stages[i].JupyterLabGuide {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, error) {
 
 	ns, err := ls.createNamespace(req)
@@ -374,9 +386,33 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	}
 
 	// Create our configmap for the initContainer for cloning the antidote repo
+
 	ls.createGitConfigMap(ns.ObjectMeta.Name)
 
-	// Only bother making connections and device pod/services if we have a custom topology
+	// Append black box container and create ingress for jupyter lab guide if necessary
+	if usesJupyterLabGuide(req.LessonDef) {
+		jupyterBB := &pb.Blackbox{
+			Name:  "jupyterlabguide",
+			Image: "antidotelabs/jupyter",
+			Ports: []int32{8888},
+		}
+		req.LessonDef.Blackboxes = append(req.LessonDef.Blackboxes, jupyterBB)
+
+		iframeIngress, _ := ls.createIngress(
+			ns.ObjectMeta.Name,
+			&pb.IframeResource{
+				Ref:      "jupyterlabguide",
+				Protocol: "http",
+
+				// Not needed. The front-end will append this specific path to the iframe src
+				// Path:     fmt.Sprintf("/notebooks/lesson-%d/stage%d/notebook.ipynb", req.LessonDef.LessonId, req.Stage),
+
+				Port: 8888,
+			},
+		)
+		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
+	}
+
 	if HasDevices(kl.CreateRequest.LessonDef) {
 
 		log.Debug("Creating devices and connections")
@@ -556,13 +592,14 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["created"], 10, 64)
 
 	ret := pb.LiveLesson{
-		LessonUUID:    kl.CreateRequest.Uuid,
-		LessonId:      kl.CreateRequest.LessonDef.LessonId,
-		LiveEndpoints: map[string]*pb.LiveEndpoint{},
-		LessonStage:   kl.CreateRequest.Stage,
-		LessonDiagram: kl.CreateRequest.LessonDef.LessonDiagram,
-		LessonVideo:   kl.CreateRequest.LessonDef.LessonVideo,
-		LabGuide:      kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
+		LessonUUID:      kl.CreateRequest.Uuid,
+		LessonId:        kl.CreateRequest.LessonDef.LessonId,
+		LiveEndpoints:   map[string]*pb.LiveEndpoint{},
+		LessonStage:     kl.CreateRequest.Stage,
+		LessonDiagram:   kl.CreateRequest.LessonDef.LessonDiagram,
+		LessonVideo:     kl.CreateRequest.LessonDef.LessonVideo,
+		LabGuide:        kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
+		JupyterLabGuide: kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].JupyterLabGuide,
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,
 		},

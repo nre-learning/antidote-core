@@ -2,7 +2,8 @@
 
 ## In development
 
-- Fixed GC goroutine; make GC interval configurable [#63](https://github.com/nre-learning/syringe/pull/63/files)
+- Fixed GC goroutine; make GC interval configurable [#63](https://github.com/nre-learning/syringe/pull/63)
+- Add jupyter notebook as lab guide functionality [#67](https://github.com/nre-learning/syringe/pull/67)
 
 ## 0.2.0 - January 24, 2019
 
