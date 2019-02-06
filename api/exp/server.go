@@ -10,12 +10,14 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -99,6 +101,18 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	// Begin periodically exporting metrics to TSDB
 	go apiServer.startTSDBExport()
 
+	// Periodic clean-up of verification tasks
+	go func() {
+		for {
+			for id, vt := range apiServer.verificationTasks {
+				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 30 {
+					apiServer.DeleteVerificationTask(id)
+				}
+			}
+			time.Sleep(time.Second * 5)
+		}
+	}()
+
 	for {
 		result := <-ls.Results
 
@@ -118,9 +132,22 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_GC {
 				for i := range result.GCLessons {
+
+					// TODO(mierdin): why am I doing this? The other functions don't strip this
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
 					apiServer.DeleteLiveLesson(uuid)
 				}
+			} else if result.Operation == scheduler.OperationType_VERIFY {
+				vtUUID := fmt.Sprintf("%s-%s", result.Uuid, result.Stage)
+
+				vt := apiServer.verificationTasks[vtUUID]
+				vt.Working = false
+				vt.Success = result.Success
+				vt.Completed = &timestamp.Timestamp{
+					Seconds: time.Now().Unix(),
+				}
+
+				apiServer.SetVerificationTask(vtUUID, vt)
 			} else {
 				log.Error("FOO")
 			}

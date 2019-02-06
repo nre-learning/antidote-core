@@ -285,6 +285,10 @@ Lessondef = `{
         "JupyterLabGuide": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "VerifyCompleteness": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
@@ -589,6 +593,10 @@ Livelesson = `{
         },
         "message": {
           "type": "string"
+        },
+        "completed": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     }

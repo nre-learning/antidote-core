@@ -89,6 +89,7 @@ message VerificationTask {
   bool success = 2;
   bool working = 3;
   string message = 4;
+  google.protobuf.Timestamp completed = 5;
 }
 
 message LiveEndpoint {

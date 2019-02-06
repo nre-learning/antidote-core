@@ -203,6 +203,16 @@ func (s *server) VerifyLiveLessonCompletion(ctx context.Context, uuid *pb.Lesson
 	}
 	ll := s.liveLessonState[uuid.Id]
 
+	if ld, ok := s.scheduler.LessonDefs[ll.LessonId]; !ok {
+		// Unlikely to happen since we've verified the livelesson exists,
+		// but easy to check
+		return nil, errors.New("Invalid lesson ID")
+	} else {
+		if !ld.Stages[ll.LessonStage+1].VerifyCompleteness {
+			return nil, errors.New("This lesson's stage doesn't include a completeness verification check")
+		}
+	}
+
 	vtUUID := fmt.Sprintf("%s-%s", uuid.Id, ll.LessonStage)
 
 	// If it already exists we can return it right away

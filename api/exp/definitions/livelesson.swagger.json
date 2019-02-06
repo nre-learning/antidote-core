@@ -278,6 +278,10 @@
         },
         "message": {
           "type": "string"
+        },
+        "completed": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     }

@@ -282,6 +282,10 @@
         "JupyterLabGuide": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "VerifyCompleteness": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

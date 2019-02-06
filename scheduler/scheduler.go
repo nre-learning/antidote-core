@@ -30,6 +30,7 @@ var (
 	OperationType_MODIFY OperationType = 1
 	OperationType_BOOP   OperationType = 2
 	OperationType_GC     OperationType = 3
+	OperationType_VERIFY OperationType = 4
 	defaultGitFileMode   int32         = 0755
 	kubeLabs                           = map[string]*KubeLab{}
 )
@@ -301,6 +302,48 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		if err != nil {
 			log.Errorf("Problem booping %s: %v", nsName, err)
 		}
+	} else if newRequest.Operation == OperationType_VERIFY {
+
+		verifyJob, err := ls.verifyLiveLesson(newRequest)
+		if err != nil {
+			log.Debugf("Unable to verify: %s", err)
+
+			ls.Results <- &LessonScheduleResult{
+				Success:   false,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   kubeLabs[newRequest.Uuid],
+				Uuid:      newRequest.Uuid,
+				Operation: newRequest.Operation,
+				Stage:     newRequest.Stage,
+			}
+		}
+
+		// Quick timeout here. About 30 seconds or so.
+		for i := 0; i < 15; i++ {
+			finished, err := ls.verifyStatus(verifyJob, newRequest)
+			if finished == true && err != nil {
+				ls.Results <- &LessonScheduleResult{
+					Success:   true,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+				return
+			}
+			time.Sleep(2 * time.Second)
+		}
+
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   kubeLabs[newRequest.Uuid],
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
+		}
+
 	}
 
 	log.Debug("Result sent. Now waiting for next schedule request...")
