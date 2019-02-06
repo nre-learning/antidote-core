@@ -278,6 +278,10 @@
         },
         "LabGuide": {
           "type": "string"
+        },
+        "JupyterLabGuide": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

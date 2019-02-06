@@ -75,6 +75,7 @@ message LessonStage {
   int32 Id = 1 [(validate.rules).int32.gt = 0];
   string Description = 2 [(validate.rules).string.min_len = 1];
   string LabGuide = 3;
+  bool JupyterLabGuide = 4;
 }
 
 message Utility {

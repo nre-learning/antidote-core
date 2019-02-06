@@ -36,7 +36,7 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
 				"nginx.ingress.kubernetes.io/limit-rps":         "5",
 				"nginx.ingress.kubernetes.io/add-base-url":      "true",
-				"nginx.ingress.kubernetes.io/app-root":          "/13-jjtigg867ghr3gye-ns-jupyter/",
+				// "nginx.ingress.kubernetes.io/app-root":          "/13-jjtigg867ghr3gye-ns-jupyter/",
 			},
 		},
 

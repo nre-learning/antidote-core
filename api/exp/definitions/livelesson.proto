@@ -67,13 +67,14 @@ message LiveLesson {
   map <string, LiveEndpoint> LiveEndpoints  = 3;
   int32 LessonStage = 4;
   string LabGuide = 5;
+  bool JupyterLabGuide = 6;
 
-  Status LiveLessonStatus = 6;
+  Status LiveLessonStatus = 7;
 
-  google.protobuf.Timestamp createdTime = 7;
-  string LessonDiagram = 8;
-  string LessonVideo = 9;
-  bool Error = 10;
+  google.protobuf.Timestamp createdTime = 8;
+  string LessonDiagram = 9;
+  string LessonVideo = 10;
+  bool Error = 11;
 }
 
 message LiveEndpoint {
