@@ -212,7 +212,6 @@ FILES:
 					log.Errorf("Stage specified a jupyter notebook lesson guide, but the file was not found: %s", err)
 					continue FILES
 				}
-				log.Debugf("Imported1 %s", fileName)
 			} else {
 				fileName := fmt.Sprintf("%s/stage%d/guide.md", filepath.Dir(file), s.Id)
 				contents, err := ioutil.ReadFile(fileName)
@@ -221,7 +220,6 @@ FILES:
 					continue FILES
 				}
 				lessonDef.Stages[l].LabGuide = string(contents)
-				log.Debugf("Imported2 %s", fileName)
 			}
 		}
 
