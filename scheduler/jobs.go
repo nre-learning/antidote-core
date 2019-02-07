@@ -14,14 +14,16 @@ import (
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 )
 
-func (ls *LessonScheduler) killAllJobs(nsName string) error {
+func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 
 	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	result, err := batchclient.Jobs(nsName).List(metav1.ListOptions{})
+	result, err := batchclient.Jobs(nsName).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
+	})
 	if err != nil {
 		log.Errorf("Unable to list Jobs: %s", err)
 		return err
@@ -40,7 +42,9 @@ func (ls *LessonScheduler) killAllJobs(nsName string) error {
 	for {
 		//TODO(mierdin): add timeout
 		time.Sleep(time.Second * 5)
-		result, err = batchclient.Jobs(nsName).List(metav1.ListOptions{})
+		result, err = batchclient.Jobs(nsName).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
+		})
 		if err != nil {
 			log.Errorf("Unable to list Jobs: %s", err)
 			return err
@@ -111,6 +115,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"syringeManaged": "yes",
+				"jobType":        "config",
 				"stageId":        strconv.Itoa(int(req.Stage)),
 			},
 		},
@@ -242,6 +247,8 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 	jobName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
 	podName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
 
+	var retry int32 = 1
+
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -249,11 +256,12 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
 				"syringeManaged": "yes",
+				"jobType":        "verify",
 				"stageId":        strconv.Itoa(int(req.Stage)),
 			},
 		},
-
 		Spec: batchv1.JobSpec{
+			BackoffLimit: &retry,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,

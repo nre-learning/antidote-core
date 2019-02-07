@@ -303,7 +303,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Errorf("Problem booping %s: %v", nsName, err)
 		}
 	} else if newRequest.Operation == OperationType_VERIFY {
-		ls.killAllJobs(nsName)
+		ls.killAllJobs(nsName, "verify")
 		verifyJob, err := ls.verifyLiveLesson(newRequest)
 		if err != nil {
 			log.Debugf("Unable to verify: %s", err)
@@ -332,6 +332,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 					Operation: newRequest.Operation,
 					Stage:     newRequest.Stage,
 				}
+				return
 			}
 
 			// Return immediately if successful and finished
@@ -367,7 +368,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
-	ls.killAllJobs(nsName)
+	ls.killAllJobs(nsName, "config")
 
 	// Perform configuration changes for devices only
 	var deviceEndpoints []*pb.LiveEndpoint

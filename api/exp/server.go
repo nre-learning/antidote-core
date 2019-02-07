@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -105,12 +105,15 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	go func() {
 		for {
 			log.Debugf("Verification Tasks: %s", apiServer.verificationTasks)
+			log.Debugf("LiveLesson State: %s", apiServer.liveLessonState)
 			for id, vt := range apiServer.verificationTasks {
 				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 5 {
 					apiServer.DeleteVerificationTask(id)
 				}
+
+				// TODO(mierdin): Also clean up based on longer time from created
 			}
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second * 5)
 		}
 	}()
 
@@ -122,6 +125,27 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 			"Success":   result.Success,
 			"Uuid":      result.Uuid,
 		}).Debug("Received result from scheduler.")
+
+		if result.Operation == scheduler.OperationType_VERIFY {
+			vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
+
+			vt := apiServer.verificationTasks[vtUUID]
+			vt.Working = false
+			vt.Success = result.Success
+			if result.Success == true {
+				vt.Message = "Successfully verified"
+			} else {
+
+				// TODO(mierdin): Provide an optional field for the author to provide a hint that overrides this.
+				vt.Message = "Failed to verify"
+			}
+			vt.Completed = &timestamp.Timestamp{
+				Seconds: time.Now().Unix(),
+			}
+
+			apiServer.SetVerificationTask(vtUUID, vt)
+			continue
+		}
 
 		if result.Success {
 
@@ -138,24 +162,6 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
 					apiServer.DeleteLiveLesson(uuid)
 				}
-			} else if result.Operation == scheduler.OperationType_VERIFY {
-				vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
-
-				vt := apiServer.verificationTasks[vtUUID]
-				vt.Working = false
-				vt.Success = result.Success
-				if result.Success == true {
-					vt.Message = "Successfully verified"
-				} else {
-
-					// TODO(mierdin): Provide an optional field for the author to provide a hint that overrides this.
-					vt.Message = "Failed to verify"
-				}
-				vt.Completed = &timestamp.Timestamp{
-					Seconds: time.Now().Unix(),
-				}
-
-				apiServer.SetVerificationTask(vtUUID, vt)
 			} else {
 				log.Error("FOO")
 			}
