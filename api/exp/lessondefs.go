@@ -230,6 +230,11 @@ FILES:
 				}
 				lessonDef.Stages[l].LabGuide = string(contents)
 			}
+
+			if s.VerifyCompleteness == true && s.VerifyObjective == "" {
+				log.Error("Must provide a VerifyObjective for stages with VerifyCompleteness set to true")
+				continue FILES
+			}
 		}
 
 		log.Infof("Successfully imported lesson %d: %s --- BLACKBOX: %d, IFR: %d, UTILITY: %d, DEVICE: %d, CONNECTIONS: %d", lessonDef.LessonId, lessonDef.LessonName,

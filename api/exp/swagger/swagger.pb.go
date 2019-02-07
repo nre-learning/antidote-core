@@ -289,6 +289,9 @@ Lessondef = `{
         "VerifyCompleteness": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "VerifyObjective": {
+          "type": "string"
         }
       }
     },

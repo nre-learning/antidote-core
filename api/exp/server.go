@@ -106,11 +106,11 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		for {
 			log.Debugf("Verification Tasks: %s", apiServer.verificationTasks)
 			for id, vt := range apiServer.verificationTasks {
-				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 30 {
+				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 5 {
 					apiServer.DeleteVerificationTask(id)
 				}
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 2)
 		}
 	}()
 
