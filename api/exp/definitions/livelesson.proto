@@ -28,10 +28,16 @@ service LiveLessonsService {
     };
   }
 
-
-  rpc VerifyLiveLessonCompletion(LessonUUID) returns (VerificationTask) {
+  rpc RequestVerification(LessonUUID) returns (VerificationTaskUUID) {
     option (google.api.http) = {
-      get: "/exp/livelesson/{id}/verifycomplete"
+      post: "/exp/livelesson/{id}/verify"
+      body: "*"
+    };
+  }
+
+  rpc GetVerification(VerificationTaskUUID) returns (VerificationTask) {
+    option (google.api.http) = {
+      get: "/exp/verification/{id}"
     };
   }
 
@@ -84,12 +90,17 @@ message LiveLesson {
   bool Error = 11;
 }
 
+message VerificationTaskUUID {
+  string id = 1;
+}
+
 message VerificationTask {
-  LiveLesson liveLesson = 1;
-  bool success = 2;
-  bool working = 3;
-  string message = 4;
-  google.protobuf.Timestamp completed = 5;
+  string liveLessonId = 1;
+  int32 liveLessonStage = 2;
+  bool success = 3;
+  bool working = 4;
+  string message = 5;
+  google.protobuf.Timestamp completed = 6;
 }
 
 message LiveEndpoint {

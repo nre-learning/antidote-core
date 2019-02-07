@@ -239,8 +239,8 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	jobName := fmt.Sprintf("verify-%s-%s", req.LessonDef.LessonId, req.Stage)
-	podName := fmt.Sprintf("verify-%s-%s", req.LessonDef.LessonId, req.Stage)
+	jobName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
+	podName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

@@ -398,9 +398,41 @@ Livelesson = `{
         ]
       }
     },
-    "/exp/livelesson/{id}/verifycomplete": {
+    "/exp/livelesson/{id}/verify": {
+      "post": {
+        "operationId": "RequestVerification",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expVerificationTaskUUID"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/expLessonUUID"
+            }
+          }
+        ],
+        "tags": [
+          "LiveLessonsService"
+        ]
+      }
+    },
+    "/exp/verification/{id}": {
       "get": {
-        "operationId": "VerifyLiveLessonCompletion",
+        "operationId": "GetVerification",
         "responses": {
           "200": {
             "description": "",
@@ -580,8 +612,12 @@ Livelesson = `{
     "expVerificationTask": {
       "type": "object",
       "properties": {
-        "liveLesson": {
-          "$ref": "#/definitions/expLiveLesson"
+        "liveLessonId": {
+          "type": "string"
+        },
+        "liveLessonStage": {
+          "type": "integer",
+          "format": "int32"
         },
         "success": {
           "type": "boolean",
@@ -597,6 +633,14 @@ Livelesson = `{
         "completed": {
           "type": "string",
           "format": "date-time"
+        }
+      }
+    },
+    "expVerificationTaskUUID": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         }
       }
     }

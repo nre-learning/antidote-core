@@ -104,6 +104,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	// Periodic clean-up of verification tasks
 	go func() {
 		for {
+			log.Debugf("Verification Tasks: %s", apiServer.verificationTasks)
 			for id, vt := range apiServer.verificationTasks {
 				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 30 {
 					apiServer.DeleteVerificationTask(id)
@@ -138,11 +139,18 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 					apiServer.DeleteLiveLesson(uuid)
 				}
 			} else if result.Operation == scheduler.OperationType_VERIFY {
-				vtUUID := fmt.Sprintf("%s-%s", result.Uuid, result.Stage)
+				vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
 
 				vt := apiServer.verificationTasks[vtUUID]
 				vt.Working = false
 				vt.Success = result.Success
+				if result.Success == true {
+					vt.Message = "Successfully verified"
+				} else {
+
+					// TODO(mierdin): Provide an optional field for the author to provide a hint that overrides this.
+					vt.Message = "Failed to verify"
+				}
 				vt.Completed = &timestamp.Timestamp{
 					Seconds: time.Now().Unix(),
 				}

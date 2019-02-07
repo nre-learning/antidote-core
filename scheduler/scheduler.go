@@ -303,7 +303,7 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 			log.Errorf("Problem booping %s: %v", nsName, err)
 		}
 	} else if newRequest.Operation == OperationType_VERIFY {
-
+		ls.killAllJobs(nsName)
 		verifyJob, err := ls.verifyLiveLesson(newRequest)
 		if err != nil {
 			log.Debugf("Unable to verify: %s", err)
@@ -320,8 +320,22 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 
 		// Quick timeout here. About 30 seconds or so.
 		for i := 0; i < 15; i++ {
+
 			finished, err := ls.verifyStatus(verifyJob, newRequest)
-			if finished == true && err != nil {
+			// Return immediately if there was a problem
+			if err != nil {
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+			}
+
+			// Return immediately if successful and finished
+			if finished == true {
 				ls.Results <- &LessonScheduleResult{
 					Success:   true,
 					LessonDef: newRequest.LessonDef,
@@ -332,9 +346,12 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 				}
 				return
 			}
+
+			// Not failed or succeeded yet. Try again.
 			time.Sleep(2 * time.Second)
 		}
 
+		// Return failure, there's clearly a problem.
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
 			LessonDef: newRequest.LessonDef,
