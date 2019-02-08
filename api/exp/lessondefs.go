@@ -22,10 +22,6 @@ func (s *server) ListLessonDefs(ctx context.Context, filter *pb.LessonDefFilter)
 	// TODO(mierdin): Okay for now, but not super efficient. Should store in category keys when loaded.
 	for _, lessonDef := range s.scheduler.LessonDefs {
 
-		for s := range lessonDef.Stages {
-			lessonDef.Stages[s].LabGuide = ""
-		}
-
 		if filter.Category == "" {
 			defs = append(defs, lessonDef)
 			continue

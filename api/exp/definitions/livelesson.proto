@@ -141,12 +141,7 @@ message LessonParams {
 message LessonUUID {
   string id = 1;
 }
-<<<<<<< HEAD
 
 message KillLiveLessonStatus {
   bool success = 1;
 }
-
-
-=======
->>>>>>> master

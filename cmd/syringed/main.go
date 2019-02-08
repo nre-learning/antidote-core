@@ -48,7 +48,10 @@ func main() {
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
+		KubeLabs:      make(map[string]*scheduler.KubeLab),
+		KubeLabsMu:    &sync.Mutex{},
 	}
+
 	go func() {
 		err = lessonScheduler.Start()
 		if err != nil {

@@ -201,7 +201,16 @@ func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveL
 
 func (s *server) KillLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.KillLiveLessonStatus, error) {
 
-	// Should add a request to the kubelab here too so it gets cleaned up there, just like you need to do with GC.
+	if _, ok := s.liveLessonState[uuid.Id]; !ok {
+		return nil, errors.New("Livelesson not found")
+	}
+
+	s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
+		Operation: scheduler.OperationType_DELETE,
+		Uuid:      uuid.Id,
+	}
+
+	return &pb.KillLiveLessonStatus{Success: true}, nil
 }
 
 func (s *server) RequestVerification(ctx context.Context, uuid *pb.LessonUUID) (*pb.VerificationTaskUUID, error) {

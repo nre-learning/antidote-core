@@ -1,0 +1,45 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "livelesson.proto";
+import "lessondef.proto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service KubeLabService {
+
+  rpc ListKubeLabs(google.protobuf.Empty) returns (KubeLabs) {}
+  rpc GetKubeLab(KubeLabUuid) returns (KubeLab) {}
+
+}
+
+message KubeLabUuid {
+    string Id = 1;
+}
+
+message LessonScheduleRequest {
+    LessonDef LessonDef = 1;
+    int32 OperationType = 2;
+    string Uuid = 3;
+    int32 Stage = 4;
+    google.protobuf.Timestamp Created = 5;
+}
+
+message KubeLab {
+    string Namespace = 1;
+    LessonScheduleRequest CreateRequest = 2;
+    repeated string Networks = 3;
+    repeated string Pods = 4;
+    repeated string Services = 5;
+    repeated string Ingresses = 6;
+    Status status = 7;
+    repeated string ReachableEndpoints = 8;
+    int32 CurrentStage = 9;
+}
+
+message KubeLabs {
+    map<string, KubeLab> Items = 1;
+}
+
+

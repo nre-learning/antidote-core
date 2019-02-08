@@ -142,7 +142,7 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveLessonsServiceClient(conn)
 
-						client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						_, err = client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
@@ -168,6 +168,20 @@ func main() {
 						if err != nil {
 							fmt.Println(err)
 						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						liveLessons, err := client.ListLiveLessons(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Println("LIVELESSONS")
+
+						for i := range liveLessons.Items {
+							fmt.Println(liveLessons.Items[i].LessonUUID)
+						}
 					},
 				},
 				{
@@ -175,8 +189,8 @@ func main() {
 					Usage: "Kill a livelesson",
 					Action: func(c *cli.Context) {
 
-						sid := c.Args().First()
-						if sid == "" {
+						uuid := c.Args().First()
+						if uuid == "" {
 							fmt.Println("Please provide livelesson ID to kill")
 							os.Exit(1)
 						}
@@ -189,13 +203,13 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveLessonsServiceClient(conn)
 
-						client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						_, err = client.KillLiveLesson(context.Background(), &pb.LessonUUID{Id: uuid})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
 
-						fmt.Printf("Livelesson %s killed.\n", sid)
+						fmt.Printf("Livelesson %s killed.\n", uuid)
 					},
 				},
 			},

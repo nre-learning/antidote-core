@@ -49,6 +49,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonDefServiceServer(grpcServer, apiServer)
 	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
+	pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
 	defer grpcServer.Stop()
 
 	// Start grpc server
@@ -61,6 +62,8 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 
 	gwmux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
+
+	// Register GRPC-gateway (HTTP) endpoints
 	err = gw.RegisterLiveLessonsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
@@ -74,6 +77,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		return err
 	}
 
+	// Handle swagger requests
 	mux := http.NewServeMux()
 	mux.Handle("/", gwmux)
 	mux.HandleFunc("/livelesson.json", func(w http.ResponseWriter, req *http.Request) {
@@ -141,6 +145,10 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 
 			apiServer.SetVerificationTask(vtUUID, vt)
 			continue
+		} else if result.Operation == scheduler.OperationType_DELETE {
+			if result.Success == true {
+				apiServer.DeleteLiveLesson(result.Uuid)
+			}
 		}
 
 		if result.Success {
@@ -148,9 +156,9 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 			// Scheduler operation successful - just need to update the state in memory accordingly
 			if result.Operation == scheduler.OperationType_CREATE {
 				apiServer.recordProvisioningTime(result.ProvisioningTime, result)
-				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
+				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_MODIFY {
-				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
+				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_GC {
 				for i := range result.GCLessons {
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
