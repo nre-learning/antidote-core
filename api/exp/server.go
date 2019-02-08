@@ -104,14 +104,10 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	// Periodic clean-up of verification tasks
 	go func() {
 		for {
-			log.Debugf("Verification Tasks: %s", apiServer.verificationTasks)
-			log.Debugf("LiveLesson State: %s", apiServer.liveLessonState)
 			for id, vt := range apiServer.verificationTasks {
-				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 5 {
+				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 15 {
 					apiServer.DeleteVerificationTask(id)
 				}
-
-				// TODO(mierdin): Also clean up based on longer time from created
 			}
 			time.Sleep(time.Second * 5)
 		}
