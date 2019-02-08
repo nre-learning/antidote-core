@@ -76,6 +76,13 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 							"yes",
 						},
 					},
+					{ // do not apply network policy to verify pods, they need to get to internet for configs
+						Key:      "verifyPod",
+						Operator: meta_v1.LabelSelectorOpNotIn,
+						Values: []string{
+							"yes",
+						},
+					},
 				},
 			},
 			PolicyTypes: []netv1.PolicyType{

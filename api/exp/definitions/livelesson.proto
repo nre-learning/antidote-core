@@ -28,6 +28,19 @@ service LiveLessonsService {
     };
   }
 
+  rpc RequestVerification(LessonUUID) returns (VerificationTaskUUID) {
+    option (google.api.http) = {
+      post: "/exp/livelesson/{id}/verify"
+      body: "*"
+    };
+  }
+
+  rpc GetVerification(VerificationTaskUUID) returns (VerificationTask) {
+    option (google.api.http) = {
+      get: "/exp/verification/{id}"
+    };
+  }
+
   // THESE ARE SENSITIVE - do not expose via REST
   rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
   rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
@@ -83,6 +96,19 @@ message LiveLessons {
   map<string, LiveLesson> items = 1;
 }
 
+message VerificationTaskUUID {
+  string id = 1;
+}
+
+message VerificationTask {
+  string liveLessonId = 1;
+  int32 liveLessonStage = 2;
+  bool success = 3;
+  bool working = 4;
+  string message = 5;
+  google.protobuf.Timestamp completed = 6;
+}
+
 message LiveEndpoint {
   string Name  = 1;
 
@@ -115,9 +141,12 @@ message LessonParams {
 message LessonUUID {
   string id = 1;
 }
+<<<<<<< HEAD
 
 message KillLiveLessonStatus {
   bool success = 1;
 }
 
 
+=======
+>>>>>>> master
