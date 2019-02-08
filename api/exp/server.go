@@ -153,8 +153,6 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 				apiServer.SetLiveLesson(result.Uuid, result.KubeLab.ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_GC {
 				for i := range result.GCLessons {
-
-					// TODO(mierdin): why am I doing this? The other functions don't strip this
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
 					apiServer.DeleteLiveLesson(uuid)
 				}
