@@ -204,6 +204,15 @@ FILES:
 		for l := range lessonDef.Stages {
 			s := lessonDef.Stages[l]
 
+			if s.VerifyCompleteness == true {
+				fileName := fmt.Sprintf("%s/stage%d/verify.py", filepath.Dir(file), s.Id)
+				_, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Errorf("Stage specified VerifyCompleteness but no verify.py script was found: %s", err)
+					continue FILES
+				}
+			}
+
 			// Validate presence of jupyter notebook in expected location
 			if s.JupyterLabGuide == true {
 				fileName := fmt.Sprintf("%s/stage%d/notebook.ipynb", filepath.Dir(file), s.Id)
@@ -220,6 +229,11 @@ FILES:
 					continue FILES
 				}
 				lessonDef.Stages[l].LabGuide = string(contents)
+			}
+
+			if s.VerifyCompleteness == true && s.VerifyObjective == "" {
+				log.Error("Must provide a VerifyObjective for stages with VerifyCompleteness set to true")
+				continue FILES
 			}
 		}
 

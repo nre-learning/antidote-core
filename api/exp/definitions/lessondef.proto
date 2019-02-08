@@ -76,6 +76,8 @@ message LessonStage {
   string Description = 2 [(validate.rules).string.min_len = 1];
   string LabGuide = 3;
   bool JupyterLabGuide = 4;
+  bool VerifyCompleteness = 5;
+  string VerifyObjective = 6;
 }
 
 message Utility {

@@ -285,6 +285,13 @@ Lessondef = `{
         "JupyterLabGuide": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "VerifyCompleteness": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "VerifyObjective": {
+          "type": "string"
         }
       }
     },
@@ -378,6 +385,62 @@ Livelesson = `{
             "description": "",
             "schema": {
               "$ref": "#/definitions/expLiveLesson"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LiveLessonsService"
+        ]
+      }
+    },
+    "/exp/livelesson/{id}/verify": {
+      "post": {
+        "operationId": "RequestVerification",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expVerificationTaskUUID"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/expLessonUUID"
+            }
+          }
+        ],
+        "tags": [
+          "LiveLessonsService"
+        ]
+      }
+    },
+    "/exp/verification/{id}": {
+      "get": {
+        "operationId": "GetVerification",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/expVerificationTask"
             }
           }
         },
@@ -546,6 +609,41 @@ Livelesson = `{
             "$ref": "#/definitions/expLiveLesson"
           },
           "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
+        }
+      }
+    },
+    "expVerificationTask": {
+      "type": "object",
+      "properties": {
+        "liveLessonId": {
+          "type": "string"
+        },
+        "liveLessonStage": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "working": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "completed": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "expVerificationTaskUUID": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         }
       }
     }

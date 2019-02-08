@@ -10,8 +10,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
@@ -35,10 +37,12 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	}
 
 	apiServer := &server{
-		liveLessonState: make(map[string]*pb.LiveLesson),
-		liveLessonsMu:   &sync.Mutex{},
-		scheduler:       ls,
-		buildInfo:       buildInfo,
+		liveLessonState:     make(map[string]*pb.LiveLesson),
+		liveLessonsMu:       &sync.Mutex{},
+		verificationTasks:   make(map[string]*pb.VerificationTask),
+		verificationTasksMu: &sync.Mutex{},
+		scheduler:           ls,
+		buildInfo:           buildInfo,
 	}
 
 	grpcServer := grpc.NewServer()
@@ -97,6 +101,18 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	// Begin periodically exporting metrics to TSDB
 	go apiServer.startTSDBExport()
 
+	// Periodic clean-up of verification tasks
+	go func() {
+		for {
+			for id, vt := range apiServer.verificationTasks {
+				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 15 {
+					apiServer.DeleteVerificationTask(id)
+				}
+			}
+			time.Sleep(time.Second * 5)
+		}
+	}()
+
 	for {
 		result := <-ls.Results
 
@@ -105,6 +121,27 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 			"Success":   result.Success,
 			"Uuid":      result.Uuid,
 		}).Debug("Received result from scheduler.")
+
+		if result.Operation == scheduler.OperationType_VERIFY {
+			vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
+
+			vt := apiServer.verificationTasks[vtUUID]
+			vt.Working = false
+			vt.Success = result.Success
+			if result.Success == true {
+				vt.Message = "Successfully verified"
+			} else {
+
+				// TODO(mierdin): Provide an optional field for the author to provide a hint that overrides this.
+				vt.Message = "Failed to verify"
+			}
+			vt.Completed = &timestamp.Timestamp{
+				Seconds: time.Now().Unix(),
+			}
+
+			apiServer.SetVerificationTask(vtUUID, vt)
+			continue
+		}
 
 		if result.Success {
 
@@ -142,6 +179,11 @@ type server struct {
 	liveLessonState map[string]*pb.LiveLesson
 	liveLessonsMu   *sync.Mutex
 
+	// in-memory map of verification tasks, indexed by UUID+stage
+	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
+	verificationTasks   map[string]*pb.VerificationTask
+	verificationTasksMu *sync.Mutex
+
 	scheduler *scheduler.LessonScheduler
 
 	buildInfo map[string]string
@@ -175,6 +217,23 @@ func (s *server) DeleteLiveLesson(uuid string) {
 	s.liveLessonsMu.Lock()
 	defer s.liveLessonsMu.Unlock()
 	delete(s.liveLessonState, uuid)
+}
+
+func (s *server) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
+	s.verificationTasksMu.Lock()
+	defer s.verificationTasksMu.Unlock()
+
+	s.verificationTasks[uuid] = vt
+}
+
+func (s *server) DeleteVerificationTask(uuid string) {
+	if _, ok := s.verificationTasks[uuid]; !ok {
+		// Nothing to do
+		return
+	}
+	s.verificationTasksMu.Lock()
+	defer s.verificationTasksMu.Unlock()
+	delete(s.verificationTasks, uuid)
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

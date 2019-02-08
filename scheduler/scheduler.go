@@ -30,6 +30,7 @@ var (
 	OperationType_MODIFY OperationType = 1
 	OperationType_BOOP   OperationType = 2
 	OperationType_GC     OperationType = 3
+	OperationType_VERIFY OperationType = 4
 	defaultGitFileMode   int32         = 0755
 	kubeLabs                           = map[string]*KubeLab{}
 )
@@ -301,13 +302,73 @@ func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
 		if err != nil {
 			log.Errorf("Problem booping %s: %v", nsName, err)
 		}
+	} else if newRequest.Operation == OperationType_VERIFY {
+		ls.killAllJobs(nsName, "verify")
+		verifyJob, err := ls.verifyLiveLesson(newRequest)
+		if err != nil {
+			log.Debugf("Unable to verify: %s", err)
+
+			ls.Results <- &LessonScheduleResult{
+				Success:   false,
+				LessonDef: newRequest.LessonDef,
+				KubeLab:   kubeLabs[newRequest.Uuid],
+				Uuid:      newRequest.Uuid,
+				Operation: newRequest.Operation,
+				Stage:     newRequest.Stage,
+			}
+		}
+
+		// Quick timeout here. About 30 seconds or so.
+		for i := 0; i < 15; i++ {
+
+			finished, err := ls.verifyStatus(verifyJob, newRequest)
+			// Return immediately if there was a problem
+			if err != nil {
+				ls.Results <- &LessonScheduleResult{
+					Success:   false,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+				return
+			}
+
+			// Return immediately if successful and finished
+			if finished == true {
+				ls.Results <- &LessonScheduleResult{
+					Success:   true,
+					LessonDef: newRequest.LessonDef,
+					KubeLab:   kubeLabs[newRequest.Uuid],
+					Uuid:      newRequest.Uuid,
+					Operation: newRequest.Operation,
+					Stage:     newRequest.Stage,
+				}
+				return
+			}
+
+			// Not failed or succeeded yet. Try again.
+			time.Sleep(2 * time.Second)
+		}
+
+		// Return failure, there's clearly a problem.
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			LessonDef: newRequest.LessonDef,
+			KubeLab:   kubeLabs[newRequest.Uuid],
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
+		}
+
 	}
 
 	log.Debug("Result sent. Now waiting for next schedule request...")
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
-	ls.killAllJobs(nsName)
+	ls.killAllJobs(nsName, "config")
 
 	// Perform configuration changes for devices only
 	var deviceEndpoints []*pb.LiveEndpoint
