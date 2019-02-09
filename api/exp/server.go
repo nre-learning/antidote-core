@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
@@ -117,6 +116,14 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		}
 	}()
 
+	// Handle incoming requests asynchronously
+	var handlers = map[scheduler.OperationType]interface{}{
+		scheduler.OperationType_CREATE: apiServer.handleResponseCREATE,
+		scheduler.OperationType_DELETE: apiServer.handleResponseDELETE,
+		scheduler.OperationType_MODIFY: apiServer.handleResponseMODIFY,
+		scheduler.OperationType_BOOP:   apiServer.handleResponseBOOP,
+		scheduler.OperationType_VERIFY: apiServer.handleResponseVERIFY,
+	}
 	for {
 		result := <-ls.Results
 
@@ -126,51 +133,10 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 			"Uuid":      result.Uuid,
 		}).Debug("Received result from scheduler.")
 
-		if result.Operation == scheduler.OperationType_VERIFY {
-			vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
+		go func() {
+			handlers[result.Operation].(func(*scheduler.LessonScheduleResult))(result)
+		}()
 
-			vt := apiServer.verificationTasks[vtUUID]
-			vt.Working = false
-			vt.Success = result.Success
-			if result.Success == true {
-				vt.Message = "Successfully verified"
-			} else {
-
-				// TODO(mierdin): Provide an optional field for the author to provide a hint that overrides this.
-				vt.Message = "Failed to verify"
-			}
-			vt.Completed = &timestamp.Timestamp{
-				Seconds: time.Now().Unix(),
-			}
-
-			apiServer.SetVerificationTask(vtUUID, vt)
-			continue
-		} else if result.Operation == scheduler.OperationType_DELETE {
-			if result.Success == true {
-				apiServer.DeleteLiveLesson(result.Uuid)
-			}
-		}
-
-		if result.Success {
-
-			// Scheduler operation successful - just need to update the state in memory accordingly
-			if result.Operation == scheduler.OperationType_CREATE {
-				apiServer.recordProvisioningTime(result.ProvisioningTime, result)
-				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
-			} else if result.Operation == scheduler.OperationType_MODIFY {
-				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
-			} else if result.Operation == scheduler.OperationType_DELETE {
-				for i := range result.GCLessons {
-					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
-					apiServer.DeleteLiveLesson(uuid)
-				}
-			} else {
-				log.Error("FOO")
-			}
-		} else {
-			log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
-			apiServer.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
-		}
 	}
 
 	return nil

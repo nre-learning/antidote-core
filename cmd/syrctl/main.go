@@ -184,6 +184,35 @@ func main() {
 					},
 				},
 				{
+					Name:  "get",
+					Usage: "get a Livelesson",
+					Action: func(c *cli.Context) {
+
+						uuid := c.Args().First()
+						if uuid == "" {
+							fmt.Println("Please provide livelesson ID to get")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						ll, err := client.GetLiveLesson(context.Background(), &pb.LessonUUID{Id: uuid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						jpbm := jsonpb.Marshaler{}
+						fmt.Println(jpbm.MarshalToString(ll))
+					},
+				},
+				{
 					Name:  "kill",
 					Usage: "Kill a livelesson",
 					Action: func(c *cli.Context) {
@@ -263,14 +292,14 @@ func main() {
 						defer conn.Close()
 						client := pb.NewKubeLabServiceClient(conn)
 
-						kubeLabs, err := client.GetKubeLab(context.Background(), &pb.KubeLabUuid{Id: uuid})
+						kubeLab, err := client.GetKubeLab(context.Background(), &pb.KubeLabUuid{Id: uuid})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
 
 						jpbm := jsonpb.Marshaler{}
-						fmt.Println(jpbm.MarshalToString(kubeLabs))
+						fmt.Println(jpbm.MarshalToString(kubeLab))
 					},
 				},
 			},

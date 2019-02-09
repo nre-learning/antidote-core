@@ -188,6 +188,11 @@ func (s *server) startTSDBExport() error {
 			}
 			fields["activeNow"] = count
 
+			// This is just for debugging, so only show active lessons
+			if count > 0 {
+				log.Debugf("Creating influxdb point: ID: %s | NAME: %s | ACTIVE: %d", fields["lessonId"], fields["lessonName"], count)
+			}
+
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
 			if err != nil {
 				log.Error("Error creating InfluxDB Point: ", err)

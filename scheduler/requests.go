@@ -8,6 +8,25 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type LessonScheduleRequest struct {
+	LessonDef *pb.LessonDef
+	Operation OperationType
+	Uuid      string
+	Stage     int32
+	Created   time.Time
+}
+
+type LessonScheduleResult struct {
+	Success          bool
+	Stage            int32
+	LessonDef        *pb.LessonDef
+	Operation        OperationType
+	Message          string
+	ProvisioningTime int
+	Uuid             string
+	GCLessons        []string
+}
+
 func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
 
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
@@ -27,6 +46,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	// populate the entry in the API server with data about endpoints that it doesn't have yet.
 	log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
 	newKubeLab.Status = pb.Status_INITIAL_BOOT
+	newKubeLab.CurrentStage = newRequest.Stage
 
 	// The API server is watching the kubelab map for updates, so we need to make sure we
 	// set this beforce returning our first result.
@@ -252,8 +272,9 @@ func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) 
 
 func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
 
+	// Delete the namespace object and then clean up our local state
+	// TODO(mierdin): This is an unlikely operation to fail, but maybe add some kind logic here just in case?
 	ls.deleteNamespace(fmt.Sprintf("%s-ns", newRequest.Uuid))
-
 	ls.deleteKubelab(newRequest.Uuid)
 
 	ls.Results <- &LessonScheduleResult{

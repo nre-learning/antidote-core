@@ -46,7 +46,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	// stage ID 1 refers to the second index (1) in the stage slice.
 	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
 	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
-	if len(s.scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage+1) {
+	if len(s.scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage) {
 		msg := "Invalid stage ID for this lesson"
 		log.Error(msg)
 		return nil, errors.New(msg)
@@ -69,11 +69,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				Uuid:      lessonUuid,
 			}
 
-			log.Debug("POOP8")
-
 			s.scheduler.Requests <- req
-
-			log.Debug("POOP9")
 
 			s.recordRequestTSDB(req)
 
@@ -81,9 +77,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
 			req := &scheduler.LessonScheduleRequest{
-				LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 				Operation: scheduler.OperationType_BOOP,
-				Stage:     0,
 				Uuid:      lessonUuid,
 			}
 

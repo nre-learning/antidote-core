@@ -38,25 +38,6 @@ type Endpoint interface {
 	GetPorts() []int32
 }
 
-type LessonScheduleRequest struct {
-	LessonDef *pb.LessonDef
-	Operation OperationType
-	Uuid      string
-	Stage     int32
-	Created   time.Time
-}
-
-type LessonScheduleResult struct {
-	Success          bool
-	Stage            int32
-	LessonDef        *pb.LessonDef
-	Operation        OperationType
-	Message          string
-	ProvisioningTime int
-	Uuid             string
-	GCLessons        []string
-}
-
 type LessonScheduler struct {
 	KubeConfig    *rest.Config
 	Requests      chan *LessonScheduleRequest
@@ -132,15 +113,11 @@ func (ls *LessonScheduler) Start() error {
 func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
 	ls.KubeLabsMu.Lock()
 	defer ls.KubeLabsMu.Unlock()
-	// if _, ok := ls.KubeLabs[uuid]; ok {
-	// 	return nil, fmt.Errorf("uuid %s already present in kubelab", session.Id)
-	// }
 	ls.KubeLabs[uuid] = kl
 }
 
 func (ls *LessonScheduler) deleteKubelab(uuid string) {
 	if _, ok := ls.KubeLabs[uuid]; !ok {
-		// Nothing to do
 		return
 	}
 	ls.KubeLabsMu.Lock()
