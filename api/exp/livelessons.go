@@ -69,7 +69,11 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 				Uuid:      lessonUuid,
 			}
 
+			log.Debug("POOP8")
+
 			s.scheduler.Requests <- req
+
+			log.Debug("POOP9")
 
 			s.recordRequestTSDB(req)
 

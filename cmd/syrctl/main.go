@@ -7,6 +7,7 @@ import (
 
 	cli "github.com/codegangsta/cli"
 	"github.com/fatih/color"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/nre-learning/syringe/api/exp"
 	"github.com/nre-learning/syringe/config"
@@ -177,8 +178,6 @@ func main() {
 							os.Exit(1)
 						}
 
-						fmt.Println("LIVELESSONS")
-
 						for i := range liveLessons.Items {
 							fmt.Println(liveLessons.Items[i].LessonUUID)
 						}
@@ -210,6 +209,68 @@ func main() {
 						}
 
 						fmt.Printf("Livelesson %s killed.\n", uuid)
+					},
+				},
+			},
+		},
+
+		{
+			Name:    "kubelab",
+			Aliases: []string{"kl"},
+			Usage:   "syrctl kubelab <subcommand>",
+			Subcommands: []cli.Command{
+				{
+					Name:  "list",
+					Usage: "List kubelabs",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewKubeLabServiceClient(conn)
+
+						kubeLabs, err := client.ListKubeLabs(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						for uuid := range kubeLabs.Items {
+							fmt.Println(uuid)
+						}
+
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "get a Kubelab",
+					Action: func(c *cli.Context) {
+
+						uuid := c.Args().First()
+						if uuid == "" {
+							fmt.Println("Please provide kubelab ID to get")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewKubeLabServiceClient(conn)
+
+						kubeLabs, err := client.GetKubeLab(context.Background(), &pb.KubeLabUuid{Id: uuid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						jpbm := jsonpb.Marshaler{}
+						fmt.Println(jpbm.MarshalToString(kubeLabs))
 					},
 				},
 			},

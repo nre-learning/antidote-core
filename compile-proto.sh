@@ -1,9 +1,11 @@
+#!/bin/bash
+
 declare -a protos=(
-    "kubelab.proto"
-    "lessondef.proto"
-    "livelesson.proto"
-    "syringeinfo.proto"
-)
+    'kubelab.proto'
+    'lessondef.proto'
+    'livelesson.proto'
+    'syringeinfo.proto'
+);
 
 for i in "${protos[@]}"
 do

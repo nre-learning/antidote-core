@@ -253,7 +253,8 @@ func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) 
 func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
 
 	ls.deleteNamespace(fmt.Sprintf("%s-ns", newRequest.Uuid))
-	// Clean up from kubelabs as well
+
+	ls.deleteKubelab(newRequest.Uuid)
 
 	ls.Results <- &LessonScheduleResult{
 		Success:   true,

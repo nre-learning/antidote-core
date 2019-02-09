@@ -23,11 +23,10 @@ import (
 type OperationType int32
 
 var (
-	OperationType_CREATE OperationType = 0
-	OperationType_DELETE OperationType = 1
-	OperationType_MODIFY OperationType = 2
-	OperationType_BOOP   OperationType = 3
-	OperationType_GC     OperationType = 4
+	OperationType_CREATE OperationType = 1
+	OperationType_DELETE OperationType = 2
+	OperationType_MODIFY OperationType = 3
+	OperationType_BOOP   OperationType = 4
 	OperationType_VERIFY OperationType = 5
 	defaultGitFileMode   int32         = 0755
 )
@@ -96,7 +95,7 @@ func (ls *LessonScheduler) Start() error {
 					Success:   true,
 					LessonDef: nil,
 					Uuid:      "",
-					Operation: OperationType_GC,
+					Operation: OperationType_DELETE,
 					GCLessons: cleaned,
 				}
 			}
@@ -107,6 +106,13 @@ func (ls *LessonScheduler) Start() error {
 	}()
 
 	// Handle incoming requests asynchronously
+	var handlers = map[OperationType]interface{}{
+		OperationType_CREATE: ls.handleRequestCREATE,
+		OperationType_DELETE: ls.handleRequestDELETE,
+		OperationType_MODIFY: ls.handleRequestMODIFY,
+		OperationType_BOOP:   ls.handleRequestBOOP,
+		OperationType_VERIFY: ls.handleRequestVERIFY,
+	}
 	for {
 		newRequest := <-ls.Requests
 
@@ -117,18 +123,10 @@ func (ls *LessonScheduler) Start() error {
 		}).Debug("Scheduler received new request. Sending to handle function.")
 
 		go func() {
-			var handlers = map[OperationType]interface{}{
-				OperationType_CREATE: ls.handleRequestCREATE,
-				OperationType_DELETE: ls.handleRequestDELETE,
-				OperationType_MODIFY: ls.handleRequestMODIFY,
-				OperationType_BOOP:   ls.handleRequestBOOP,
-				OperationType_VERIFY: ls.handleRequestVERIFY,
-			}
 			handlers[newRequest.Operation].(func(*LessonScheduleRequest))(newRequest)
 		}()
-
-		return nil
 	}
+	return nil
 }
 
 func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
@@ -138,6 +136,16 @@ func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
 	// 	return nil, fmt.Errorf("uuid %s already present in kubelab", session.Id)
 	// }
 	ls.KubeLabs[uuid] = kl
+}
+
+func (ls *LessonScheduler) deleteKubelab(uuid string) {
+	if _, ok := ls.KubeLabs[uuid]; !ok {
+		// Nothing to do
+		return
+	}
+	ls.KubeLabsMu.Lock()
+	defer ls.KubeLabsMu.Unlock()
+	delete(ls.KubeLabs, uuid)
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
@@ -197,29 +205,6 @@ func usesJupyterLabGuide(ld *pb.LessonDef) bool {
 	return false
 }
 
-func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
-
-	var host string
-	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
-		if len(svc.Spec.ExternalIPs) > 0 {
-			host = "svc.Spec.ExternalIPs[0]"
-		} else {
-			host = svc.Spec.ClusterIP
-		}
-		return host, int(svc.Spec.Ports[0].Port), nil
-	} else {
-		host = svc.Spec.ClusterIP
-	}
-
-	// We are only using the first port for the health check.
-	if len(svc.Spec.Ports) == 0 {
-		return "", 0, errors.New("unable to find port for service")
-	} else {
-		return host, int(svc.Spec.Ports[0].Port), nil
-	}
-
-}
-
 func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
 
 	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
@@ -266,6 +251,29 @@ git checkout --force $REF`
 	}
 
 	return nil
+}
+
+func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
+
+	var host string
+	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
+		if len(svc.Spec.ExternalIPs) > 0 {
+			host = "svc.Spec.ExternalIPs[0]"
+		} else {
+			host = svc.Spec.ClusterIP
+		}
+		return host, int(svc.Spec.Ports[0].Port), nil
+	} else {
+		host = svc.Spec.ClusterIP
+	}
+
+	// We are only using the first port for the health check.
+	if len(svc.Spec.Ports) == 0 {
+		return "", 0, errors.New("unable to find port for service")
+	} else {
+		return host, int(svc.Spec.Ports[0].Port), nil
+	}
+
 }
 
 func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {

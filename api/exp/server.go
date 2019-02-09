@@ -159,7 +159,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 			} else if result.Operation == scheduler.OperationType_MODIFY {
 				apiServer.SetLiveLesson(result.Uuid, apiServer.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
-			} else if result.Operation == scheduler.OperationType_GC {
+			} else if result.Operation == scheduler.OperationType_DELETE {
 				for i := range result.GCLessons {
 					uuid := strings.TrimRight(result.GCLessons[i], "-ns")
 					apiServer.DeleteLiveLesson(uuid)
