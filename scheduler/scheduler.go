@@ -9,14 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
-	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -26,13 +23,12 @@ import (
 type OperationType int32
 
 var (
-	OperationType_CREATE OperationType = 0
-	OperationType_MODIFY OperationType = 1
-	OperationType_BOOP   OperationType = 2
-	OperationType_GC     OperationType = 3
-	OperationType_VERIFY OperationType = 4
+	OperationType_CREATE OperationType = 1
+	OperationType_DELETE OperationType = 2
+	OperationType_MODIFY OperationType = 3
+	OperationType_BOOP   OperationType = 4
+	OperationType_VERIFY OperationType = 5
 	defaultGitFileMode   int32         = 0755
-	kubeLabs                           = map[string]*KubeLab{}
 )
 
 // Endpoint should be satisfied by Utility, Blackbox, and Device
@@ -40,26 +36,6 @@ type Endpoint interface {
 	GetName() string
 	GetImage() string
 	GetPorts() []int32
-}
-
-type LessonScheduleRequest struct {
-	LessonDef *pb.LessonDef
-	Operation OperationType
-	Uuid      string
-	Stage     int32
-	Created   time.Time
-}
-
-type LessonScheduleResult struct {
-	Success          bool
-	Stage            int32
-	LessonDef        *pb.LessonDef
-	Operation        OperationType
-	Message          string
-	KubeLab          *KubeLab
-	ProvisioningTime int
-	Uuid             string
-	GCLessons        []string
 }
 
 type LessonScheduler struct {
@@ -70,6 +46,8 @@ type LessonScheduler struct {
 	SyringeConfig *config.SyringeConfig
 	GcWhiteList   map[string]*pb.Session
 	GcWhiteListMu *sync.Mutex
+	KubeLabs      map[string]*KubeLab
+	KubeLabsMu    *sync.Mutex
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
@@ -97,9 +75,8 @@ func (ls *LessonScheduler) Start() error {
 				ls.Results <- &LessonScheduleResult{
 					Success:   true,
 					LessonDef: nil,
-					KubeLab:   nil,
 					Uuid:      "",
-					Operation: OperationType_GC,
+					Operation: OperationType_DELETE,
 					GCLessons: cleaned,
 				}
 			}
@@ -110,261 +87,42 @@ func (ls *LessonScheduler) Start() error {
 	}()
 
 	// Handle incoming requests asynchronously
+	var handlers = map[OperationType]interface{}{
+		OperationType_CREATE: ls.handleRequestCREATE,
+		OperationType_DELETE: ls.handleRequestDELETE,
+		OperationType_MODIFY: ls.handleRequestMODIFY,
+		OperationType_BOOP:   ls.handleRequestBOOP,
+		OperationType_VERIFY: ls.handleRequestVERIFY,
+	}
 	for {
 		newRequest := <-ls.Requests
-		go ls.handleRequest(newRequest)
 
 		log.WithFields(log.Fields{
 			"Operation": newRequest.Operation,
 			"Uuid":      newRequest.Uuid,
 			"Stage":     newRequest.Stage,
-		}).Debug("Scheduler received new request.")
-	}
+		}).Debug("Scheduler received new request. Sending to handle function.")
 
+		go func() {
+			handlers[newRequest.Operation].(func(*LessonScheduleRequest))(newRequest)
+		}()
+	}
 	return nil
 }
 
-func (ls *LessonScheduler) handleRequest(newRequest *LessonScheduleRequest) {
+func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
+	ls.KubeLabsMu.Lock()
+	defer ls.KubeLabsMu.Unlock()
+	ls.KubeLabs[uuid] = kl
+}
 
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
-
-	if newRequest.Operation == OperationType_CREATE {
-		newKubeLab, err := ls.createKubeLab(newRequest)
-		if err != nil {
-			log.Errorf("Error creating lesson: %s", err)
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   nil,
-				Uuid:      "",
-				Operation: newRequest.Operation,
-			}
-		}
-
-		// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
-		// populate the entry in the API server with data about endpoints that it doesn't have yet.
-		log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_INITIAL_BOOT
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   newKubeLab,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
-		}
-
-		liveLesson := newKubeLab.ToLiveLesson()
-
-		var success = false
-		for i := 0; i < 600; i++ {
-			time.Sleep(1 * time.Second)
-
-			epr := testEndpointReachability(liveLesson)
-
-			log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
-
-			// Update reachability status
-			endpointUnreachable := false
-			for epName, reachable := range epr {
-				if reachable {
-					newKubeLab.setEndpointReachable(epName)
-				} else {
-					endpointUnreachable = true
-				}
-			}
-
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   newKubeLab,
-				Uuid:      newRequest.Uuid,
-				Operation: OperationType_MODIFY,
-				Stage:     newRequest.Stage,
-			}
-
-			// Begin again if one of the endpoints isn't reachable
-			if endpointUnreachable {
-				continue
-			}
-
-			success = true
-			break
-
-		}
-
-		if !success {
-			log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonId)
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   newKubeLab,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
-		} else {
-
-			log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
-			newKubeLab.Status = pb.Status_CONFIGURATION
-
-			// Send a result back to the API
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   newKubeLab,
-				Uuid:      newRequest.Uuid,
-				Operation: OperationType_MODIFY,
-				Stage:     newRequest.Stage,
-			}
-		}
-
-		if HasDevices(newRequest.LessonDef) {
-			log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonId)
-			err := ls.configureStuff(nsName, liveLesson, newRequest)
-			if err != nil {
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   kubeLabs[newRequest.Uuid],
-					Uuid:      newRequest.Uuid,
-					Operation: newRequest.Operation,
-					Stage:     newRequest.Stage,
-				}
-			}
-		} else {
-			log.Infof("Nothing to configure in %s", newRequest.Uuid)
-		}
-
-		// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
-		// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
-		// won't initially come up at all.
-		ls.createNetworkPolicy(nsName)
-
-		kubeLabs[newRequest.Uuid] = newKubeLab
-
-		log.Debugf("Setting %s to READY", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_READY
-
-		ls.Results <- &LessonScheduleResult{
-			Success:          true,
-			LessonDef:        newRequest.LessonDef,
-			KubeLab:          newKubeLab,
-			Uuid:             newRequest.Uuid,
-			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
-			Operation:        newRequest.Operation,
-			Stage:            newRequest.Stage,
-		}
-	} else if newRequest.Operation == OperationType_MODIFY {
-
-		kubeLabs[newRequest.Uuid].CreateRequest = newRequest
-		liveLesson := kubeLabs[newRequest.Uuid].ToLiveLesson()
-
-		if HasDevices(newRequest.LessonDef) {
-			log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
-			err := ls.configureStuff(nsName, liveLesson, newRequest)
-			if err != nil {
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   kubeLabs[newRequest.Uuid],
-					Uuid:      newRequest.Uuid,
-					Operation: newRequest.Operation,
-					Stage:     newRequest.Stage,
-				}
-				return
-			}
-		} else {
-			log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
-		}
-
-		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
-
-		err := ls.boopNamespace(nsName)
-		if err != nil {
-			log.Errorf("Problem modify-booping %s: %v", nsName, err)
-		}
-
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   kubeLabs[newRequest.Uuid],
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-
-	} else if newRequest.Operation == OperationType_BOOP {
-		nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
-
-		err := ls.boopNamespace(nsName)
-		if err != nil {
-			log.Errorf("Problem booping %s: %v", nsName, err)
-		}
-	} else if newRequest.Operation == OperationType_VERIFY {
-		ls.killAllJobs(nsName, "verify")
-		verifyJob, err := ls.verifyLiveLesson(newRequest)
-		if err != nil {
-			log.Debugf("Unable to verify: %s", err)
-
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				LessonDef: newRequest.LessonDef,
-				KubeLab:   kubeLabs[newRequest.Uuid],
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-		}
-
-		// Quick timeout here. About 30 seconds or so.
-		for i := 0; i < 15; i++ {
-
-			finished, err := ls.verifyStatus(verifyJob, newRequest)
-			// Return immediately if there was a problem
-			if err != nil {
-				ls.Results <- &LessonScheduleResult{
-					Success:   false,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   kubeLabs[newRequest.Uuid],
-					Uuid:      newRequest.Uuid,
-					Operation: newRequest.Operation,
-					Stage:     newRequest.Stage,
-				}
-				return
-			}
-
-			// Return immediately if successful and finished
-			if finished == true {
-				ls.Results <- &LessonScheduleResult{
-					Success:   true,
-					LessonDef: newRequest.LessonDef,
-					KubeLab:   kubeLabs[newRequest.Uuid],
-					Uuid:      newRequest.Uuid,
-					Operation: newRequest.Operation,
-					Stage:     newRequest.Stage,
-				}
-				return
-			}
-
-			// Not failed or succeeded yet. Try again.
-			time.Sleep(2 * time.Second)
-		}
-
-		// Return failure, there's clearly a problem.
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			LessonDef: newRequest.LessonDef,
-			KubeLab:   kubeLabs[newRequest.Uuid],
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-
+func (ls *LessonScheduler) deleteKubelab(uuid string) {
+	if _, ok := ls.KubeLabs[uuid]; !ok {
+		return
 	}
-
-	log.Debug("Result sent. Now waiting for next schedule request...")
+	ls.KubeLabsMu.Lock()
+	defer ls.KubeLabsMu.Unlock()
+	delete(ls.KubeLabs, uuid)
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
@@ -424,299 +182,6 @@ func usesJupyterLabGuide(ld *pb.LessonDef) bool {
 	return false
 }
 
-func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, error) {
-
-	ns, err := ls.createNamespace(req)
-	if err != nil {
-		log.Error(err)
-	}
-
-	err = ls.syncSecret(ns.ObjectMeta.Name)
-	if err != nil {
-		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
-	}
-
-	kl := &KubeLab{
-		Namespace:      ns,
-		CreateRequest:  req,
-		Networks:       map[string]*crd.NetworkAttachmentDefinition{},
-		Pods:           map[string]*corev1.Pod{},
-		Services:       map[string]*corev1.Service{},
-		Ingresses:      map[string]*v1beta1.Ingress{},
-		LabConnections: map[string]string{},
-	}
-
-	// Create our configmap for the initContainer for cloning the antidote repo
-
-	ls.createGitConfigMap(ns.ObjectMeta.Name)
-
-	// Append black box container and create ingress for jupyter lab guide if necessary
-	if usesJupyterLabGuide(req.LessonDef) {
-		jupyterBB := &pb.Blackbox{
-			Name:  "jupyterlabguide",
-			Image: "antidotelabs/jupyter",
-			Ports: []int32{8888},
-		}
-		req.LessonDef.Blackboxes = append(req.LessonDef.Blackboxes, jupyterBB)
-
-		iframeIngress, _ := ls.createIngress(
-			ns.ObjectMeta.Name,
-			&pb.IframeResource{
-				Ref:      "jupyterlabguide",
-				Protocol: "http",
-
-				// Not needed. The front-end will append this specific path to the iframe src
-				// Path:     fmt.Sprintf("/notebooks/lesson-%d/stage%d/notebook.ipynb", req.LessonDef.LessonId, req.Stage),
-
-				Port: 8888,
-			},
-		)
-		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
-	}
-
-	if HasDevices(kl.CreateRequest.LessonDef) {
-
-		log.Debug("Creating devices and connections")
-
-		// Create networks from connections property
-		for c := range req.LessonDef.Connections {
-			connection := req.LessonDef.Connections[c]
-			newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
-			if err != nil {
-				log.Error(err)
-			}
-
-			// log.Infof("About to add %v at index %s", &newNet, &newNet.ObjectMeta.Name)
-
-			kl.Networks[newNet.ObjectMeta.Name] = newNet
-		}
-
-		// Create pods and services for devices
-		for d := range req.LessonDef.Devices {
-
-			// Create pods from devices property
-			device := req.LessonDef.Devices[d]
-			newPod, err := ls.createPod(
-				device,
-				pb.LiveEndpoint_DEVICE,
-				getMemberNetworks(device.Name, req.LessonDef.Connections),
-				req,
-			)
-			if err != nil {
-				log.Error(err)
-			}
-			kl.Pods[newPod.ObjectMeta.Name] = newPod
-
-			// Create service for this pod
-			newSvc, err := ls.createService(
-				newPod,
-				req,
-			)
-			if err != nil {
-				log.Error(err)
-			}
-			kl.Services[newSvc.ObjectMeta.Name] = newSvc
-		}
-
-	} else {
-		log.Debug("Not creating devices and connections")
-	}
-
-	// Create pods and services for utility containers
-	for d := range req.LessonDef.Utilities {
-
-		utility := req.LessonDef.Utilities[d]
-		newPod, err := ls.createPod(
-			utility,
-			pb.LiveEndpoint_UTILITY,
-			getMemberNetworks(utility.Name, req.LessonDef.Connections),
-			req,
-		)
-		if err != nil {
-			log.Error(err)
-		}
-		kl.Pods[newPod.ObjectMeta.Name] = newPod
-
-		// Create service for this pod
-		newSvc, err := ls.createService(
-			newPod,
-			req,
-		)
-		if err != nil {
-			log.Error(err)
-		}
-		kl.Services[newSvc.ObjectMeta.Name] = newSvc
-	}
-
-	// Create pods and services for black box containers
-	for d := range req.LessonDef.Blackboxes {
-
-		blackbox := req.LessonDef.Blackboxes[d]
-		newPod, err := ls.createPod(
-			blackbox,
-			pb.LiveEndpoint_BLACKBOX,
-			getMemberNetworks(blackbox.Name, req.LessonDef.Connections),
-			req,
-		)
-		if err != nil {
-			log.Error(err)
-		}
-		kl.Pods[newPod.ObjectMeta.Name] = newPod
-
-		if len(newPod.Spec.Containers[0].Ports) > 0 {
-			// Create service for this pod
-			newSvc, err := ls.createService(
-				newPod,
-				req,
-			)
-			if err != nil {
-				log.Error(err)
-			}
-			kl.Services[newSvc.ObjectMeta.Name] = newSvc
-		}
-	}
-
-	// Create pods, services, and ingresses for iframe resources
-	for d := range req.LessonDef.IframeResources {
-
-		ifr := req.LessonDef.IframeResources[d]
-
-		// Iframe resources don't create pods/services on their own. You must define a blackbox/utility/device endpoint
-		// and then refer to that in the iframeresource definition. We're just creating an ingress here to access that endpoint.
-
-		iframeIngress, _ := ls.createIngress(
-			ns.ObjectMeta.Name,
-			ifr,
-		)
-		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
-
-	}
-	return kl, nil
-}
-
-func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
-
-	var host string
-	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
-		if len(svc.Spec.ExternalIPs) > 0 {
-			host = "svc.Spec.ExternalIPs[0]"
-		} else {
-			host = svc.Spec.ClusterIP
-		}
-		return host, int(svc.Spec.Ports[0].Port), nil
-	} else {
-		host = svc.Spec.ClusterIP
-	}
-
-	// We are only using the first port for the health check.
-	if len(svc.Spec.Ports) == 0 {
-		return "", 0, errors.New("unable to find port for service")
-	} else {
-		return host, int(svc.Spec.Ports[0].Port), nil
-	}
-
-}
-
-// KubeLab is the collection of kubernetes resources that makes up a lab instance
-type KubeLab struct {
-	Namespace          *corev1.Namespace
-	CreateRequest      *LessonScheduleRequest // The request that originally resulted in this KubeLab
-	Networks           map[string]*crd.NetworkAttachmentDefinition
-	Pods               map[string]*corev1.Pod
-	Services           map[string]*corev1.Service
-	Ingresses          map[string]*v1beta1.Ingress
-	LabConnections     map[string]string
-	Status             pb.Status
-	ReachableEndpoints []string // endpoint names
-}
-
-func (kl *KubeLab) isReachable(epName string) bool {
-	for _, b := range kl.ReachableEndpoints {
-		if b == epName {
-			return true
-		}
-	}
-	return false
-}
-
-func (kl *KubeLab) setEndpointReachable(epName string) {
-	// Return if already in slice
-	if kl.isReachable(epName) {
-		return
-	}
-	kl.ReachableEndpoints = append(kl.ReachableEndpoints, epName)
-}
-
-// ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it
-func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
-
-	ts, _ := strconv.ParseInt(kl.Namespace.ObjectMeta.Labels["created"], 10, 64)
-
-	ret := pb.LiveLesson{
-		LessonUUID:      kl.CreateRequest.Uuid,
-		LessonId:        kl.CreateRequest.LessonDef.LessonId,
-		LiveEndpoints:   map[string]*pb.LiveEndpoint{},
-		LessonStage:     kl.CreateRequest.Stage,
-		LessonDiagram:   kl.CreateRequest.LessonDef.LessonDiagram,
-		LessonVideo:     kl.CreateRequest.LessonDef.LessonVideo,
-		LabGuide:        kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide,
-		JupyterLabGuide: kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].JupyterLabGuide,
-		CreatedTime: &timestamp.Timestamp{
-			Seconds: ts,
-		},
-		LiveLessonStatus: kl.Status,
-	}
-
-	for s := range kl.Services {
-
-		// find corresponding pod for this service
-		var podBuddy *corev1.Pod
-		for p := range kl.Pods {
-			if kl.Pods[p].ObjectMeta.Name == kl.Services[s].ObjectMeta.Name {
-				podBuddy = kl.Pods[p]
-				break
-			}
-		}
-
-		// TODO(mierdin): handle if podbuddy is still empty
-
-		host, port, _ := getConnectivityInfo(kl.Services[s])
-		// portInt, _ := strconv.Atoi(port)
-
-		endpoint := &pb.LiveEndpoint{
-			Name: podBuddy.ObjectMeta.Name,
-			Type: pb.LiveEndpoint_EndpointType(pb.LiveEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
-			Host: host,
-			Port: int32(port),
-			// ApiPort
-		}
-
-		// Convert kubelab reachability to livelesson reachability
-		if kl.isReachable(endpoint.Name) {
-			endpoint.Reachable = true
-		}
-
-		ret.LiveEndpoints[endpoint.Name] = endpoint
-	}
-
-	for i := range kl.CreateRequest.LessonDef.IframeResources {
-
-		ifr := kl.CreateRequest.LessonDef.IframeResources[i]
-
-		endpoint := &pb.LiveEndpoint{
-			Name:       ifr.Ref,
-			Type:       pb.LiveEndpoint_IFRAME,
-			IframePath: ifr.Path,
-		}
-
-		ret.LiveEndpoints[endpoint.Name] = endpoint
-	}
-
-	ret.LabGuide = kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide
-
-	return &ret
-}
-
 func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
 
 	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
@@ -763,6 +228,29 @@ git checkout --force $REF`
 	}
 
 	return nil
+}
+
+func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
+
+	var host string
+	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
+		if len(svc.Spec.ExternalIPs) > 0 {
+			host = "svc.Spec.ExternalIPs[0]"
+		} else {
+			host = svc.Spec.ClusterIP
+		}
+		return host, int(svc.Spec.Ports[0].Port), nil
+	} else {
+		host = svc.Spec.ClusterIP
+	}
+
+	// We are only using the first port for the health check.
+	if len(svc.Spec.Ports) == 0 {
+		return "", 0, errors.New("unable to find port for service")
+	} else {
+		return host, int(svc.Spec.Ports[0].Port), nil
+	}
+
 }
 
 func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {

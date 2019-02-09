@@ -1,0 +1,307 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "kubelab.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {},
+  "definitions": {
+    "expBlackbox": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expConnection": {
+      "type": "object",
+      "properties": {
+        "A": {
+          "type": "string"
+        },
+        "B": {
+          "type": "string"
+        },
+        "Subnet": {
+          "type": "string"
+        }
+      }
+    },
+    "expDevice": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expIframeResource": {
+      "type": "object",
+      "properties": {
+        "Ref": {
+          "type": "string"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "expKubeLab": {
+      "type": "object",
+      "properties": {
+        "Namespace": {
+          "type": "string"
+        },
+        "CreateRequest": {
+          "$ref": "#/definitions/expLessonScheduleRequest"
+        },
+        "Networks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Pods": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Services": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Ingresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/expStatus"
+        },
+        "ReachableEndpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "CurrentStage": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "expKubeLabs": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expKubeLab"
+          }
+        }
+      }
+    },
+    "expLessonDef": {
+      "type": "object",
+      "properties": {
+        "LessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonStage"
+          }
+        },
+        "LessonName": {
+          "type": "string"
+        },
+        "IframeResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expIframeResource"
+          }
+        },
+        "Devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expDevice"
+          }
+        },
+        "Utilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expUtility"
+          }
+        },
+        "Blackboxes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expBlackbox"
+          }
+        },
+        "Connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expConnection"
+          }
+        },
+        "Category": {
+          "type": "string"
+        },
+        "LessonDiagram": {
+          "type": "string"
+        },
+        "LessonVideo": {
+          "type": "string"
+        },
+        "Tier": {
+          "type": "string"
+        },
+        "Prereqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "Tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Collection": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Slug": {
+          "type": "string",
+          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+        }
+      }
+    },
+    "expLessonScheduleRequest": {
+      "type": "object",
+      "properties": {
+        "LessonDef": {
+          "$ref": "#/definitions/expLessonDef"
+        },
+        "OperationType": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Uuid": {
+          "type": "string"
+        },
+        "Stage": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Created": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "expLessonStage": {
+      "type": "object",
+      "properties": {
+        "Id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "LabGuide": {
+          "type": "string"
+        },
+        "JupyterLabGuide": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "VerifyCompleteness": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "VerifyObjective": {
+          "type": "string"
+        }
+      }
+    },
+    "expStatus": {
+      "type": "string",
+      "enum": [
+        "DONOTUSE",
+        "INITIAL_BOOT",
+        "CONFIGURATION",
+        "READY"
+      ],
+      "default": "DONOTUSE"
+    },
+    "expUtility": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    }
+  }
+}

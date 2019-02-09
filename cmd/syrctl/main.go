@@ -7,6 +7,7 @@ import (
 
 	cli "github.com/codegangsta/cli"
 	"github.com/fatih/color"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/nre-learning/syringe/api/exp"
 	"github.com/nre-learning/syringe/config"
@@ -142,13 +143,163 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveLessonsServiceClient(conn)
 
-						client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
+						_, err = client.RemoveSessionFromGCWhitelist(context.Background(), &pb.Session{Id: sid})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
 
 						fmt.Printf("%s removed from whitelist\n", sid)
+					},
+				},
+			},
+		},
+		{
+			Name:    "livelesson",
+			Aliases: []string{"ll"},
+			Usage:   "syrctl livelesson <subcommand>",
+			Subcommands: []cli.Command{
+				{
+					Name:  "list",
+					Usage: "List livelessons",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						liveLessons, err := client.ListLiveLessons(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						for i := range liveLessons.Items {
+							fmt.Println(liveLessons.Items[i].LessonUUID)
+						}
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "get a Livelesson",
+					Action: func(c *cli.Context) {
+
+						uuid := c.Args().First()
+						if uuid == "" {
+							fmt.Println("Please provide livelesson ID to get")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						ll, err := client.GetLiveLesson(context.Background(), &pb.LessonUUID{Id: uuid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						jpbm := jsonpb.Marshaler{}
+						fmt.Println(jpbm.MarshalToString(ll))
+					},
+				},
+				{
+					Name:  "kill",
+					Usage: "Kill a livelesson",
+					Action: func(c *cli.Context) {
+
+						uuid := c.Args().First()
+						if uuid == "" {
+							fmt.Println("Please provide livelesson ID to kill")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						_, err = client.KillLiveLesson(context.Background(), &pb.LessonUUID{Id: uuid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Livelesson %s killed.\n", uuid)
+					},
+				},
+			},
+		},
+
+		{
+			Name:    "kubelab",
+			Aliases: []string{"kl"},
+			Usage:   "syrctl kubelab <subcommand>",
+			Subcommands: []cli.Command{
+				{
+					Name:  "list",
+					Usage: "List kubelabs",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewKubeLabServiceClient(conn)
+
+						kubeLabs, err := client.ListKubeLabs(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						for uuid := range kubeLabs.Items {
+							fmt.Println(uuid)
+						}
+
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "get a Kubelab",
+					Action: func(c *cli.Context) {
+
+						uuid := c.Args().First()
+						if uuid == "" {
+							fmt.Println("Please provide kubelab ID to get")
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+						}
+						defer conn.Close()
+						client := pb.NewKubeLabServiceClient(conn)
+
+						kubeLab, err := client.GetKubeLab(context.Background(), &pb.KubeLabUuid{Id: uuid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						jpbm := jsonpb.Marshaler{}
+						fmt.Println(jpbm.MarshalToString(kubeLab))
 					},
 				},
 			},

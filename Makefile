@@ -9,23 +9,11 @@ clean:
 compile:
 
 	@echo "Generating protobuf code..."
-
 	@rm -f pkg/ui/data/swagger/datafile.go
-
 	@rm -f /tmp/datafile.go
 	@rm -f cmd/syringed/buildinfo.go
-
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
-
-	@protoc -I api/exp/definitions/ -I. \
-	-I api/exp/definitions/ \
-	  api/exp/definitions/*.proto \
-		-I$$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-		-I$$GOPATH/src/github.com/lyft/protoc-gen-validate \
-	--go_out=plugins=grpc:api/exp/generated/ \
-    --grpc-gateway_out=logtostderr=true,allow_delete_body=true:api/exp/generated/ \
-    --validate_out=lang=go:api/exp/generated/ \
-	--swagger_out=logtostderr=true,allow_delete_body=true:api/exp/definitions/
+	@./compile-proto.sh
 
 	@# Adding equivalent YAML tags so we can import lesson definitions into protobuf-created structs
 	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lessondef.pb.go

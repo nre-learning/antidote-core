@@ -46,7 +46,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 	// stage ID 1 refers to the second index (1) in the stage slice.
 	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
 	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
-	if len(s.scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage+1) {
+	if len(s.scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage) {
 		msg := "Invalid stage ID for this lesson"
 		log.Error(msg)
 		return nil, errors.New(msg)
@@ -77,9 +77,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
 			req := &scheduler.LessonScheduleRequest{
-				LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 				Operation: scheduler.OperationType_BOOP,
-				Stage:     0,
 				Uuid:      lessonUuid,
 			}
 
@@ -193,6 +191,24 @@ func (s *server) GetGCWhitelist(ctx context.Context, _ *empty.Empty) (*pb.Sessio
 	return &pb.Sessions{
 		Sessions: sessions,
 	}, nil
+}
+
+func (s *server) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
+	return &pb.LiveLessons{Items: s.liveLessonState}, nil
+}
+
+func (s *server) KillLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.KillLiveLessonStatus, error) {
+
+	if _, ok := s.liveLessonState[uuid.Id]; !ok {
+		return nil, errors.New("Livelesson not found")
+	}
+
+	s.scheduler.Requests <- &scheduler.LessonScheduleRequest{
+		Operation: scheduler.OperationType_DELETE,
+		Uuid:      uuid.Id,
+	}
+
+	return &pb.KillLiveLessonStatus{Success: true}, nil
 }
 
 func (s *server) RequestVerification(ctx context.Context, uuid *pb.LessonUUID) (*pb.VerificationTaskUUID, error) {
