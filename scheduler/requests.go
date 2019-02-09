@@ -31,6 +31,12 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
+	// TODO(mierdin): This function returns a pointer, and as a result, we're able to
+	// set properties of newKubeLab and the map that stores these is immediately updated.
+	// This isn't technically goroutine-safe, even though it's more or lesson guaranteed
+	// that only one goroutine will access THIS pointer (since they're separated by
+	// session ID). Not currently encountering issues here, but might want to think about it
+	// longer-term.
 	newKubeLab, err := ls.createKubeLab(newRequest)
 	if err != nil {
 		log.Errorf("Error creating lesson: %s", err)
@@ -47,12 +53,9 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
 	newKubeLab.Status = pb.Status_INITIAL_BOOT
 	newKubeLab.CurrentStage = newRequest.Stage
-
-	// The API server is watching the kubelab map for updates, so we need to make sure we
-	// set this beforce returning our first result.
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
 
-	// HUHUHHHHHHHHH?????
+	// Trigger a status update in the API server
 	ls.Results <- &LessonScheduleResult{
 		Success:   true,
 		LessonDef: newRequest.LessonDef,
@@ -81,6 +84,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 			}
 		}
 
+		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
 			Success:   true,
 			LessonDef: newRequest.LessonDef,
@@ -114,7 +118,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
 		newKubeLab.Status = pb.Status_CONFIGURATION
 
-		// Send a result back to the API
+		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
 			Success:   true,
 			LessonDef: newRequest.LessonDef,

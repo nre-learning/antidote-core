@@ -155,8 +155,6 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		ret.LiveEndpoints[endpoint.Name] = endpoint
 	}
 
-	ret.LabGuide = kl.CreateRequest.LessonDef.Stages[kl.CreateRequest.Stage].LabGuide
-
 	return &ret
 }
 
