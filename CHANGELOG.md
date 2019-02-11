@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.3.0 - February 11, 2019
+
 - Fixed GC goroutine; make GC interval configurable [#63](https://github.com/nre-learning/syringe/pull/63)
 - Add jupyter notebook as lab guide functionality [#67](https://github.com/nre-learning/syringe/pull/67)
 - Added ability to perform completion verifications on livelessons [#69](https://github.com/nre-learning/syringe/pull/69)
