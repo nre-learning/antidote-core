@@ -2,6 +2,7 @@
 
 ## In development
 
+- Fixed influxdb bug [#72](https://github.com/nre-learning/syringe/pull/72)
 
 ## v0.3.0 - February 11, 2019
 
@@ -9,6 +10,7 @@
 - Add jupyter notebook as lab guide functionality [#67](https://github.com/nre-learning/syringe/pull/67)
 - Added ability to perform completion verifications on livelessons [#69](https://github.com/nre-learning/syringe/pull/69)
 - Re-vamp internal state systems and add external observability functions for livelessons and kubelabs [#68](https://github.com/nre-learning/syringe/pull/68)
+- Changes to support Advisor functionality [#65](https://github.com/nre-learning/syringe/pull/65)
 
 ## 0.2.0 - January 24, 2019
 
