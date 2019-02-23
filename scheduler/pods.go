@@ -43,6 +43,8 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 
 	// defaultGitFileMode := int32(0755)
 
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ep.GetName(),
@@ -82,24 +84,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 				},
 			},
 
-			InitContainers: []corev1.Container{
-				{
-					Name:  "git-clone",
-					Image: "antidotelabs/githelper",
-					Args: []string{
-						ls.SyringeConfig.LessonRepoRemote,
-						ls.SyringeConfig.LessonRepoBranch,
-						ls.SyringeConfig.LessonRepoDir,
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "git-volume",
-							ReadOnly:  false,
-							MountPath: ls.SyringeConfig.LessonRepoDir,
-						},
-					},
-				},
-			},
+			InitContainers: initContainers,
 			Containers: []corev1.Container{
 				{
 					Name:  ep.GetName(),
@@ -116,14 +101,8 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 						{Name: "SYRINGE_FULL_REF", Value: fmt.Sprintf("%s-%s", nsName, ep.GetName())},
 					},
 
-					Ports: []corev1.ContainerPort{}, // Will set below
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "git-volume",
-							ReadOnly:  false,
-							MountPath: ls.SyringeConfig.LessonRepoDir,
-						},
-					},
+					Ports:        []corev1.ContainerPort{}, // Will set below
+					VolumeMounts: volumeMounts,
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
 							Add: []corev1.Capability{
@@ -134,14 +113,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 				},
 			},
 
-			Volumes: []corev1.Volume{
-				{
-					Name: "git-volume",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
+			Volumes: volumes,
 		},
 	}
 

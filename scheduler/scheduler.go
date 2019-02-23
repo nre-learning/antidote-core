@@ -170,6 +170,111 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 	return nil
 }
 
+// getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
+// This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
+// development.
+func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	initContainers := []corev1.Container{}
+
+	if ls.SyringeConfig.LessonsLocal {
+
+		// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
+		initContainers = append(initContainers, corev1.Container{
+			Name:  "copy-local-files",
+			Image: "busybox",
+			Command: []string{
+				"cp",
+			},
+			Args: []string{
+				"-r",
+				fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonDir),
+				ls.SyringeConfig.LessonDir,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "host-volume",
+					ReadOnly:  true,
+					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.LessonDir),
+				},
+				{
+					Name:      "local-copy",
+					ReadOnly:  false,
+					MountPath: ls.SyringeConfig.LessonDir,
+				},
+			},
+		})
+
+		// Add outer host volume, should be mounted read-only
+		volumes = append(volumes, corev1.Volume{
+			Name: "host-volume",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: ls.SyringeConfig.LessonDir,
+				},
+			},
+		})
+
+		// Add inner container volume, should be mounted read-write so we can copy files into it
+		volumes = append(volumes, corev1.Volume{
+			Name: "local-copy",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+
+		// Finally, mount local copy volume as read-write
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "local-copy",
+			ReadOnly:  false,
+			MountPath: ls.SyringeConfig.LessonDir,
+		})
+
+	} else {
+		volumes = append(volumes, corev1.Volume{
+			Name: "git-volume",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "git-volume",
+			ReadOnly:  false,
+			MountPath: ls.SyringeConfig.LessonDir,
+		})
+
+		initContainers = append(initContainers, corev1.Container{
+			Name:  "git-clone",
+			Image: "alpine/git",
+			Command: []string{
+				"/usr/local/git/git-clone.sh",
+			},
+			Args: []string{
+				ls.SyringeConfig.LessonRepoRemote,
+				ls.SyringeConfig.LessonRepoBranch,
+				ls.SyringeConfig.LessonDir,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "git-clone",
+					ReadOnly:  false,
+					MountPath: "/usr/local/git",
+				},
+				{
+					Name:      "git-volume",
+					ReadOnly:  false,
+					MountPath: ls.SyringeConfig.LessonDir,
+				},
+			},
+		})
+	}
+
+	return volumes, volumeMounts, initContainers
+
+}
+
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
 // jupyter notebook as a lab guide in any stage.
 func usesJupyterLabGuide(ld *pb.LessonDef) bool {
@@ -182,6 +287,7 @@ func usesJupyterLabGuide(ld *pb.LessonDef) bool {
 	return false
 }
 
+// TODO(mierdin): Shouldn't be necessary anymore with the new git helper
 func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
 
 	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
