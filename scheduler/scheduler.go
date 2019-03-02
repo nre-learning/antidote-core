@@ -183,14 +183,17 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 		// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 		initContainers = append(initContainers, corev1.Container{
 			Name:  "copy-local-files",
-			Image: "busybox",
+			Image: "bash",
 			Command: []string{
 				"cp",
 			},
 			Args: []string{
 				"-r",
-				fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonDir),
-				ls.SyringeConfig.LessonDir,
+				"/antidote-ro/lessons/",
+				"/antidote",
+				// "-r",
+				// fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonDir),
+				// ls.SyringeConfig.LessonDir,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
