@@ -250,21 +250,13 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 
 		initContainers = append(initContainers, corev1.Container{
 			Name:  "git-clone",
-			Image: "alpine/git",
-			Command: []string{
-				"/usr/local/git/git-clone.sh",
-			},
+			Image: "antidotelabs/githelper",
 			Args: []string{
 				ls.SyringeConfig.LessonRepoRemote,
 				ls.SyringeConfig.LessonRepoBranch,
 				ls.SyringeConfig.LessonDir,
 			},
 			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "git-clone",
-					ReadOnly:  false,
-					MountPath: "/usr/local/git",
-				},
 				{
 					Name:      "git-volume",
 					ReadOnly:  false,

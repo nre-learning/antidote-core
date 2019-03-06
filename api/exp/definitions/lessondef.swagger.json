@@ -21,7 +21,7 @@
         "operationId": "ListLessonDefs",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonDefs"
             }
@@ -45,7 +45,7 @@
         "operationId": "GetLessonDef",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonDef"
             }
@@ -70,7 +70,7 @@
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonPrereqs"
             }
