@@ -52,6 +52,7 @@ type Endpoint interface {
 // NetworkCrdClient is an interface for the client for our custom
 // network CRD. Allows for injection of mocks at test time.
 type NetworkCrdClient interface {
+	UpdateNamespace(string)
 	Create(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
 	Update(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
 	Delete(name string, options *meta_v1.DeleteOptions) error

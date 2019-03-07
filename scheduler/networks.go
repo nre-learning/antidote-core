@@ -139,7 +139,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	// IMPORTANT - MUST set namespace before using this client.
-	// ls.ClientCrd.ns = nsName
+	ls.ClientCrd.UpdateNamespace(nsName)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
