@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
@@ -48,12 +49,12 @@ type LessonScheduler struct {
 	GcWhiteListMu *sync.Mutex
 	KubeLabs      map[string]*KubeLab
 	KubeLabsMu    *sync.Mutex
+	Client        kubernetes.Interface
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
 func (ls *LessonScheduler) Start() error {
-
 	// Ensure cluster is cleansed before we start the scheduler
 	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
 	ls.nukeFromOrbit()
@@ -80,6 +81,8 @@ func (ls *LessonScheduler) Start() error {
 					GCLessons: cleaned,
 				}
 			}
+
+			// TODO(mierdin): Should confirm the above works (since livelessons are leaky too) and also delete from kubelab state (not being done at all today)
 
 			time.Sleep(1 * time.Minute)
 

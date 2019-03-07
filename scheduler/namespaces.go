@@ -12,14 +12,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func (ls *LessonScheduler) boopNamespace(nsName string) error {
 
 	log.Debugf("Booping %s", nsName)
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
+	coreclient, err := k.Client.CoreV1().NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 // in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
 func (ls *LessonScheduler) nukeFromOrbit() error {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
+	coreclient, err := k.Client.CoreV1().NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +81,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 func (ls *LessonScheduler) deleteNamespace(name string) error {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
+	coreclient, err := k.Client.CoreV1().NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 
 func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
+	coreclient, err := k.Client.CoreV1().NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +158,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 // Lesson garbage-collector
 func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
+	coreclient, err := k.Client.CoreV1().NewForConfig(ls.KubeConfig)
 	if err != nil {
 		panic(err)
 	}
