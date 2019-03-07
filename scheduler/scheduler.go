@@ -9,17 +9,24 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
+	config "github.com/nre-learning/syringe/config"
+
+	// Custom Network CRD Types
+	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+
+	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	rest "k8s.io/client-go/rest"
 
+	// Kubernetes clients
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
@@ -42,20 +49,35 @@ type Endpoint interface {
 	GetPorts() []int32
 }
 
+// NetworkCrdClient is an interface for the client for our custom
+// network CRD. Allows for injection of mocks at test time.
+type NetworkCrdClient interface {
+	Create(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
+	Update(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
+	Delete(name string, options *meta_v1.DeleteOptions) error
+	Get(name string) (*networkcrd.NetworkAttachmentDefinition, error)
+	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
+}
+
 type LessonScheduler struct {
-	KubeConfig      *rest.Config
-	Requests        chan *LessonScheduleRequest
-	Results         chan *LessonScheduleResult
-	LessonDefs      map[int32]*pb.LessonDef
-	SyringeConfig   *config.SyringeConfig
-	GcWhiteList     map[string]*pb.Session
-	GcWhiteListMu   *sync.Mutex
-	KubeLabs        map[string]*KubeLab
-	KubeLabsMu      *sync.Mutex
-	Client          kubernetes.Interface
-	ClientExt       kubernetesExt.Interface
-	ClientCrd       *rest.RESTClient
-	ClientCrdScheme *runtime.Scheme
+	KubeConfig    *rest.Config
+	Requests      chan *LessonScheduleRequest
+	Results       chan *LessonScheduleResult
+	LessonDefs    map[int32]*pb.LessonDef
+	SyringeConfig *config.SyringeConfig
+	GcWhiteList   map[string]*pb.Session
+	GcWhiteListMu *sync.Mutex
+	KubeLabs      map[string]*KubeLab
+	KubeLabsMu    *sync.Mutex
+
+	// Client for interacting with normal Kubernetes resources
+	Client kubernetes.Interface
+
+	// Client for creating CRD defintions
+	ClientExt kubernetesExt.Interface
+
+	// Client for creating instances of our network CRD
+	ClientCrd NetworkCrdClient
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,

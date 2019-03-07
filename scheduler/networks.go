@@ -8,9 +8,8 @@ import (
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 
-	// Generated CRD type and client
-	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
-	crdclient "github.com/nre-learning/syringe/pkg/client"
+	// Custom Network CRD Types
+	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
 
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +22,7 @@ import (
 func (ls *LessonScheduler) createNetworkCrd() error {
 
 	// note: if the CRD exist our CreateCRD function is set to exit without an error
-	err := crd.CreateCRD(ls.ClientExt)
+	err := networkcrd.CreateCRD(ls.ClientExt)
 	if err != nil {
 		panic(err)
 	}
@@ -136,15 +135,11 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 
 }
 
-func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
+func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*networkcrd.NetworkAttachmentDefinition, error) {
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	// func CrdClient(cl *rest.RESTClient, scheme *runtime.Scheme, namespace string) *crdclient {
-	// 	return &crdclient{cl: cl, ns: namespace, plural: crd.CRDPlural,
-	// 		codec: runtime.NewParameterCodec(scheme)}
-	// }
-
-	crdcl := crdclient.CrdClient(ls.ClientCrd, ls.ClientCrdScheme, nsName)
+	// IMPORTANT - MUST set namespace before using this client.
+	// ls.ClientCrd.ns = nsName
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -171,7 +166,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		}`, networkName, bridgeName, subnet)
 
 	// Create a new Network object and write to k8s
-	network := &crd.NetworkAttachmentDefinition{
+	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      netName,
@@ -182,12 +177,12 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 			},
 		},
 		Kind: "NetworkAttachmentDefinition",
-		Spec: crd.NetworkSpec{
+		Spec: networkcrd.NetworkSpec{
 			Config: networkArgs,
 		},
 	}
 
-	result, err := crdcl.Create(network)
+	result, err := ls.ClientCrd.Create(network)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -195,7 +190,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
 
-		result, err := crdcl.Get(network.ObjectMeta.Name)
+		result, err := ls.ClientCrd.Get(network.ObjectMeta.Name)
 		if err != nil {
 			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
 			return nil, err

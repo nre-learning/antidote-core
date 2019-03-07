@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	crdclient "github.com/nre-learning/syringe/pkg/client"
 
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -57,7 +58,9 @@ func main() {
 		KubeLabsMu:    &sync.Mutex{},
 	}
 
-	//Initialize clients
+	// CREATION OF CLIENTS
+	//
+	// Client for working with standard kubernetes resources
 	cs, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error(err)
@@ -65,6 +68,7 @@ func main() {
 	}
 	lessonScheduler.Client = cs
 
+	// Client for creating new CRD definitions
 	csExt, err := kubernetesExt.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error(err)
@@ -72,13 +76,18 @@ func main() {
 	}
 	lessonScheduler.ClientExt = csExt
 
-	csCrd, scheme, err := crd.NewClient(kubeConfig)
+	// Client for creating instances of the network CRD
+	clientRest, scheme, err := crd.NewClient(kubeConfig)
 	if err != nil {
 		log.Error(err)
 		log.Fatalf("Invalid kubeconfig")
 	}
-	lessonScheduler.ClientCrd = csCrd
-	lessonScheduler.ClientCrdScheme = scheme
+	// IMPORTANT - for some reason, the client requires a namespace name when we create it here.
+	// We are overriding this with the actual namespace name we wish to use when calling any
+	// of the client functions, so the fake namespace name provided here doesn't matter.
+	// However, if you don't override, we'll have issues since this NS
+	// likely won't exist.
+	lessonScheduler.ClientCrd = crdclient.CrdClient(clientRest, scheme, "")
 
 	go func() {
 		err = lessonScheduler.Start()
