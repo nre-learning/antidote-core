@@ -15,6 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 
+	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
@@ -54,6 +56,8 @@ func main() {
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
 	}
+
+	//Initialize clients
 	cs, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error(err)
@@ -67,6 +71,14 @@ func main() {
 		log.Fatalf("Invalid kubeconfig")
 	}
 	lessonScheduler.ClientExt = csExt
+
+	csCrd, scheme, err := crd.NewClient(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.ClientCrd = csCrd
+	lessonScheduler.ClientCrdScheme = scheme
 
 	go func() {
 		err = lessonScheduler.Start()

@@ -16,8 +16,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
+	rest "k8s.io/client-go/rest"
 
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -42,17 +43,19 @@ type Endpoint interface {
 }
 
 type LessonScheduler struct {
-	KubeConfig    *rest.Config
-	Requests      chan *LessonScheduleRequest
-	Results       chan *LessonScheduleResult
-	LessonDefs    map[int32]*pb.LessonDef
-	SyringeConfig *config.SyringeConfig
-	GcWhiteList   map[string]*pb.Session
-	GcWhiteListMu *sync.Mutex
-	KubeLabs      map[string]*KubeLab
-	KubeLabsMu    *sync.Mutex
-	Client        kubernetes.Interface
-	ClientExt     kubernetesExt.Interface
+	KubeConfig      *rest.Config
+	Requests        chan *LessonScheduleRequest
+	Results         chan *LessonScheduleResult
+	LessonDefs      map[int32]*pb.LessonDef
+	SyringeConfig   *config.SyringeConfig
+	GcWhiteList     map[string]*pb.Session
+	GcWhiteListMu   *sync.Mutex
+	KubeLabs        map[string]*KubeLab
+	KubeLabsMu      *sync.Mutex
+	Client          kubernetes.Interface
+	ClientExt       kubernetesExt.Interface
+	ClientCrd       *rest.RESTClient
+	ClientCrdScheme *runtime.Scheme
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
