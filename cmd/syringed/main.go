@@ -40,7 +40,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lessonDefs, err := api.ImportLessonDefs(syringeConfig, syringeConfig.LessonsDir)
+	lessonDefs, err := api.ImportLessonDefs(syringeConfig)
 	if err != nil {
 		log.Warn(err)
 	}

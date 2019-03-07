@@ -48,7 +48,10 @@ func main() {
 			Usage:   "syrctl validate <LESSON DIRECTORY>",
 			Action: func(c *cli.Context) {
 
-				_, err := api.ImportLessonDefs(&config.SyringeConfig{Tier: "local"}, c.Args().First())
+				_, err := api.ImportLessonDefs(&config.SyringeConfig{
+					Tier:       "local",
+					LessonsDir: c.Args().First(),
+				})
 				if err != nil {
 					color.Red("Some lessons failed to validate.")
 					os.Exit(1)
