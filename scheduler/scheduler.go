@@ -16,9 +16,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+
+	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 type OperationType int32
@@ -50,6 +52,7 @@ type LessonScheduler struct {
 	KubeLabs      map[string]*KubeLab
 	KubeLabsMu    *sync.Mutex
 	Client        kubernetes.Interface
+	ClientExt     kubernetesExt.Interface
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,

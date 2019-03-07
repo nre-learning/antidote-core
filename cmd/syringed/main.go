@@ -15,7 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 
-	"k8s.io/client-go/kubernetes"
+	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 func init() {
@@ -59,6 +60,13 @@ func main() {
 		log.Fatalf("Invalid kubeconfig")
 	}
 	lessonScheduler.Client = cs
+
+	csExt, err := kubernetesExt.NewForConfig(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.ClientExt = csExt
 
 	go func() {
 		err = lessonScheduler.Start()
