@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes Types
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func (ls *LessonScheduler) deletePod(name string) error {
@@ -21,11 +22,6 @@ type networkAnnotation struct {
 }
 
 func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
-
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
@@ -147,7 +143,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
 	}
 
-	result, err := coreclient.Pods(nsName).Create(pod)
+	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -157,7 +153,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Pod %s already exists.", ep.GetName())
 
-		result, err := coreclient.Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
+		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err

@@ -1,21 +1,17 @@
 package scheduler
 
 import (
+
+	// Kubernetes types
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func (ls *LessonScheduler) syncSecret(nsName string) error {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	prodCert, err := coreclient.Secrets("prod").Get("tls-certificate", metav1.GetOptions{})
+	prodCert, err := ls.Client.CoreV1().Secrets("prod").Get("tls-certificate", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -33,7 +29,7 @@ func (ls *LessonScheduler) syncSecret(nsName string) error {
 		Type:       prodCert.Type,
 	}
 
-	result, err := coreclient.Secrets(nsName).Create(&newCert)
+	result, err := ls.Client.CoreV1().Secrets(nsName).Create(&newCert)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,

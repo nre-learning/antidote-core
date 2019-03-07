@@ -14,6 +14,8 @@ import (
 	"github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 func init() {
@@ -51,6 +53,12 @@ func main() {
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
 	}
+	cs, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.Client = cs
 
 	go func() {
 		err = lessonScheduler.Start()

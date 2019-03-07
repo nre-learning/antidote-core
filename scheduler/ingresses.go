@@ -3,21 +3,18 @@ package scheduler
 import (
 	"fmt"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes types
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	betav1client "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
 func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
-
-	betaclient, err := betav1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,7 +66,7 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 			},
 		},
 	}
-	result, err := betaclient.Ingresses(nsName).Create(&newIngress)
+	result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -78,7 +75,7 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Ingress %s already exists.", ifr.Ref)
 
-		result, err := betaclient.Ingresses(nsName).Get(ifr.Ref, metav1.GetOptions{})
+		result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ifr.Ref, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
 			return nil, err
