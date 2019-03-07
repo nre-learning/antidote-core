@@ -332,7 +332,7 @@ Lessondef = `{
         "operationId": "ListLessonDefs",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonDefs"
             }
@@ -356,7 +356,7 @@ Lessondef = `{
         "operationId": "GetLessonDef",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonDef"
             }
@@ -381,7 +381,7 @@ Lessondef = `{
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonPrereqs"
             }
@@ -646,7 +646,7 @@ Livelesson = `{
         "operationId": "HealthCheck",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expHealthCheckMessage"
             }
@@ -663,7 +663,7 @@ Livelesson = `{
         "operationId": "RequestLiveLesson",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonUUID"
             }
@@ -690,7 +690,7 @@ Livelesson = `{
         "operationId": "GetLiveLesson",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLiveLesson"
             }
@@ -714,7 +714,7 @@ Livelesson = `{
         "operationId": "RequestVerification",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expVerificationTaskUUID"
             }
@@ -746,7 +746,7 @@ Livelesson = `{
         "operationId": "GetVerification",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expVerificationTask"
             }
@@ -1000,7 +1000,7 @@ Syringeinfo = `{
         "operationId": "GetSyringeInfo",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expSyringeInfo"
             }

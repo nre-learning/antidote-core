@@ -108,6 +108,8 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 	jobName := fmt.Sprintf("config-%s", ep.GetName())
 	podName := fmt.Sprintf("config-%s", ep.GetName())
 
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -134,32 +136,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 				},
 				Spec: corev1.PodSpec{
 
-					InitContainers: []corev1.Container{
-						{
-							Name:  "git-clone",
-							Image: "alpine/git",
-							Command: []string{
-								"/usr/local/git/git-clone.sh",
-							},
-							Args: []string{
-								ls.SyringeConfig.LessonRepoRemote,
-								ls.SyringeConfig.LessonRepoBranch,
-								ls.SyringeConfig.LessonRepoDir,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "git-clone",
-									ReadOnly:  false,
-									MountPath: "/usr/local/git",
-								},
-								{
-									Name:      "git-volume",
-									ReadOnly:  false,
-									MountPath: ls.SyringeConfig.LessonRepoDir,
-								},
-							},
-						},
-					},
+					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
 							Name:  "napalm",
@@ -179,35 +156,11 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
 							ImagePullPolicy: "Always",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "git-volume",
-									ReadOnly:  false,
-									MountPath: ls.SyringeConfig.LessonRepoDir,
-								},
-							},
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",
-					Volumes: []corev1.Volume{
-						{
-							Name: "git-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "git-clone",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "git-clone",
-									},
-									DefaultMode: &defaultGitFileMode,
-								},
-							},
-						},
-					},
+					Volumes:       volumes,
 				},
 			},
 		},
@@ -249,7 +202,9 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 	var retry int32 = 1
 
-	configJob := &batchv1.Job{
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+
+	verifyJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: nsName,
@@ -274,33 +229,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 					},
 				},
 				Spec: corev1.PodSpec{
-
-					InitContainers: []corev1.Container{
-						{
-							Name:  "git-clone",
-							Image: "alpine/git",
-							Command: []string{
-								"/usr/local/git/git-clone.sh",
-							},
-							Args: []string{
-								ls.SyringeConfig.LessonRepoRemote,
-								ls.SyringeConfig.LessonRepoBranch,
-								ls.SyringeConfig.LessonRepoDir,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "git-clone",
-									ReadOnly:  false,
-									MountPath: "/usr/local/git",
-								},
-								{
-									Name:      "git-volume",
-									ReadOnly:  false,
-									MountPath: ls.SyringeConfig.LessonRepoDir,
-								},
-							},
-						},
-					},
+					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
 							Name:  "verifier",
@@ -312,41 +241,19 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
 							ImagePullPolicy: "Always",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "git-volume",
-									ReadOnly:  false,
-									MountPath: ls.SyringeConfig.LessonRepoDir,
-								},
-							},
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",
-					Volumes: []corev1.Volume{
-						{
-							Name: "git-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "git-clone",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "git-clone",
-									},
-									DefaultMode: &defaultGitFileMode,
-								},
-							},
-						},
-					},
+					Volumes:       volumes,
 				},
 			},
 		},
 	}
 
-	result, err := batchclient.Jobs(nsName).Create(configJob)
+	// if config.SkipLessonClone, use read-only volume mount to local filesystem?
+
+	result, err := batchclient.Jobs(nsName).Create(verifyJob)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,

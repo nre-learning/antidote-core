@@ -19,9 +19,10 @@ type SyringeConfig struct {
 	TSDBEnabled         bool
 	GCInterval          int
 
+	LessonsLocal     bool
 	LessonRepoRemote string
 	LessonRepoBranch string
-	LessonRepoDir    string
+	LessonDir        string
 }
 
 func LoadConfigVars() (*SyringeConfig, error) {
@@ -74,6 +75,12 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		}
 	}
 
+	lessonsLocal, err := strconv.ParseBool(os.Getenv("SYRINGE_LESSONS_LOCAL"))
+	if lessonsLocal == false || err != nil {
+		config.LessonsLocal = false
+	} else {
+		config.LessonsLocal = true
+	}
 	remote := os.Getenv("SYRINGE_LESSON_REPO_REMOTE")
 	if remote == "" {
 		config.LessonRepoRemote = "https://github.com/nre-learning/antidote.git"
@@ -88,11 +95,11 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LessonRepoBranch = branch
 	}
 
-	dir := os.Getenv("SYRINGE_LESSON_REPO_DIR")
+	dir := os.Getenv("SYRINGE_LESSON_DIR")
 	if dir == "" {
-		config.LessonRepoDir = "/antidote"
+		config.LessonDir = "/antidote"
 	} else {
-		config.LessonRepoDir = dir
+		config.LessonDir = dir
 	}
 
 	gc, err := strconv.Atoi(os.Getenv("SYRINGE_GC_INTERVAL"))
