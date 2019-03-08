@@ -118,7 +118,6 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
 				"created":        strconv.Itoa(int(time.Now().Unix())),
 			},
-			Namespace: nsName,
 		},
 	}
 

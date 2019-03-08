@@ -16,6 +16,13 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
+// UpdateNamespace is a custom function (not generated via the crd tools)
+// that we are using to be able to update the namespace field in the client.
+// This function must exist in order to use the client properly.
+// func (f *crdclient) UpdateNamespace(ns string) {
+// 	f.ns = ns
+// }
+
 func main() {
 
 	app := cli.NewApp()

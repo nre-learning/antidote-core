@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"fmt"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -28,7 +27,8 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 	}
 
 	// Wait for the CRD to be created before we use it (only needed if its a new one)
-	time.Sleep(3 * time.Second)
+	// TODO(mierdin): This really shouldn't be necessary. Let's try removing it.
+	// time.Sleep(3 * time.Second)
 
 	return nil
 }

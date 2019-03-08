@@ -13,7 +13,5 @@ before_install:
 install:
   - hack/check-changelog.sh
   - make
-
-  # TODO(mierdin): tshoot and enable this
-  # - make test
+  - make test
 sudo: false

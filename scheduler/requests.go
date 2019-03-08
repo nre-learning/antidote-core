@@ -70,7 +70,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		epr := testEndpointReachability(liveLesson)
+		epr := ls.testEndpointReachability(liveLesson)
 
 		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
 

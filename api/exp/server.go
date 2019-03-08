@@ -116,7 +116,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		}
 	}()
 
-	// Handle incoming requests asynchronously
+	// Handle responses from scheduler asynchronously
 	var handlers = map[scheduler.OperationType]interface{}{
 		scheduler.OperationType_CREATE: apiServer.handleResponseCREATE,
 		scheduler.OperationType_DELETE: apiServer.handleResponseDELETE,

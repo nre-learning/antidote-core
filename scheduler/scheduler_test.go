@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testclient "k8s.io/client-go/kubernetes/fake"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -27,8 +29,17 @@ func TestSchedulerSetup(t *testing.T) {
 
 	var lessonDefs = map[int32]*pb.LessonDef{
 		1: &pb.LessonDef{
-			LessonId:        1,
-			Stages:          []*pb.LessonStage{},
+			LessonId: 1,
+			Stages: []*pb.LessonStage{
+				{
+					Id:          0,
+					Description: "",
+				},
+				{
+					Id:          1,
+					Description: "foobar",
+				},
+			},
 			LessonName:      "Test Lesson",
 			IframeResources: []*pb.IframeResource{},
 			Devices:         []*pb.Device{},
@@ -37,6 +48,14 @@ func TestSchedulerSetup(t *testing.T) {
 			Connections:     []*pb.Connection{},
 			Category:        "fundamentals",
 			Tier:            "prod",
+		},
+	}
+
+	nsName := "1-foobar-ns"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nsName,
+			Namespace: nsName,
 		},
 	}
 
@@ -52,7 +71,7 @@ func TestSchedulerSetup(t *testing.T) {
 		KubeLabs:      make(map[string]*KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
 
-		Client:    testclient.NewSimpleClientset(),
+		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		// ClientCrd: kubernetesExtFake
 	}
@@ -69,55 +88,22 @@ func TestSchedulerSetup(t *testing.T) {
 		LessonDef: lessonDefs[1],
 		Operation: OperationType_CREATE,
 		Stage:     1,
-		Uuid:      "lessonUuid",
+		Uuid:      "abcdef",
 		Created:   time.Now(),
 	}
 	lessonScheduler.Requests <- req
 
-	// TODO(mierdin) How to mock connectivity tests?
+	for {
+		result := <-lessonScheduler.Results
+		log.Info(result)
 
-	// --------------
+		if !result.Success && result.Operation == OperationType_CREATE {
+			t.Fatal("Received error from scheduler")
+		} else if result.Success {
+			break
+		}
+	}
 
-	// // Client for creating new CRD definitions
-	// csExt, err := kubernetesExt.NewForConfig(kubeConfig)
-	// if err != nil {
-	// 	log.Error(err)
-	// 	log.Fatalf("Invalid kubeconfig")
-	// }
-	// lessonScheduler.ClientExt = csExt
+	// TODO(mierdin): Need to create a tester, an
 
-	// // Client for creating instances of the network CRD
-	// clientRest, scheme, err := crd.NewClient(kubeConfig)
-	// if err != nil {
-	// 	log.Error(err)
-	// 	log.Fatalf("Invalid kubeconfig")
-	// }
-	// lessonScheduler.ClientCrd = crdclient.CrdClient(clientRest, scheme, "")
-
-	// cases := []struct {
-	// 	ns string
-	// }{
-	// 	{
-	// 		ns: "test",
-	// 	},
-	// }
-
-	// api := &KubernetesAPI{
-	// 	Suffix: "unit-test",
-	// 	Client:  testclient.NewSimpleClientset(),
-	// }
-
-	// for _, c := range cases {
-	// 	// create the postfixed namespace
-	// 	err := api.NewNamespaceWithSuffix(c.ns)
-	// 	if err != nil {
-	// 		t.Fatal(err.Error())
-	// 	}
-
-	// 	_, err = api.Client.CoreV1().Namespaces().Get("test-unit-test", v1.GetOptions{})
-
-	// 	if err != nil {
-	// 		t.Fatal(err.Error())
-	// 	}
-	// }
 }

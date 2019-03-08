@@ -179,10 +179,6 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Ingresses:     map[string]*v1beta1.Ingress{},
 	}
 
-	// Create our configmap for the initContainer for cloning the antidote repo
-
-	ls.createGitConfigMap(ns.ObjectMeta.Name)
-
 	// Append black box container and create ingress for jupyter lab guide if necessary
 	if usesJupyterLabGuide(req.LessonDef) {
 		jupyterBB := &pb.Blackbox{
