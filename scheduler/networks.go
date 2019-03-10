@@ -139,7 +139,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	// IMPORTANT - MUST set namespace before using this client.
-	ls.ClientCrd.UpdateNamespace(nsName)
+	// ls.ClientCrd.UpdateNamespace(nsName)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -182,7 +182,9 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		},
 	}
 
-	result, err := ls.ClientCrd.Create(network)
+	nadClient := ls.ClientCrd.NetworkAttachmentDefinitions(nsName)
+
+	result, err := nadClient.Create(network)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -190,7 +192,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
 
-		result, err := ls.ClientCrd.Get(network.ObjectMeta.Name)
+		result, err := nadClient.Get(network.ObjectMeta.Name, meta_v1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
 			return nil, err

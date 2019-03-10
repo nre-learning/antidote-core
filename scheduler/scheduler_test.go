@@ -11,13 +11,16 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	testclient "k8s.io/client-go/kubernetes/fake"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
 	log "github.com/sirupsen/logrus"
+
+	// Fake clients
+	kubernetesCrdFake "github.com/nre-learning/syringe/pkg/client/clientset/versioned/fake"
+	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 // Helper functions courtesy of the venerable Ben Johnson
@@ -74,20 +77,55 @@ func TestSchedulerSetup(t *testing.T) {
 			},
 			LessonName:      "Test Lesson",
 			IframeResources: []*pb.IframeResource{},
-			Devices:         []*pb.Endpoint{},
-			Utilities:       []*pb.Endpoint{},
-			Blackboxes:      []*pb.Endpoint{},
-			Connections:     []*pb.Connection{},
-			Category:        "fundamentals",
-			Tier:            "prod",
+			Devices: []*pb.Endpoint{
+				{
+					Name:  "vqfx1",
+					Type:  pb.Endpoint_DEVICE,
+					Image: "antidotelabs/vqfx",
+				},
+				{
+					Name:  "vqfx2",
+					Type:  pb.Endpoint_DEVICE,
+					Image: "antidotelabs/vqfx",
+				},
+				{
+					Name:  "vqfx3",
+					Type:  pb.Endpoint_DEVICE,
+					Image: "antidotelabs/vqfx",
+				},
+			},
+			Utilities: []*pb.Endpoint{
+				{
+					Name:  "linux1",
+					Type:  pb.Endpoint_UTILITY,
+					Image: "antidotelabs/utility",
+				},
+			},
+			Blackboxes: []*pb.Endpoint{},
+			Connections: []*pb.Connection{
+				{
+					A: "vqfx1",
+					B: "vqfx2",
+				},
+				{
+					A: "vqfx2",
+					B: "vqfx3",
+				},
+				{
+					A: "vqfx3",
+					B: "vqfx1",
+				},
+			},
+			Category: "fundamentals",
+			Tier:     "prod",
 		},
 	}
 
 	nsName := "1-foobar-ns"
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nsName,
-			Namespace: nsName,
+			Name: nsName,
+			// Namespace: nsName,
 		},
 	}
 
@@ -105,7 +143,7 @@ func TestSchedulerSetup(t *testing.T) {
 
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
-		// ClientCrd: kubernetesExtFake
+		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
 	}
 
 	// Start scheduler
@@ -136,6 +174,6 @@ func TestSchedulerSetup(t *testing.T) {
 		}
 	}
 
-	// TODO(mierdin): Need to create a tester, an
+	// TODO(mierdin): Need to create a fake health check tester
 
 }

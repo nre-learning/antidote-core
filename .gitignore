@@ -11,4 +11,3 @@ coverage.html
 *.retry
 api/exp/generated/
 cmd/syringed/buildinfo.go
-vendor/k8s.io/code-generator/

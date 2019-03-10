@@ -15,8 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	rest "k8s.io/client-go/rest"
 
-	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
-	crdclient "github.com/nre-learning/syringe/pkg/client"
+	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -78,12 +77,12 @@ func main() {
 	lessonScheduler.ClientExt = csExt
 
 	// Client for creating instances of the network CRD
-	clientRest, scheme, err := crd.NewClient(kubeConfig)
+	clientCrd, err := crdclient.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error(err)
 		log.Fatalf("Invalid kubeconfig")
 	}
-	lessonScheduler.ClientCrd = crdclient.CrdClient(clientRest, scheme, "")
+	lessonScheduler.ClientCrd = clientCrd
 
 	go func() {
 		err = lessonScheduler.Start()

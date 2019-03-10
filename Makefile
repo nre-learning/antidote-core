@@ -51,9 +51,6 @@ gengo:
 	# You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.
 	# https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
 
-	git clone https://github.com/kubernetes/code-generator vendor/k8s.io/code-generator/ || true
-	cd vendor/k8s.io/code-generator && git pull && cd ../../../
-
 	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
 	
 	vendor/k8s.io/code-generator/generate-groups.sh all \
