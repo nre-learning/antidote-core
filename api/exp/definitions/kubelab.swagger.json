@@ -16,24 +16,6 @@
   ],
   "paths": {},
   "definitions": {
-    "expBlackbox": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "Ports": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      }
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -48,7 +30,7 @@
         }
       }
     },
-    "expDevice": {
+    "expEndpoint": {
       "type": "object",
       "properties": {
         "Name": {
@@ -56,6 +38,9 @@
         },
         "Image": {
           "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/expEndpointEndpointType"
         },
         "Ports": {
           "type": "array",
@@ -65,6 +50,18 @@
           }
         }
       }
+    },
+    "expEndpointEndpointType": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "DEVICE",
+        "IFRAME",
+        "BLACKBOX",
+        "UTILITY"
+      ],
+      "default": "UNKNOWN",
+      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
     },
     "expIframeResource": {
       "type": "object",
@@ -168,19 +165,19 @@
         "Devices": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/expDevice"
+            "$ref": "#/definitions/expEndpoint"
           }
         },
         "Utilities": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/expUtility"
+            "$ref": "#/definitions/expEndpoint"
           }
         },
         "Blackboxes": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/expBlackbox"
+            "$ref": "#/definitions/expEndpoint"
           }
         },
         "Connections": {
@@ -284,24 +281,6 @@
         "READY"
       ],
       "default": "DONOTUSE"
-    },
-    "expUtility": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "Ports": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      }
     }
   }
 }

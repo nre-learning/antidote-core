@@ -34,6 +34,9 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return nil, errors.New(msg)
 	}
 
+	// A livelesson's UUID is formed with the lesson ID and the session ID together.
+	// This allows us to store all livelessons within a flat key-value structure while maintaining
+	// uniqueness.
 	lessonUuid := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
 
 	// Identify lesson definition - return error if doesn't exist by ID

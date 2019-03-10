@@ -39,20 +39,13 @@ docker:
 	docker push antidotelabs/syringe:latest
 
 test: 
-	@go test ./api/... -cover
-	@go test ./cmd/... -cover
-	@go test ./config/... -cover
-	@go test ./scheduler/... -cover
+	@go test ./api/... ./cmd/... ./config/... ./scheduler/... -cover -coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o=coverage.html
 
-	@# This is causing problems.
-	@#@go test ./pkg/... -cover
-
+	@# This is causing problems - go test ./pkg/... -cover 
 
 update:
-	# Run the below to clear everything out and start from scratch
-	# rm -rf ~/.glide && rm -rf vendor/ && rm -f glide.lock
-
-	glide up -v
+	dep ensure
 
 gengo:
 	# You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.

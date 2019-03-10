@@ -1,7 +1,11 @@
 package scheduler
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +20,36 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Helper functions courtesy of the venerable Ben Johnson
+// https://medium.com/@benbjohnson/structuring-tests-in-go-46ddee7a25c
+
+// assert fails the test if the condition is false.
+func assert(tb testing.TB, condition bool, msg string, v ...interface{}) {
+	if !condition {
+		_, file, line, _ := runtime.Caller(1)
+		fmt.Printf("\033[31m%s:%d: "+msg+"\033[39m\n\n", append([]interface{}{filepath.Base(file), line}, v...)...)
+		tb.FailNow()
+	}
+}
+
+// ok fails the test if an err is not nil.
+func ok(tb testing.TB, err error) {
+	if err != nil {
+		_, file, line, _ := runtime.Caller(1)
+		fmt.Printf("\033[31m%s:%d: unexpected error: %s\033[39m\n\n", filepath.Base(file), line, err.Error())
+		tb.FailNow()
+	}
+}
+
+// equals fails the test if exp is not equal to act.
+func equals(tb testing.TB, exp, act interface{}) {
+	if !reflect.DeepEqual(exp, act) {
+		_, file, line, _ := runtime.Caller(1)
+		fmt.Printf("\033[31m%s:%d:\n\n\texp: %#v\n\n\tgot: %#v\033[39m\n\n", filepath.Base(file), line, exp, act)
+		tb.FailNow()
+	}
+}
+
 func TestSchedulerSetup(t *testing.T) {
 
 	os.Setenv("SYRINGE_LESSONS", "foo")
@@ -24,8 +58,6 @@ func TestSchedulerSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	log.Info(syringeConfig)
 
 	var lessonDefs = map[int32]*pb.LessonDef{
 		1: &pb.LessonDef{
@@ -42,9 +74,9 @@ func TestSchedulerSetup(t *testing.T) {
 			},
 			LessonName:      "Test Lesson",
 			IframeResources: []*pb.IframeResource{},
-			Devices:         []*pb.Device{},
-			Utilities:       []*pb.Utility{},
-			Blackboxes:      []*pb.Blackbox{},
+			Devices:         []*pb.Endpoint{},
+			Utilities:       []*pb.Endpoint{},
+			Blackboxes:      []*pb.Endpoint{},
 			Connections:     []*pb.Connection{},
 			Category:        "fundamentals",
 			Tier:            "prod",

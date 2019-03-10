@@ -39,13 +39,6 @@ var (
 	defaultGitFileMode   int32         = 0755
 )
 
-// Endpoint should be satisfied by Utility, Blackbox, and Device
-type Endpoint interface {
-	GetName() string
-	GetImage() string
-	GetPorts() []int32
-}
-
 // NetworkCrdClient is an interface for the client for our custom
 // network CRD. Allows for injection of mocks at test time.
 type NetworkCrdClient interface {

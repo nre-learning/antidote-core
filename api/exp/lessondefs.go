@@ -135,6 +135,17 @@ FILES:
 			continue FILES
 		}
 
+		// Set type property as appropriate
+		for ep := range lessonDef.Blackboxes {
+			lessonDef.Blackboxes[ep].Type = pb.Endpoint_BLACKBOX
+		}
+		for ep := range lessonDef.Blackboxes {
+			lessonDef.Utilities[ep].Type = pb.Endpoint_UTILITY
+		}
+		for ep := range lessonDef.Blackboxes {
+			lessonDef.Devices[ep].Type = pb.Endpoint_DEVICE
+		}
+
 		// Basic validation from protobuf tags
 		err = lessonDef.Validate()
 		if err != nil {
