@@ -182,7 +182,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		},
 	}
 
-	nadClient := ls.ClientCrd.NetworkAttachmentDefinitions(nsName)
+	nadClient := ls.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
 
 	result, err := nadClient.Create(network)
 	if err == nil {

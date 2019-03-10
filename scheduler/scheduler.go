@@ -24,7 +24,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	// Kubernetes clients
-	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
@@ -70,7 +70,7 @@ type LessonScheduler struct {
 	ClientExt kubernetesExt.Interface
 
 	// Client for creating instances of our network CRD
-	ClientCrd kubernetesCrd.K8sV1Interface
+	ClientCrd kubernetesCrd.Interface
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,

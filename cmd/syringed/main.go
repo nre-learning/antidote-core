@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	rest "k8s.io/client-go/rest"
 
-	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
