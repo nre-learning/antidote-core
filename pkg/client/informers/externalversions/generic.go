@@ -53,7 +53,7 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=k8s.cni.cncf.io, Version=v1
-	case v1.SchemeGroupVersion.WithResource("networkattachmentdefinitions"):
+	case v1.SchemeGroupVersion.WithResource("network-attachment-definitions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.K8s().V1().NetworkAttachmentDefinitions().Informer()}, nil
 
 	}

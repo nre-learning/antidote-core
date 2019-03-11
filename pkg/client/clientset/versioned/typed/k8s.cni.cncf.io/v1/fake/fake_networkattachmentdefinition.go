@@ -34,7 +34,7 @@ type FakeNetworkAttachmentDefinitions struct {
 	ns   string
 }
 
-var networkattachmentdefinitionsResource = schema.GroupVersionResource{Group: "k8s.cni.cncf.io", Version: "v1", Resource: "networkattachmentdefinitions"}
+var networkattachmentdefinitionsResource = schema.GroupVersionResource{Group: "k8s.cni.cncf.io", Version: "v1", Resource: "network-attachment-definitions"}
 
 var networkattachmentdefinitionsKind = schema.GroupVersionKind{Group: "k8s.cni.cncf.io", Version: "v1", Kind: "NetworkAttachmentDefinition"}
 

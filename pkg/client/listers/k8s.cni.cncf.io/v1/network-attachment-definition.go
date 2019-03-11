@@ -88,7 +88,7 @@ func (s networkAttachmentDefinitionNamespaceLister) Get(name string) (*v1.Networ
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("networkattachmentdefinition"), name)
+		return nil, errors.NewNotFound(v1.Resource("network-attachment-definition"), name)
 	}
 	return obj.(*v1.NetworkAttachmentDefinition), nil
 }

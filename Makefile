@@ -58,6 +58,26 @@ gengo:
 	github.com/nre-learning/syringe/pkg/apis \
 	k8s.cni.cncf.io:v1
 
+	@# We need to play doctor on some of these files. Haven't figured out yet how to ensure hyphens are preserved in the
+	@# fully qualified resource name, so we're just generating as normal, and then renaming files and replacing text
+	@# as needed.
+
+	@mv pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/networkattachmentdefinition.go \
+		pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/network-attachment-definition.go
+
+	@mv pkg/client/listers/k8s.cni.cncf.io/v1/networkattachmentdefinition.go \
+		pkg/client/listers/k8s.cni.cncf.io/v1/network-attachment-definition.go
+
+	@sed -i 's/networkattachmentdefinition/network-attachment-definition/g' \
+		pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/network-attachment-definition.go \
+		pkg/client/informers/externalversions/generic.go \
+		pkg/client/listers/k8s.cni.cncf.io/v1/network-attachment-definition.go
+
+	@sed -i 's/Resource: "networkattachmentdefinitions"/Resource: "network-attachment-definitions"/g' \
+		pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake/fake_networkattachmentdefinition.go 
+
+
+
 install_bins_linux:
 
 	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-grpc-gateway-v1.5.1-linux-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway

@@ -67,7 +67,7 @@ func (c *networkAttachmentDefinitions) Get(name string, options metav1.GetOption
 	result = &v1.NetworkAttachmentDefinition{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
@@ -84,7 +84,7 @@ func (c *networkAttachmentDefinitions) List(opts metav1.ListOptions) (result *v1
 	result = &v1.NetworkAttachmentDefinitionList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do().
@@ -101,7 +101,7 @@ func (c *networkAttachmentDefinitions) Watch(opts metav1.ListOptions) (watch.Int
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Watch()
@@ -112,7 +112,7 @@ func (c *networkAttachmentDefinitions) Create(networkAttachmentDefinition *v1.Ne
 	result = &v1.NetworkAttachmentDefinition{}
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		Body(networkAttachmentDefinition).
 		Do().
 		Into(result)
@@ -124,7 +124,7 @@ func (c *networkAttachmentDefinitions) Update(networkAttachmentDefinition *v1.Ne
 	result = &v1.NetworkAttachmentDefinition{}
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		Name(networkAttachmentDefinition.Name).
 		Body(networkAttachmentDefinition).
 		Do().
@@ -136,7 +136,7 @@ func (c *networkAttachmentDefinitions) Update(networkAttachmentDefinition *v1.Ne
 func (c *networkAttachmentDefinitions) Delete(name string, options *metav1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		Name(name).
 		Body(options).
 		Do().
@@ -151,7 +151,7 @@ func (c *networkAttachmentDefinitions) DeleteCollection(options *metav1.DeleteOp
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(options).
@@ -164,7 +164,7 @@ func (c *networkAttachmentDefinitions) Patch(name string, pt types.PatchType, da
 	result = &v1.NetworkAttachmentDefinition{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
-		Resource("networkattachmentdefinitions").
+		Resource("network-attachment-definitions").
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
