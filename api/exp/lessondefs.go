@@ -139,10 +139,10 @@ FILES:
 		for ep := range lessonDef.Blackboxes {
 			lessonDef.Blackboxes[ep].Type = pb.Endpoint_BLACKBOX
 		}
-		for ep := range lessonDef.Blackboxes {
+		for ep := range lessonDef.Utilities {
 			lessonDef.Utilities[ep].Type = pb.Endpoint_UTILITY
 		}
-		for ep := range lessonDef.Blackboxes {
+		for ep := range lessonDef.Devices {
 			lessonDef.Devices[ep].Type = pb.Endpoint_DEVICE
 		}
 

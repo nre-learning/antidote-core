@@ -55,6 +55,14 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		return nil, errors.New(msg)
 	}
 
+	// Check to see if the livelesson already exists in an errored state.
+	// If so, clear it out so we can treat it like a new creation in the following logic.
+	if s.LiveLessonExists(lessonUuid) {
+		if s.liveLessonState[lessonUuid].Error {
+			s.DeleteLiveLesson(lessonUuid)
+		}
+	}
+
 	// Check to see if it already exists in memory. If it does, don't send provision request.
 	// Just look it up and send UUID
 	if s.LiveLessonExists(lessonUuid) {

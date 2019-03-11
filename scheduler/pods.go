@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -138,6 +139,10 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// Add any remaining ports not specified by the user
 	for p := range ports {
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
+	}
+
+	if len(pod.Spec.Containers[0].Ports) == 0 {
+		return nil, errors.New("not creating pod - must have at least one port exposed.")
 	}
 
 	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)

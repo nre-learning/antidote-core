@@ -43,9 +43,10 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
 			LessonDef: newRequest.LessonDef,
-			Uuid:      "",
+			Uuid:      newRequest.Uuid,
 			Operation: newRequest.Operation,
 		}
+		return
 	}
 
 	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will

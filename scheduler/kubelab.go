@@ -233,6 +233,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			)
 			if err != nil {
 				log.Error(err)
+				return nil, err
 			}
 			kl.Pods[newPod.ObjectMeta.Name] = newPod
 
@@ -243,6 +244,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			)
 			if err != nil {
 				log.Error(err)
+				return nil, err
 			}
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}

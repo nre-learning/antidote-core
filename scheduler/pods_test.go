@@ -66,4 +66,30 @@ func TestPods(t *testing.T) {
 		// t.Log(pod)
 	})
 
+	// Test bad pod creation
+	t.Run("A=1", func(t *testing.T) {
+
+		pod, err := lessonScheduler.createPod(
+			&pb.Endpoint{
+				Name: "linux1",
+
+				// Lots of stuff happens if the type of the endpoint is not known.
+				// Such as failing to assign ports. We want to test for this.
+				Type:  pb.Endpoint_UNKNOWN,
+				Image: "antidotelabs/utility",
+			},
+			[]string{"1", "2", "3"},
+			&LessonScheduleRequest{
+				Uuid: uuid,
+				LessonDef: &pb.LessonDef{
+					LessonId: 1,
+				},
+			},
+		)
+
+		// Assert pod did not get created
+		assert(t, (pod == nil), "")
+		assert(t, (err != nil), "")
+	})
+
 }
