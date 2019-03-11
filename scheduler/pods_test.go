@@ -61,9 +61,8 @@ func TestPods(t *testing.T) {
 		// Assert created namespace is correct
 		equals(t, pod.Namespace, fmt.Sprintf("%s-ns", uuid))
 
-		// Assert expected networks exist properly
+		// TODO(mierdin): Assert expected networks exist properly
 
-		// t.Log(pod)
 	})
 
 	// Test bad pod creation
@@ -74,7 +73,8 @@ func TestPods(t *testing.T) {
 				Name: "linux1",
 
 				// Lots of stuff happens if the type of the endpoint is not known.
-				// Such as failing to assign ports. We want to test for this.
+				// Such as failing to assign ports. We want to make sure this throws an error
+				// as expected.
 				Type:  pb.Endpoint_UNKNOWN,
 				Image: "antidotelabs/utility",
 			},
@@ -87,7 +87,7 @@ func TestPods(t *testing.T) {
 			},
 		)
 
-		// Assert pod did not get created
+		// Assert pod creation had errors.
 		assert(t, (pod == nil), "")
 		assert(t, (err != nil), "")
 	})

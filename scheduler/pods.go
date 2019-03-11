@@ -142,7 +142,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
-		return nil, errors.New("not creating pod - must have at least one port exposed.")
+		return nil, errors.New("not creating pod - must have at least one port exposed")
 	}
 
 	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
