@@ -84,8 +84,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 			s.scheduler.Requests <- req
 
-			s.recordRequestTSDB(req)
-
 		} else {
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
@@ -96,8 +94,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 			}
 
 			s.scheduler.Requests <- req
-
-			s.recordRequestTSDB(req)
 		}
 
 		return &pb.LessonUUID{Id: lessonUuid}, nil
@@ -112,8 +108,6 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 		Created:   time.Now(),
 	}
 	s.scheduler.Requests <- req
-
-	s.recordRequestTSDB(req)
 
 	// Pre-emptively populate livelessons map with initial status.
 	// This will be updated when the scheduler response comes back.
