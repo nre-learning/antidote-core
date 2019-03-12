@@ -13,7 +13,12 @@ import (
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/rest"
+	rest "k8s.io/client-go/rest"
+
+	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
+
+	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 func init() {
@@ -34,7 +39,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lessonDefs, err := api.ImportLessonDefs(syringeConfig, syringeConfig.LessonsDir)
+	lessonDefs, err := api.ImportLessonDefs(syringeConfig)
 	if err != nil {
 		log.Warn(err)
 	}
@@ -50,7 +55,34 @@ func main() {
 		GcWhiteListMu: &sync.Mutex{},
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
+		HealthChecker: scheduler.LessonHealthCheck{},
 	}
+
+	// CREATION OF CLIENTS
+	//
+	// Client for working with standard kubernetes resources
+	cs, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.Client = cs
+
+	// Client for creating new CRD definitions
+	csExt, err := kubernetesExt.NewForConfig(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.ClientExt = csExt
+
+	// Client for creating instances of the network CRD
+	clientCrd, err := crdclient.NewForConfig(kubeConfig)
+	if err != nil {
+		log.Error(err)
+		log.Fatalf("Invalid kubeconfig")
+	}
+	lessonScheduler.ClientCrd = clientCrd
 
 	go func() {
 		err = lessonScheduler.Start()

@@ -9,15 +9,24 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
+	config "github.com/nre-learning/syringe/config"
+
+	// Custom Network CRD Types
+	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+
+	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rest "k8s.io/client-go/rest"
+
+	// Kubernetes clients
+	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
+	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubernetes "k8s.io/client-go/kubernetes"
 )
 
 type OperationType int32
@@ -31,11 +40,15 @@ var (
 	defaultGitFileMode   int32         = 0755
 )
 
-// Endpoint should be satisfied by Utility, Blackbox, and Device
-type Endpoint interface {
-	GetName() string
-	GetImage() string
-	GetPorts() []int32
+// NetworkCrdClient is an interface for the client for our custom
+// network CRD. Allows for injection of mocks at test time.
+type NetworkCrdClient interface {
+	UpdateNamespace(string)
+	Create(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
+	Update(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
+	Delete(name string, options *meta_v1.DeleteOptions) error
+	Get(name string) (*networkcrd.NetworkAttachmentDefinition, error)
+	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
 }
 
 type LessonScheduler struct {
@@ -48,12 +61,21 @@ type LessonScheduler struct {
 	GcWhiteListMu *sync.Mutex
 	KubeLabs      map[string]*KubeLab
 	KubeLabsMu    *sync.Mutex
+	HealthChecker LessonHealthCheck
+
+	// Client for interacting with normal Kubernetes resources
+	Client kubernetes.Interface
+
+	// Client for creating CRD defintions
+	ClientExt kubernetesExt.Interface
+
+	// Client for creating instances of our network CRD
+	ClientCrd kubernetesCrd.Interface
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
 func (ls *LessonScheduler) Start() error {
-
 	// Ensure cluster is cleansed before we start the scheduler
 	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
 	ls.nukeFromOrbit()
@@ -71,16 +93,19 @@ func (ls *LessonScheduler) Start() error {
 				log.Error("Problem with GCing lessons")
 			}
 
-			if len(cleaned) > 0 {
+			for i := range cleaned {
+
+				// Clean up local kubelab state
+				ls.deleteKubelab(cleaned[i])
+
+				// Send result to API server to clean up livelesson state
 				ls.Results <- &LessonScheduleResult{
 					Success:   true,
 					LessonDef: nil,
-					Uuid:      "",
+					Uuid:      cleaned[i],
 					Operation: OperationType_DELETE,
-					GCLessons: cleaned,
 				}
 			}
-
 			time.Sleep(1 * time.Minute)
 
 		}
@@ -270,91 +295,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 
 }
 
-// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
-// jupyter notebook as a lab guide in any stage.
-func usesJupyterLabGuide(ld *pb.LessonDef) bool {
-	for i := range ld.Stages {
-		if ld.Stages[i].JupyterLabGuide {
-			return true
-		}
-	}
-
-	return false
-}
-
-// TODO(mierdin): Shouldn't be necessary anymore with the new git helper
-func (ls *LessonScheduler) createGitConfigMap(nsName string) error {
-
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	gitScript := `#!/bin/sh -e
-REPO=$1
-REF=$2
-DIR=$3
-# Init Containers will re-run on Pod restart. Remove the directory's contents
-# and reprovision when this happens.
-if [ -d "$DIR" ]; then
-	rm -rf $( find $DIR -mindepth 1 )
-fi
-git clone $REPO $DIR
-cd $DIR
-git checkout --force $REF`
-
-	svc := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "git-clone",
-			Namespace: nsName,
-			Labels: map[string]string{
-				"syringeManaged": "yes",
-			},
-		},
-		Data: map[string]string{
-			"git-clone.sh": gitScript,
-		},
-	}
-
-	result, err := coreclient.ConfigMaps(nsName).Create(svc)
-	if err == nil {
-		log.Infof("Created configmap: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("ConfigMap %s already exists.", "git-clone")
-		return nil
-	} else {
-		log.Errorf("Error creating configmap: %s", err)
-		return err
-	}
-
-	return nil
-}
-
-func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
-
-	var host string
-	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
-		if len(svc.Spec.ExternalIPs) > 0 {
-			host = "svc.Spec.ExternalIPs[0]"
-		} else {
-			host = svc.Spec.ClusterIP
-		}
-		return host, int(svc.Spec.Ports[0].Port), nil
-	} else {
-		host = svc.Spec.ClusterIP
-	}
-
-	// We are only using the first port for the health check.
-	if len(svc.Spec.Ports) == 0 {
-		return "", 0, errors.New("unable to find port for service")
-	} else {
-		return host, int(svc.Spec.Ports[0].Port), nil
-	}
-
-}
-
-func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
+func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
 	reachableMap := map[string]bool{}
 
@@ -374,10 +315,10 @@ func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
 			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
 				log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = sshTest(ep)
+				testResult = ls.HealthChecker.sshTest(ep)
 			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
 				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = connectTest(ep)
+				testResult = ls.HealthChecker.tcpTest(ep)
 			} else {
 				testResult = true
 			}
@@ -402,7 +343,16 @@ func testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 	}
 }
 
-func sshTest(ep *pb.LiveEndpoint) bool {
+// LessonHealthChecker describes a struct which offers a variety of reachability
+// tests for lesson endpoints.
+type LessonHealthChecker interface {
+	sshTest(*pb.LiveEndpoint) bool
+	tcpTest(*pb.LiveEndpoint) bool
+}
+
+type LessonHealthCheck struct{}
+
+func (lhc *LessonHealthCheck) sshTest(ep *pb.LiveEndpoint) bool {
 	port := strconv.Itoa(int(ep.Port))
 	sshConfig := &ssh.ClientConfig{
 		User:            "antidote",
@@ -423,7 +373,7 @@ func sshTest(ep *pb.LiveEndpoint) bool {
 	return true
 }
 
-func connectTest(ep *pb.LiveEndpoint) bool {
+func (lhc *LessonHealthCheck) tcpTest(ep *pb.LiveEndpoint) bool {
 	intPort := strconv.Itoa(int(ep.Port))
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
 	if err != nil {
@@ -437,4 +387,39 @@ func connectTest(ep *pb.LiveEndpoint) bool {
 
 func HasDevices(ld *pb.LessonDef) bool {
 	return len(ld.Devices) > 0
+}
+
+// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
+// jupyter notebook as a lab guide in any stage.
+func usesJupyterLabGuide(ld *pb.LessonDef) bool {
+	for i := range ld.Stages {
+		if ld.Stages[i].JupyterLabGuide {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
+
+	var host string
+	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
+		if len(svc.Spec.ExternalIPs) > 0 {
+			host = "svc.Spec.ExternalIPs[0]"
+		} else {
+			host = svc.Spec.ClusterIP
+		}
+		return host, int(svc.Spec.Ports[0].Port), nil
+	} else {
+		host = svc.Spec.ClusterIP
+	}
+
+	// We are only using the first port for the health check.
+	if len(svc.Spec.Ports) == 0 {
+		return "", 0, errors.New("unable to find port for service")
+	} else {
+		return host, int(svc.Spec.Ports[0].Port), nil
+	}
+
 }

@@ -16,6 +16,13 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
+// UpdateNamespace is a custom function (not generated via the crd tools)
+// that we are using to be able to update the namespace field in the client.
+// This function must exist in order to use the client properly.
+// func (f *crdclient) UpdateNamespace(ns string) {
+// 	f.ns = ns
+// }
+
 func main() {
 
 	app := cli.NewApp()
@@ -48,7 +55,10 @@ func main() {
 			Usage:   "syrctl validate <LESSON DIRECTORY>",
 			Action: func(c *cli.Context) {
 
-				_, err := api.ImportLessonDefs(&config.SyringeConfig{Tier: "local"}, c.Args().First())
+				_, err := api.ImportLessonDefs(&config.SyringeConfig{
+					Tier:       "local",
+					LessonsDir: c.Args().First(),
+				})
 				if err != nil {
 					color.Red("Some lessons failed to validate.")
 					os.Exit(1)

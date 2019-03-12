@@ -3,6 +3,7 @@
 ## In development
 
 - Add ability to use host directory for lesson content [#75](https://github.com/nre-learning/syringe/pull/75)
+- Provide unit test framework for scheduler [#79](https://github.com/nre-learning/syringe/pull/79)
 
 ## v0.3.0 - February 11, 2019
 

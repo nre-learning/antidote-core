@@ -1,11 +1,11 @@
 package v1
 
-import meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// gentypes "k8s.io/code-generator/code-generator/cmd/client-gen/types"
+)
 
-// +genclient
-// +genclient:noStatus
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/generating-clientset.md
 // https://www.martin-helmich.de/en/blog/kubernetes-crd-client.html
 // https://github.com/yaronha/kube-crd/blob/master/crd/crd.go#L16:1
 // https://github.com/yaronha/kube-crd
@@ -38,6 +38,7 @@ import meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //             config:
 //                  type: string
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type NetworkAttachmentDefinition struct {
@@ -46,7 +47,19 @@ type NetworkAttachmentDefinition struct {
 	Spec               NetworkSpec `json:"spec"`
 	Args               string      `json:"args"`
 	Kind               string      `json:"kind"`
+	// foobar             gentypes.Version
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkAttachmentDefinitionList struct {
+	meta_v1.TypeMeta `json:",inline"`
+	// +optional
+	meta_v1.ListMeta `json:"metadata,omitempty"`
+
+	Items []NetworkAttachmentDefinition `json:"items"`
+}
+
 type NetworkSpec struct {
 	Group      string            `json:"group"`
 	Version    string            `json:"version"`
@@ -93,3 +106,9 @@ type NetworkList struct {
 	meta_v1.ListMeta `json:"metadata"`
 	Items            []NetworkAttachmentDefinition `json:"items"`
 }
+
+// +k8s:deepcopy-gen:interfaces=github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1/v1.K8sV1Interfacez
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// type K8sV1Interface struct{}
+// type K8sV1Client struct{}

@@ -7,21 +7,17 @@ import (
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 )
 
 func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 
-	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	result, err := batchclient.Jobs(nsName).List(metav1.ListOptions{
+	result, err := ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 	})
 	if err != nil {
@@ -32,7 +28,7 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 	existingJobs := result.Items
 
 	for i := range existingJobs {
-		err = batchclient.Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
+		err = ls.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -42,7 +38,7 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 	for {
 		//TODO(mierdin): add timeout
 		time.Sleep(time.Second * 5)
-		result, err = batchclient.Jobs(nsName).List(metav1.ListOptions{
+		result, err = ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
 		if err != nil {
@@ -61,12 +57,7 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	result, err := batchclient.Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
 		return false, err
@@ -97,11 +88,6 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 }
 
 func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
-
-	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
@@ -166,7 +152,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 		},
 	}
 
-	result, err := batchclient.Jobs(nsName).Create(configJob)
+	result, err := ls.Client.BatchV1().Jobs(nsName).Create(configJob)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -175,7 +161,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Job %s already exists.", jobName)
 
-		result, err := batchclient.Jobs(nsName).Get(jobName, metav1.GetOptions{})
+		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
 			return nil, err
@@ -189,11 +175,6 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 }
 
 func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv1.Job, error) {
-
-	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
@@ -253,7 +234,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 	// if config.SkipLessonClone, use read-only volume mount to local filesystem?
 
-	result, err := batchclient.Jobs(nsName).Create(verifyJob)
+	result, err := ls.Client.BatchV1().Jobs(nsName).Create(verifyJob)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -262,7 +243,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Job %s already exists.", jobName)
 
-		result, err := batchclient.Jobs(nsName).Get(jobName, metav1.GetOptions{})
+		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
 			return nil, err
@@ -279,12 +260,7 @@ func (ls *LessonScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleReq
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	batchclient, err := batchv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	result, err := batchclient.Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
 		return false, err

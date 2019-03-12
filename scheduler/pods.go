@@ -2,46 +2,40 @@ package scheduler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes Types
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func (ls *LessonScheduler) deletePod(name string) error {
-	return nil
-}
-
-type networkAnnotation struct {
-	Name string `json:"name"`
-}
-
-func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_EndpointType, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
-
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
+// createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
+// into a Kubernetes pod object, and attempts to create it.
+func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-
 	b := true
+
+	type networkAnnotation struct {
+		Name string `json:"name"`
+	}
 
 	netAnnotations := []networkAnnotation{}
 	for n := range networks {
 		netAnnotations = append(netAnnotations, networkAnnotation{Name: networks[n]})
 	}
 
-	netAnnotationsJson, err := json.Marshal(netAnnotations)
+	netAnnotationsJSON, err := json.Marshal(netAnnotations)
 	if err != nil {
 		log.Error(err)
+		return nil, err
 	}
-
-	// defaultGitFileMode := int32(0755)
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
 
@@ -51,12 +45,12 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
-				"endpointType":   etype.String(),
+				"endpointType":   ep.GetType().String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
-				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJson),
+				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJSON),
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -119,7 +113,7 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 
 	ports := ep.GetPorts()
 
-	if etype.String() == "DEVICE" || etype.String() == "UTILITY" {
+	if ep.Type.String() == "DEVICE" || ep.Type.String() == "UTILITY" {
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &b,
 			AllowPrivilegeEscalation: &b,
@@ -147,17 +141,21 @@ func (ls *LessonScheduler) createPod(ep Endpoint, etype pb.LiveEndpoint_Endpoint
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
 	}
 
-	result, err := coreclient.Pods(nsName).Create(pod)
+	if len(pod.Spec.Containers[0].Ports) == 0 {
+		return nil, errors.New("not creating pod - must have at least one port exposed")
+	}
+
+	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
-			"networks":  string(netAnnotationsJson),
+			"networks":  string(netAnnotationsJSON),
 		}).Infof("Created pod: %s", result.ObjectMeta.Name)
 
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Pod %s already exists.", ep.GetName())
 
-		result, err := coreclient.Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
+		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err

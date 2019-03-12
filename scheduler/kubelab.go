@@ -179,15 +179,12 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Ingresses:     map[string]*v1beta1.Ingress{},
 	}
 
-	// Create our configmap for the initContainer for cloning the antidote repo
-
-	ls.createGitConfigMap(ns.ObjectMeta.Name)
-
 	// Append black box container and create ingress for jupyter lab guide if necessary
 	if usesJupyterLabGuide(req.LessonDef) {
-		jupyterBB := &pb.Blackbox{
+		jupyterBB := &pb.Endpoint{
 			Name:  "jupyterlabguide",
 			Image: "antidotelabs/jupyter",
+			Type:  pb.Endpoint_BLACKBOX,
 			Ports: []int32{8888},
 		}
 		req.LessonDef.Blackboxes = append(req.LessonDef.Blackboxes, jupyterBB)
@@ -231,12 +228,12 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			device := req.LessonDef.Devices[d]
 			newPod, err := ls.createPod(
 				device,
-				pb.LiveEndpoint_DEVICE,
 				getMemberNetworks(device.Name, req.LessonDef.Connections),
 				req,
 			)
 			if err != nil {
 				log.Error(err)
+				return nil, err
 			}
 			kl.Pods[newPod.ObjectMeta.Name] = newPod
 
@@ -247,6 +244,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			)
 			if err != nil {
 				log.Error(err)
+				return nil, err
 			}
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}
@@ -261,7 +259,6 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		utility := req.LessonDef.Utilities[d]
 		newPod, err := ls.createPod(
 			utility,
-			pb.LiveEndpoint_UTILITY,
 			getMemberNetworks(utility.Name, req.LessonDef.Connections),
 			req,
 		)
@@ -287,7 +284,6 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		blackbox := req.LessonDef.Blackboxes[d]
 		newPod, err := ls.createPod(
 			blackbox,
-			pb.LiveEndpoint_BLACKBOX,
 			getMemberNetworks(blackbox.Name, req.LessonDef.Connections),
 			req,
 		)

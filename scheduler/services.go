@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes types
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func (ls *LessonScheduler) deleteService(name string) error {
@@ -16,11 +17,6 @@ func (ls *LessonScheduler) deleteService(name string) error {
 }
 
 func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
-
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
@@ -62,7 +58,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 		})
 	}
 
-	result, err := coreclient.Services(nsName).Create(svc)
+	result, err := ls.Client.CoreV1().Services(nsName).Create(svc)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -70,7 +66,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Service %s already exists.", serviceName)
-		result, err := coreclient.Services(nsName).Get(serviceName, metav1.GetOptions{})
+		result, err := ls.Client.CoreV1().Services(nsName).Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve service after failing to create a duplicate: %s", err)
 			return nil, err
