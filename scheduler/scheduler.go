@@ -94,6 +94,11 @@ func (ls *LessonScheduler) Start() error {
 			}
 
 			for i := range cleaned {
+
+				// Clean up local kubelab state
+				ls.deleteKubelab(cleaned[i])
+
+				// Send result to API server to clean up livelesson state
 				ls.Results <- &LessonScheduleResult{
 					Success:   true,
 					LessonDef: nil,
@@ -101,9 +106,6 @@ func (ls *LessonScheduler) Start() error {
 					Operation: OperationType_DELETE,
 				}
 			}
-
-			// TODO(mierdin): Should confirm the above works (since livelessons are leaky too) and also delete from kubelab state (not being done at all today)
-
 			time.Sleep(1 * time.Minute)
 
 		}
