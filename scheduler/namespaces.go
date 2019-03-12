@@ -9,28 +9,25 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	// Kubernetes types
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func (ls *LessonScheduler) boopNamespace(nsName string) error {
 
 	log.Debugf("Booping %s", nsName)
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-	ns, err := coreclient.Namespaces().Get(nsName, metav1.GetOptions{})
+	ns, err := ls.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	ns.ObjectMeta.Labels["lastAccessed"] = strconv.Itoa(int(time.Now().Unix()))
 
-	_, err = coreclient.Namespaces().Update(ns)
+	_, err = ls.Client.CoreV1().Namespaces().Update(ns)
 	if err != nil {
 		return err
 	}
@@ -45,11 +42,7 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 // in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
 func (ls *LessonScheduler) nukeFromOrbit() error {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-	nameSpaces, err := coreclient.Namespaces().List(metav1.ListOptions{
+	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
 		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
 	})
@@ -81,12 +74,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 func (ls *LessonScheduler) deleteNamespace(name string) error {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	err = coreclient.Namespaces().Delete(name, &metav1.DeleteOptions{})
+	err := ls.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -96,7 +84,7 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 	for i := 0; i < deleteTimeoutSecs/5; i++ {
 		time.Sleep(5 * time.Second)
 
-		_, err := coreclient.Namespaces().Get(name, metav1.GetOptions{})
+		_, err := ls.Client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 		if err == nil {
 			log.Debugf("Waiting for namespace %s to delete...", name)
 			continue
@@ -115,11 +103,6 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 
 func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
 	log.Infof("Creating namespace: %s", nsName)
@@ -135,11 +118,10 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
 				"created":        strconv.Itoa(int(time.Now().Unix())),
 			},
-			Namespace: nsName,
 		},
 	}
 
-	result, err := coreclient.Namespaces().Create(namespace)
+	result, err := ls.Client.CoreV1().Namespaces().Create(namespace)
 	if err == nil {
 		log.Infof("Created namespace: %s", result.ObjectMeta.Name)
 	} else if apierrors.IsAlreadyExists(err) {
@@ -158,11 +140,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 // Lesson garbage-collector
 func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 
-	coreclient, err := corev1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-	nameSpaces, err := coreclient.Namespaces().List(metav1.ListOptions{
+	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
 		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
 	})

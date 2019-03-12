@@ -24,7 +24,6 @@ type LessonScheduleResult struct {
 	Message          string
 	ProvisioningTime int
 	Uuid             string
-	GCLessons        []string
 }
 
 func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
@@ -43,9 +42,10 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
 			LessonDef: newRequest.LessonDef,
-			Uuid:      "",
+			Uuid:      newRequest.Uuid,
 			Operation: newRequest.Operation,
 		}
+		return
 	}
 
 	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
@@ -70,7 +70,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		epr := testEndpointReachability(liveLesson)
+		epr := ls.testEndpointReachability(liveLesson)
 
 		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
 

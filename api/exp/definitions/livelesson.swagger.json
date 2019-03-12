@@ -20,7 +20,7 @@
         "operationId": "HealthCheck",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expHealthCheckMessage"
             }
@@ -37,7 +37,7 @@
         "operationId": "RequestLiveLesson",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLessonUUID"
             }
@@ -64,7 +64,7 @@
         "operationId": "GetLiveLesson",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expLiveLesson"
             }
@@ -88,7 +88,7 @@
         "operationId": "RequestVerification",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expVerificationTaskUUID"
             }
@@ -120,7 +120,7 @@
         "operationId": "GetVerification",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/expVerificationTask"
             }

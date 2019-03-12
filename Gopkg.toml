@@ -24,6 +24,7 @@
 #   go-tests = true
 #   unused-packages = true
 
+required = ["k8s.io/code-generator/cmd/client-gen"]
 
 [[constraint]]
   branch = "master"
@@ -73,19 +74,23 @@
 
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.11.1"
+  version = "kubernetes-1.13.3"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.11.1"
+  version = "kubernetes-1.13.3"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.11.1"
+  version = "kubernetes-1.13.3"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.11.1"
+  version = "kubernetes-1.13.3"
+
+[[override]]
+  name = "k8s.io/code-generator"
+  version = "kubernetes-1.13.3"
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
@@ -102,3 +107,11 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[prune.project]]
+  name = "k8s.io/code-generator"
+  unused-packages = false
+
+[[prune.project]]
+  name = "k8s.io/gengo"
+  unused-packages = false

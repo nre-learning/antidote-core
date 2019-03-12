@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *server) handleResponseCREATE(result *scheduler.LessonScheduleResult) {
+func (s *server) handleResultCREATE(result *scheduler.LessonScheduleResult) {
 	if !result.Success {
 		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
@@ -22,7 +22,7 @@ func (s *server) handleResponseCREATE(result *scheduler.LessonScheduleResult) {
 	s.SetLiveLesson(result.Uuid, s.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 
-func (s *server) handleResponseMODIFY(result *scheduler.LessonScheduleResult) {
+func (s *server) handleResultMODIFY(result *scheduler.LessonScheduleResult) {
 	if !result.Success {
 		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
@@ -31,7 +31,7 @@ func (s *server) handleResponseMODIFY(result *scheduler.LessonScheduleResult) {
 	s.SetLiveLesson(result.Uuid, s.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 
-func (s *server) handleResponseVERIFY(result *scheduler.LessonScheduleResult) {
+func (s *server) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
 	vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
 
 	vt := s.verificationTasks[vtUUID]
@@ -52,16 +52,9 @@ func (s *server) handleResponseVERIFY(result *scheduler.LessonScheduleResult) {
 
 }
 
-func (s *server) handleResponseDELETE(result *scheduler.LessonScheduleResult) {
-	// This is a bit awkward. Maybe change UUID to a slice? Then just act on all?
-	if len(result.GCLessons) > 0 {
-		for i := range result.GCLessons {
-			uuid := strings.TrimRight(result.GCLessons[i], "-ns")
-			s.DeleteLiveLesson(uuid)
-		}
-	} else {
-		s.DeleteLiveLesson(result.Uuid)
-	}
+// handleResultDELETE runs in response to a scheduler deletion event by removing any tracked state at the API layer.
+func (s *server) handleResultDELETE(result *scheduler.LessonScheduleResult) {
+	s.DeleteLiveLesson(strings.TrimRight(result.Uuid, "-ns"))
 }
 
-func (s *server) handleResponseBOOP(result *scheduler.LessonScheduleResult) {}
+func (s *server) handleResultBOOP(result *scheduler.LessonScheduleResult) {}

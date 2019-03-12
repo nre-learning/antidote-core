@@ -2,38 +2,33 @@ package scheduler
 
 import (
 	"fmt"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
-	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
-	"github.com/nre-learning/syringe/pkg/client"
+
+	// Custom Network CRD Types
+	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+
+	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	apiextcs "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
-	netv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 )
 
 func (ls *LessonScheduler) createNetworkCrd() error {
 
-	// create clientset and create our CRD, this only need to run once
-	clientset, err := apiextcs.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err.Error())
-	}
-
 	// note: if the CRD exist our CreateCRD function is set to exit without an error
-	err = crd.CreateCRD(clientset)
+	err := networkcrd.CreateCRD(ls.ClientExt)
 	if err != nil {
 		panic(err)
 	}
 
 	// Wait for the CRD to be created before we use it (only needed if its a new one)
-	time.Sleep(3 * time.Second)
+	// TODO(mierdin): This really shouldn't be necessary. Let's try removing it.
+	// time.Sleep(3 * time.Second)
 
 	return nil
 }
@@ -41,11 +36,6 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 // createNetworkPolicy applies a kubernetes networkpolicy object to prohibit traffic out of the created namespace, for all
 // pods that aren't used for configuration purposes.
 func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
-
-	nc, err := netv1client.NewForConfig(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
 
 	var tcp corev1.Protocol = "TCP"
 	var udp corev1.Protocol = "UDP"
@@ -123,7 +113,7 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 		},
 	}
 
-	newnp, err := nc.NetworkPolicies(nsName).Create(&np)
+	newnp, err := ls.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -145,18 +135,11 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 
 }
 
-func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*crd.NetworkAttachmentDefinition, error) {
-
-	// Create a new clientset which include our CRD schema
-	crdcs, scheme, err := crd.NewClient(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
+func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*networkcrd.NetworkAttachmentDefinition, error) {
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	// Create a CRD client interface
-	crdclient := client.CrdClient(crdcs, scheme, nsName)
+	// IMPORTANT - MUST set namespace before using this client.
+	// ls.ClientCrd.UpdateNamespace(nsName)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -183,7 +166,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		}`, networkName, bridgeName, subnet)
 
 	// Create a new Network object and write to k8s
-	network := &crd.NetworkAttachmentDefinition{
+	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      netName,
@@ -194,12 +177,14 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 			},
 		},
 		Kind: "NetworkAttachmentDefinition",
-		Spec: crd.NetworkSpec{
+		Spec: networkcrd.NetworkSpec{
 			Config: networkArgs,
 		},
 	}
 
-	result, err := crdclient.Create(network)
+	nadClient := ls.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
+
+	result, err := nadClient.Create(network)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -207,7 +192,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
 
-		result, err := crdclient.Get(network.ObjectMeta.Name)
+		result, err := nadClient.Get(network.ObjectMeta.Name, meta_v1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
 			return nil, err
@@ -236,23 +221,4 @@ func getMemberNetworks(deviceName string, connections []*pb.Connection) []string
 		}
 	}
 	return memberNets
-}
-
-func (ls *LessonScheduler) deleteNetwork(name, ns string) error {
-
-	// Create a new clientset which include our CRD schema
-	crdcs, scheme, err := crd.NewClient(ls.KubeConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	// Create a CRD client interface
-	crdclient := client.CrdClient(crdcs, scheme, ns)
-
-	err = crdclient.Delete(name, &meta_v1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

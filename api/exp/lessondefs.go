@@ -98,12 +98,12 @@ func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.Lesson
 	return lessonDef, nil
 }
 
-func ImportLessonDefs(syringeConfig *config.SyringeConfig, lessonDir string) (map[int32]*pb.LessonDef, error) {
+func ImportLessonDefs(syringeConfig *config.SyringeConfig) (map[int32]*pb.LessonDef, error) {
 
 	// Get lesson definitions
 	fileList := []string{}
-	log.Debugf("Searching %s for lesson definitions", lessonDir)
-	err := filepath.Walk(lessonDir, func(path string, f os.FileInfo, err error) error {
+	log.Debugf("Searching %s for lesson definitions", syringeConfig.LessonsDir)
+	err := filepath.Walk(syringeConfig.LessonsDir, func(path string, f os.FileInfo, err error) error {
 		syringeFileLocation := fmt.Sprintf("%s/syringe.yaml", path)
 		if _, err := os.Stat(syringeFileLocation); err == nil {
 			log.Debugf("Found lesson definition at: %s", syringeFileLocation)
@@ -133,6 +133,17 @@ FILES:
 		if err != nil {
 			log.Errorf("Failed to import %s: %s", file, err)
 			continue FILES
+		}
+
+		// Set type property as appropriate
+		for ep := range lessonDef.Blackboxes {
+			lessonDef.Blackboxes[ep].Type = pb.Endpoint_BLACKBOX
+		}
+		for ep := range lessonDef.Utilities {
+			lessonDef.Utilities[ep].Type = pb.Endpoint_UTILITY
+		}
+		for ep := range lessonDef.Devices {
+			lessonDef.Devices[ep].Type = pb.Endpoint_DEVICE
 		}
 
 		// Basic validation from protobuf tags
