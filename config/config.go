@@ -1,9 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"strconv"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type SyringeConfig struct {
@@ -22,6 +25,12 @@ type SyringeConfig struct {
 	LessonsLocal     bool
 	LessonRepoRemote string
 	LessonRepoBranch string
+	LessonRepoDir    string
+}
+
+func (c *SyringeConfig) JSON() string {
+	configJson, _ := json.Marshal(c)
+	return string(configJson)
 }
 
 func LoadConfigVars() (*SyringeConfig, error) {
@@ -32,7 +41,8 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		REQUIRED
 	*/
 
-	// Get configuration parameters from env
+	// +syringeconfig SYRINGE_LESSONS is used to specify the location of the actual "lessons" directory.
+	// This directory should contain subdirectories for each lesson underneath it.
 	searchDir := os.Getenv("SYRINGE_LESSONS")
 	if searchDir == "" {
 		return nil, errors.New("SYRINGE_LESSONS is a required variable.")
@@ -94,12 +104,21 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LessonRepoBranch = branch
 	}
 
+	repoDir := os.Getenv("SYRINGE_LESSON_REPO_DIR")
+	if repoDir == "" {
+		config.LessonRepoDir = "/antidote"
+	} else {
+		config.LessonRepoDir = repoDir
+	}
+
 	gc, err := strconv.Atoi(os.Getenv("SYRINGE_GC_INTERVAL"))
 	if gc == 0 || err != nil {
 		config.GCInterval = 30
 	} else {
 		config.GCInterval = gc
 	}
+
+	log.Debugf("Syringe config: %s", config.JSON())
 
 	return &config, nil
 
