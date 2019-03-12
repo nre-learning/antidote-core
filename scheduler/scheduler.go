@@ -217,19 +217,19 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 				"/antidote-ro/lessons/",
 				"/antidote",
 				// "-r",
-				// fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonDir),
-				// ls.SyringeConfig.LessonDir,
+				// fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonsDir),
+				// ls.SyringeConfig.LessonsDir,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "host-volume",
 					ReadOnly:  true,
-					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.LessonDir),
+					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.LessonsDir),
 				},
 				{
 					Name:      "local-copy",
 					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.LessonDir,
+					MountPath: ls.SyringeConfig.LessonsDir,
 				},
 			},
 		})
@@ -239,7 +239,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Name: "host-volume",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: ls.SyringeConfig.LessonDir,
+					Path: ls.SyringeConfig.LessonsDir,
 				},
 			},
 		})
@@ -256,7 +256,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "local-copy",
 			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.LessonDir,
+			MountPath: ls.SyringeConfig.LessonsDir,
 		})
 
 	} else {
@@ -270,7 +270,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "git-volume",
 			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.LessonDir,
+			MountPath: ls.SyringeConfig.LessonsDir,
 		})
 
 		initContainers = append(initContainers, corev1.Container{
@@ -279,13 +279,13 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Args: []string{
 				ls.SyringeConfig.LessonRepoRemote,
 				ls.SyringeConfig.LessonRepoBranch,
-				ls.SyringeConfig.LessonDir,
+				ls.SyringeConfig.LessonsDir,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "git-volume",
 					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.LessonDir,
+					MountPath: ls.SyringeConfig.LessonsDir,
 				},
 			},
 		})

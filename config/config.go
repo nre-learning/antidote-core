@@ -22,7 +22,6 @@ type SyringeConfig struct {
 	LessonsLocal     bool
 	LessonRepoRemote string
 	LessonRepoBranch string
-	LessonDir        string
 }
 
 func LoadConfigVars() (*SyringeConfig, error) {
@@ -93,13 +92,6 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LessonRepoBranch = "master"
 	} else {
 		config.LessonRepoBranch = branch
-	}
-
-	dir := os.Getenv("SYRINGE_LESSON_DIR")
-	if dir == "" {
-		config.LessonDir = "/antidote"
-	} else {
-		config.LessonDir = dir
 	}
 
 	gc, err := strconv.Atoi(os.Getenv("SYRINGE_GC_INTERVAL"))
