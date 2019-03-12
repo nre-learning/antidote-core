@@ -49,5 +49,5 @@ func TestConfigJSON(t *testing.T) {
 	}
 
 	// Pretty barbaric but works for now
-	assert(t, syringeConfig.JSON() == `{"LessonsDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"TSDBExportInterval":0,"TSDBEnabled":false,"GCInterval":30,"LessonsLocal":false,"LessonRepoRemote":"https://github.com/nre-learning/antidote.git","LessonRepoBranch":"master","LessonRepoDir":"/antidote"}`, "")
+	assert(t, syringeConfig.JSON() == `{"LessonsDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"TSDBExportInterval":0,"TSDBEnabled":false,"LessonTTL":30,"LessonsLocal":false,"LessonRepoRemote":"https://github.com/nre-learning/antidote.git","LessonRepoBranch":"master","LessonRepoDir":"/antidote"}`, "")
 }
