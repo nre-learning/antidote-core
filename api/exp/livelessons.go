@@ -92,6 +92,7 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 			req := &scheduler.LessonScheduleRequest{
 				Operation: scheduler.OperationType_BOOP,
 				Uuid:      lessonUuid,
+				LessonDef: s.scheduler.LessonDefs[lp.LessonId],
 			}
 
 			s.scheduler.Requests <- req
