@@ -93,13 +93,12 @@ func (ls *LessonScheduler) Start() error {
 				log.Error("Problem with GCing lessons")
 			}
 
-			if len(cleaned) > 0 {
+			for i := range cleaned {
 				ls.Results <- &LessonScheduleResult{
 					Success:   true,
 					LessonDef: nil,
-					Uuid:      "",
+					Uuid:      cleaned[i],
 					Operation: OperationType_DELETE,
-					GCLessons: cleaned,
 				}
 			}
 

@@ -57,6 +57,8 @@ func (s *server) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*p
 
 	// Check to see if the livelesson already exists in an errored state.
 	// If so, clear it out so we can treat it like a new creation in the following logic.
+	// TODO(mierdin): What if the namespace and resources still exist? Should we delete them first?
+	// Maybe we should just return an error to the user and say "try again later"? Then let this get GC'd as normal?
 	if s.LiveLessonExists(lessonUuid) {
 		if s.liveLessonState[lessonUuid].Error {
 			s.DeleteLiveLesson(lessonUuid)

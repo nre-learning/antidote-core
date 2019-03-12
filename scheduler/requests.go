@@ -24,7 +24,6 @@ type LessonScheduleResult struct {
 	Message          string
 	ProvisioningTime int
 	Uuid             string
-	GCLessons        []string
 }
 
 func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {

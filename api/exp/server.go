@@ -116,13 +116,13 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		}
 	}()
 
-	// Handle responses from scheduler asynchronously
+	// Handle results from scheduler asynchronously
 	var handlers = map[scheduler.OperationType]interface{}{
-		scheduler.OperationType_CREATE: apiServer.handleResponseCREATE,
-		scheduler.OperationType_DELETE: apiServer.handleResponseDELETE,
-		scheduler.OperationType_MODIFY: apiServer.handleResponseMODIFY,
-		scheduler.OperationType_BOOP:   apiServer.handleResponseBOOP,
-		scheduler.OperationType_VERIFY: apiServer.handleResponseVERIFY,
+		scheduler.OperationType_CREATE: apiServer.handleResultCREATE,
+		scheduler.OperationType_DELETE: apiServer.handleResultDELETE,
+		scheduler.OperationType_MODIFY: apiServer.handleResultMODIFY,
+		scheduler.OperationType_BOOP:   apiServer.handleResultBOOP,
+		scheduler.OperationType_VERIFY: apiServer.handleResultVERIFY,
 	}
 	for {
 		result := <-ls.Results
