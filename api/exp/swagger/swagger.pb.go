@@ -27,9 +27,6 @@ Kubelab = `{
         },
         "B": {
           "type": "string"
-        },
-        "Subnet": {
-          "type": "string"
         }
       }
     },
@@ -401,9 +398,6 @@ Lessondef = `{
           "type": "string"
         },
         "B": {
-          "type": "string"
-        },
-        "Subnet": {
           "type": "string"
         }
       }

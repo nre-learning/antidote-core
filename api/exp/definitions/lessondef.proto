@@ -4,6 +4,7 @@ package syringe.api.exp;
 import "google/api/annotations.proto";
 // import "google/protobuf/empty.proto";
 import "validate/validate.proto";
+import "google/protobuf/descriptor.proto";
 
 service LessonDefService {
 
@@ -28,10 +29,14 @@ service LessonDefService {
 
 }
 
-// message LessonCategoryMap {
-//   map<string, LessonDefs> lessonCategories = 1;
-// }
 
+extend google.protobuf.FieldOptions {
+  Syringe syringe = 1234;
+}
+
+message Syringe {
+  string field_description = 1;
+}
 
 message LessonDefs {
   repeated LessonDef lessonDefs = 1;
@@ -107,5 +112,4 @@ message IframeResource {
 message Connection {
   string A = 1 [(validate.rules).string.min_len = 1];
   string B = 2 [(validate.rules).string.min_len = 1];
-  string Subnet = 3 [(validate.rules).string.min_len = 1];
 }

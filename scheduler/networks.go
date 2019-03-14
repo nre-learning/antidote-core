@@ -135,11 +135,9 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 
 }
 
-func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest, deviceNetwork bool, subnet string) (*networkcrd.NetworkAttachmentDefinition, error) {
+// createNetwork
+func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-
-	// IMPORTANT - MUST set namespace before using this client.
-	// ls.ClientCrd.UpdateNamespace(nsName)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -148,6 +146,11 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	if len(bridgeName) > 15 {
 		bridgeName = bridgeName[0:15]
 	}
+
+	// NOTE that this is just a placeholder, not necessarily the actual subnet in use on this segment.
+	// We have to put SOMETHING here, but because we're using the bridge plugin, this isn't actually
+	// enforced, which is desired behaviors. Endpoints can still use their own subnets.
+	subnet := "10.10.0.0/16"
 
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",

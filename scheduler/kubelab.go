@@ -211,7 +211,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		// Create networks from connections property
 		for c := range req.LessonDef.Connections {
 			connection := req.LessonDef.Connections[c]
-			newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req, true, connection.Subnet)
+			newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
 			if err != nil {
 				log.Error(err)
 			}
