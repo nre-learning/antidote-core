@@ -6,6 +6,7 @@
 - Add ability to use host directory for lesson content [#75](https://github.com/nre-learning/syringe/pull/75)
 - Provide unit test framework for scheduler [#79](https://github.com/nre-learning/syringe/pull/79)
 - Clarify difference between confusing config variables [#87](https://github.com/nre-learning/syringe/pull/87)
+- Removed subnet requirement in lesson defs [#88](https://github.com/nre-learning/syringe/pull/88)
 
 ## v0.3.0 - February 11, 2019
 
