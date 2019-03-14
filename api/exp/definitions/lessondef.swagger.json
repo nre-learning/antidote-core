@@ -112,9 +112,6 @@
         },
         "B": {
           "type": "string"
-        },
-        "Subnet": {
-          "type": "string"
         }
       }
     },
