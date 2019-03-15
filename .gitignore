@@ -11,3 +11,4 @@ coverage.html
 *.retry
 api/exp/generated/
 cmd/syringed/buildinfo.go
+release_assets/

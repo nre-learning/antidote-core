@@ -28,11 +28,7 @@ compile:
 
 	@echo "Compiling syringe binaries..."
 
-ifeq ($(shell uname), Darwin)
 	@go install ./cmd/...
-else
-	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
-endif
 
 docker:
 	docker build -t antidotelabs/syringe .
