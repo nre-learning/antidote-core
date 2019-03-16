@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.3.2 - March 16, 2019
+
 - foo
 
 ## v0.3.1 - March 16, 2019
