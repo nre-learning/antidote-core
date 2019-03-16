@@ -2,16 +2,6 @@
 
 ## In development
 
-
-## v0.3.3 - March 16, 2019
-
-
-## v0.3.2 - March 16, 2019
-
-- foo
-
-## v0.3.1 - March 16, 2019
-
 - Fixed influxdb bug [#72](https://github.com/nre-learning/syringe/pull/72)
 - Add ability to use host directory for lesson content [#75](https://github.com/nre-learning/syringe/pull/75)
 - Provide unit test framework for scheduler [#79](https://github.com/nre-learning/syringe/pull/79)
