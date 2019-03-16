@@ -2,7 +2,7 @@ git fetch origin master
 
 # Exit if the master branch is detected. This isn't a pull request
 # and we don't need a CHANGELOG update
-if [[ $(git branch | grep 'master\|no branch') ]]; then
+if [[ $(git branch | grep 'master\|no branch\|release') ]]; then
     exit 0
 fi
 
