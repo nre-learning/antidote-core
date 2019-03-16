@@ -1,5 +1,7 @@
 # SHELL=/bin/bash
 
+TARGET_VERSION ?= latest
+
 all: compile
 
 clean:
@@ -31,8 +33,8 @@ compile:
 	@go install ./cmd/...
 
 docker:
-	docker build -t antidotelabs/syringe .
-	docker push antidotelabs/syringe:latest
+	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
+	docker push antidotelabs/syringe:$(TARGET_VERSION)
 
 test: 
 	@go test ./api/... ./cmd/... ./config/... ./scheduler/... -cover -coverprofile=coverage.out

@@ -21,6 +21,8 @@ upload() {
     "$UPLOAD_URL?name=$(basename $FILE)"
 }
 
+mkdir -p $GOPATH/src/github.com/nre-learning
+git clone --branch $RELEASE_VERSION https://github.com/nre-learning/syringe $GOPATH/src/github.com/nre-learning/syringe
 cd $GOPATH/src/github.com/nre-learning/syringe && make && cd -
 
 packages=("github.com/nre-learning/syringe/cmd/syringed" "github.com/nre-learning/syringe/cmd/syrctl")
