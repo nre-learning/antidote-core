@@ -14,7 +14,6 @@ before_install:
   - go get github.com/jteeuwen/go-bindata/...
 install:
   - hack/check-changelog.sh
-  - ls -lha api/exp/generated/
   - git status
   - make
   - make test
