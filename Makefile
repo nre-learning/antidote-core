@@ -14,6 +14,7 @@ compile:
 	@rm -f pkg/ui/data/swagger/datafile.go
 	@rm -f /tmp/datafile.go
 	@rm -f cmd/syringed/buildinfo.go
+	@rm -f cmd/syrctl/buildinfo.go
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 	@./compile-proto.sh
 

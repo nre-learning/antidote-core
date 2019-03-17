@@ -27,7 +27,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "syrctl"
-	app.Version = "v0.1.0"
+	app.Version = buildInfo["buildVersion"]
 	app.Usage = "Scheduling for the Antidote project and NRE Labs"
 
 	var host, port string
