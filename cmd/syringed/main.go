@@ -28,6 +28,8 @@ func init() {
 
 func main() {
 
+	log.Infof("syringed (%s) starting.", buildInfo["buildVersion"])
+
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {
 		log.Error(err)

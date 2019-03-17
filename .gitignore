@@ -10,5 +10,5 @@ coverage.html
 *.DS_Store*
 *.retry
 api/exp/generated/
-cmd/syringed/buildinfo.go
+*buildinfo.go
 release_assets/
