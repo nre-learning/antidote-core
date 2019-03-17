@@ -220,6 +220,9 @@ Kubelab = `{
         "Slug": {
           "type": "string",
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+        },
+        "LessonFile": {
+          "type": "string"
         }
       }
     },
@@ -521,6 +524,9 @@ Lessondef = `{
         "Slug": {
           "type": "string",
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+        },
+        "LessonFile": {
+          "type": "string"
         }
       }
     },

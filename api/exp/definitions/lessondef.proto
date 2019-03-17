@@ -70,6 +70,7 @@ message LessonDef {
 
   // This is meant to fill: "How well do you know <slug>?"
   string Slug = 17 [(validate.rules).string.min_len = 1];
+  string LessonFile = 18;
 }
 
 message LessonDefFilter {
