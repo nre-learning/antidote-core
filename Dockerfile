@@ -1,4 +1,4 @@
-FROM golang:1.10 as build-env
+FROM golang:1.11 as build-env
 MAINTAINER Matt Oswalt <matt@keepingitclassless.net> (@mierdin)
 
 # Install additional dependencies

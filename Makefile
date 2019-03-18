@@ -31,7 +31,7 @@ compile:
 
 	@echo "Compiling syringe binaries..."
 
-	@go install ./cmd/...
+	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/... 2> /dev/null
 
 docker:
 	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
