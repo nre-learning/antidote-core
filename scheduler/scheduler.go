@@ -210,15 +210,14 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Name:  "copy-local-files",
 			Image: "bash",
 			Command: []string{
-				"cp",
+				"bash",
 			},
 			Args: []string{
-				"-r",
-				"/antidote-ro/lessons/",
-				"/antidote",
-				// "-r",
-				// fmt.Sprintf("%s-ro/*", ls.SyringeConfig.LessonRepoDir),
-				// ls.SyringeConfig.LessonRepoDir,
+				"-c",
+				fmt.Sprintf("cp -r %s-ro/lessons/ %s && adduser -D antidote && chown -R antidote:antidote %s",
+					ls.SyringeConfig.LessonRepoDir,
+					ls.SyringeConfig.LessonRepoDir,
+					ls.SyringeConfig.LessonRepoDir),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
