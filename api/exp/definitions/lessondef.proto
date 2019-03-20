@@ -84,6 +84,17 @@ message LessonStage {
   bool JupyterLabGuide = 4;
   bool VerifyCompleteness = 5;
   string VerifyObjective = 6;
+  
+  enum NapalmStrategy {
+
+    // This is the default. The overwhelming preference is that people provide full configs, to
+    // help ensure that atomicity is preserved between stages. However, we're providing the "merge"
+    // option here for the rare circumstances where we need to be very careful about what parts
+    // of the config we're overwriting.
+    REPLACE = 0;
+    MERGE  = 1;
+  }
+  NapalmStrategy ConfigStrategy = 7 [(validate.rules).enum = {in: [0, 1]}];
 }
 
 message Endpoint {

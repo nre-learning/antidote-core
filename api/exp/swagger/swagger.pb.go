@@ -19,6 +19,15 @@ Kubelab = `{
   ],
   "paths": {},
   "definitions": {
+    "LessonStageNapalmStrategy": {
+      "type": "string",
+      "enum": [
+        "REPLACE",
+        "MERGE"
+      ],
+      "default": "REPLACE",
+      "description": " - REPLACE: This is the default. The overwhelming preference is that people provide full configs, to\nhelp ensure that atomicity is preserved between stages. However, we're providing the \"merge\"\noption here for the rare circumstances where we need to be very careful about what parts\nof the config we're overwriting."
+    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -272,6 +281,9 @@ Kubelab = `{
         },
         "VerifyObjective": {
           "type": "string"
+        },
+        "ConfigStrategy": {
+          "$ref": "#/definitions/LessonStageNapalmStrategy"
         }
       }
     },
@@ -393,6 +405,15 @@ Lessondef = `{
       ],
       "default": "UNKNOWN",
       "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
+    },
+    "LessonStageNapalmStrategy": {
+      "type": "string",
+      "enum": [
+        "REPLACE",
+        "MERGE"
+      ],
+      "default": "REPLACE",
+      "description": " - REPLACE: This is the default. The overwhelming preference is that people provide full configs, to\nhelp ensure that atomicity is preserved between stages. However, we're providing the \"merge\"\noption here for the rare circumstances where we need to be very careful about what parts\nof the config we're overwriting."
     },
     "expConnection": {
       "type": "object",
@@ -576,6 +597,9 @@ Lessondef = `{
         },
         "VerifyObjective": {
           "type": "string"
+        },
+        "ConfigStrategy": {
+          "$ref": "#/definitions/LessonStageNapalmStrategy"
         }
       }
     }

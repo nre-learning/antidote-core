@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -135,9 +136,8 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 								fmt.Sprintf("--optional_args=port=%d", ep.Port),
 								ep.Host,
 								"configure",
-								// req.LessonDef.Stages[req.Stage].Configs[ep.Name],
-								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/configs/%s.txt", req.LessonDef.LessonId, req.Stage, ep.Name),
-								"--strategy=replace", // To preserve atomicity between stages. All stages must provide full configurations.
+								fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.LessonRepoDir, req.LessonDef.LessonId, req.Stage, ep.Name),
+								fmt.Sprintf("--strategy=%s", strings.ToLower(req.LessonDef.Stages[req.Stage].ConfigStrategy.String())),
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
