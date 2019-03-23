@@ -3,7 +3,6 @@ package scheduler
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -97,6 +96,8 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
 
+	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.LessonRepoDir, req.LessonDef.LessonId, req.Stage, ep.Name)
+
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -126,18 +127,16 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
-							Name:  "napalm",
-							Image: "antidotelabs/napalm",
+							Name:  "configurator",
+							Image: "antidotelabs/configurator",
 							Command: []string{
-								"napalm",
-								"--user=antidote",
-								"--password=antidotepassword",
-								"--vendor=junos",
-								fmt.Sprintf("--optional_args=port=%d", ep.Port),
+								"/configure.py",
+								"antidote",
+								"antidotepassword",
+								"junos",
+								strconv.Itoa(int(ep.Port)),
 								ep.Host,
-								"configure",
-								fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.LessonRepoDir, req.LessonDef.LessonId, req.Stage, ep.Name),
-								fmt.Sprintf("--strategy=%s", strings.ToLower(req.LessonDef.Stages[req.Stage].ConfigStrategy.String())),
+								configFile,
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
