@@ -10,6 +10,7 @@
 - Added validation for making sure configs are present for each stage and device [#89](https://github.com/nre-learning/syringe/pull/89)
 - Add version to build info, share with syrctl [#90](https://github.com/nre-learning/syringe/pull/90)
 - Setting proper permissions on copied lesson dir, using config'd location [#92](https://github.com/nre-learning/syringe/pull/92)
+- Provide greater device configuration flexibility [#93](https://github.com/nre-learning/syringe/pull/93)
 
 ## v0.3.0 - February 11, 2019
 
