@@ -10,7 +10,7 @@ import (
 )
 
 type SyringeConfig struct {
-	LessonsDir          string
+	CurriculumDir       string
 	Tier                string
 	Domain              string
 	GRPCPort            int
@@ -41,13 +41,13 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		REQUIRED
 	*/
 
-	// +syringeconfig SYRINGE_LESSONS is used to specify the location of the actual "lessons" directory.
-	// This directory should contain subdirectories for each lesson underneath it.
-	searchDir := os.Getenv("SYRINGE_LESSONS")
-	if searchDir == "" {
-		return nil, errors.New("SYRINGE_LESSONS is a required variable.")
+	// +syringeconfig SYRINGE_CURRICULUM should point to the directory containing the curriculum for
+	// Syringe to serve up. This directory should contain subdirectories like "lessons/", and "collections/"
+	curriculumDir := os.Getenv("SYRINGE_CURRICULUM")
+	if curriculumDir == "" {
+		return nil, errors.New("SYRINGE_CURRICULUM is a required variable.")
 	} else {
-		config.LessonsDir = searchDir
+		config.CurriculumDir = curriculumDir
 	}
 
 	// +syringeconfig SYRINGE_DOMAIN is used when directing iframe resources to the appropriate place.
@@ -104,7 +104,7 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	// +syringeconfig SYRINGE_LESSON_REPO_REMOTE is the git repo from which pull lesson content
 	remote := os.Getenv("SYRINGE_LESSON_REPO_REMOTE")
 	if remote == "" {
-		config.LessonRepoRemote = "https://github.com/nre-learning/antidote.git"
+		config.LessonRepoRemote = "https://github.com/nre-learning/nrelabs-curriculum.git"
 	} else {
 		config.LessonRepoRemote = remote
 	}
