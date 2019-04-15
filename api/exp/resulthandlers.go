@@ -54,7 +54,7 @@ func (s *server) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
 
 // handleResultDELETE runs in response to a scheduler deletion event by removing any tracked state at the API layer.
 func (s *server) handleResultDELETE(result *scheduler.LessonScheduleResult) {
-	s.DeleteLiveLesson(strings.TrimRight(result.Uuid, "-ns"))
+	s.DeleteLiveLesson(strings.TrimSuffix(result.Uuid, "-ns"))
 }
 
 func (s *server) handleResultBOOP(result *scheduler.LessonScheduleResult) {}
