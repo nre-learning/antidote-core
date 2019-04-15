@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -68,11 +69,17 @@ func TestGCFromHere(t *testing.T) {
 		}
 	}()
 
-	s := &server{
+	s := &SyringeAPIServer{
 		liveLessonState: map[string]*pb.LiveLesson{},
 		liveLessonsMu:   &sync.Mutex{},
 		scheduler:       fakeScheduler,
 	}
+	go func() {
+		err := s.StartAPI(fakeScheduler, nil)
+		if err != nil {
+			log.Fatalf("Problem starting API: %s", err)
+		}
+	}()
 
 	numberCreateRequests := 50
 	for i := 1; i <= numberCreateRequests; i++ {
@@ -91,8 +98,15 @@ func TestGCFromHere(t *testing.T) {
 
 	////////////////////////////
 
+	// Testing insta-GC
+	fakeScheduler.SyringeConfig.LessonTTL = 0
+
 	cleaned, err := fakeScheduler.PurgeOldLessons()
 	ok(t, err)
+
+	// assert(t, false, "")
+	time.Sleep(5 * time.Second)
+
 	assert(t, (len(cleaned) == numberCreateRequests),
 		fmt.Sprintf("cleaned is equal to %d, expected %d", len(cleaned), numberCreateRequests))
 	for i := range cleaned {

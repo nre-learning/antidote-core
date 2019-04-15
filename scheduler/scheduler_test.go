@@ -1,7 +1,9 @@
 package scheduler
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -53,13 +55,13 @@ func equals(tb testing.TB, exp, act interface{}) {
 	}
 }
 
-func TestSchedulerSetup(t *testing.T) {
-
+func createFakeScheduler() *LessonScheduler {
 	os.Setenv("SYRINGE_LESSONS", "foo")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {
-		t.Fatal(err)
+		// t.Fatal(err)
+		panic(err)
 	}
 
 	var lessonDefs = map[int32]*pb.LessonDef{
@@ -145,6 +147,12 @@ func TestSchedulerSetup(t *testing.T) {
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
 	}
+	return &lessonScheduler
+}
+
+func TestSchedulerSetup(t *testing.T) {
+
+	lessonScheduler := createFakeScheduler()
 
 	// Start scheduler
 	go func() {
@@ -154,26 +162,57 @@ func TestSchedulerSetup(t *testing.T) {
 		}
 	}()
 
-	req := &LessonScheduleRequest{
-		LessonDef: lessonDefs[1],
-		Operation: OperationType_CREATE,
-		Stage:     1,
-		Uuid:      "abcdef",
-		Created:   time.Now(),
-	}
-	lessonScheduler.Requests <- req
+	go func() {
+		for {
+			result := <-lessonScheduler.Results
+			log.Info(result)
 
-	for {
-		result := <-lessonScheduler.Results
-		log.Info(result)
-
-		if !result.Success && result.Operation == OperationType_CREATE {
-			t.Fatal("Received error from scheduler")
-		} else if result.Success {
-			break
+			if !result.Success && result.Operation == OperationType_CREATE {
+				t.Fatal("Received error from scheduler")
+			}
 		}
+	}()
+
+	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
+
+	numberKubeLabs := 5
+	for i := 1; i <= numberKubeLabs; i++ {
+		uuid, _ := newUUID()
+		req := &LessonScheduleRequest{
+			LessonDef: lessonScheduler.LessonDefs[1],
+			Operation: OperationType_CREATE,
+			Stage:     1,
+			Uuid:      uuid,
+			Created:   anHourAgo,
+		}
+		lessonScheduler.Requests <- req
 	}
 
+	time.Sleep(time.Second * 10)
+
+	if len(lessonScheduler.KubeLabs) != numberKubeLabs {
+		t.Fatalf("Not the expected number of kubelabs (expected %d, got %d)", numberKubeLabs, len(lessonScheduler.KubeLabs))
+	}
 	// TODO(mierdin): Need to create a fake health check tester
 
+	cleaned, err := lessonScheduler.purgeOldLessons()
+	ok(t, err)
+	assert(t, (len(cleaned) == numberKubeLabs),
+		fmt.Sprintf("got %d cleaned lessons, expected %d", len(cleaned), numberKubeLabs))
+	// assert(t, (cleaned[0] == "100-foobar-ns"), "")
+
+}
+
+// newUUID generates a random UUID according to RFC 4122
+func newUUID() (string, error) {
+	uuid := make([]byte, 16)
+	n, err := io.ReadFull(rand.Reader, uuid)
+	if n != len(uuid) || err != nil {
+		return "", err
+	}
+	// variant bits; see section 4.1.1
+	uuid[8] = uuid[8]&^0xc0 | 0x80
+	// version 4 (pseudo-random); see section 4.1.3
+	uuid[6] = uuid[6]&^0xf0 | 0x40
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:]), nil
 }

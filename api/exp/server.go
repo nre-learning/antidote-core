@@ -28,20 +28,34 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo map[string]string) error {
+// this will keep our state.
+type SyringeAPIServer struct {
+
+	// in-memory map of liveLessons, indexed by UUID
+	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
+	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
+	// will result in 19-582k2aidfjekxefi.
+	LiveLessonState map[string]*pb.LiveLesson
+	LiveLessonsMu   *sync.Mutex
+
+	// in-memory map of verification tasks, indexed by UUID+stage
+	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
+	VerificationTasks   map[string]*pb.VerificationTask
+	VerificationTasksMu *sync.Mutex
+
+	Scheduler *scheduler.LessonScheduler
+
+	BuildInfo map[string]string
+}
+
+func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
+
+	grpcPort := apiServer.Scheduler.SyringeConfig.GRPCPort
+	httpPort := apiServer.Scheduler.SyringeConfig.HTTPPort
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
 		log.Errorf("failed to listen: %v", err)
-	}
-
-	apiServer := &server{
-		liveLessonState:     make(map[string]*pb.LiveLesson),
-		liveLessonsMu:       &sync.Mutex{},
-		verificationTasks:   make(map[string]*pb.VerificationTask),
-		verificationTasksMu: &sync.Mutex{},
-		scheduler:           ls,
-		buildInfo:           buildInfo,
 	}
 
 	grpcServer := grpc.NewServer()
@@ -107,7 +121,7 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 	// Periodic clean-up of verification tasks
 	go func() {
 		for {
-			for id, vt := range apiServer.verificationTasks {
+			for id, vt := range apiServer.VerificationTasks {
 				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 15 {
 					apiServer.DeleteVerificationTask(id)
 				}
@@ -134,80 +148,62 @@ func StartAPI(ls *scheduler.LessonScheduler, grpcPort, httpPort int, buildInfo m
 		}).Debug("Received result from scheduler.")
 
 		go func() {
-			handlers[result.Operation].(func(*scheduler.LessonScheduleResult))(result)
+			handleFunc := handlers[result.Operation].(func(*scheduler.LessonScheduleResult))
+			handleFunc(result)
 		}()
 
 	}
-
 	return nil
-
 }
 
-// this will keep our state.
-type server struct {
-
-	// in-memory map of liveLessons, indexed by UUID
-	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
-	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
-	// will result in 19-582k2aidfjekxefi.
-	liveLessonState map[string]*pb.LiveLesson
-	liveLessonsMu   *sync.Mutex
-
-	// in-memory map of verification tasks, indexed by UUID+stage
-	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
-	verificationTasks   map[string]*pb.VerificationTask
-	verificationTasksMu *sync.Mutex
-
-	scheduler *scheduler.LessonScheduler
-
-	buildInfo map[string]string
-}
-
-func (s *server) LiveLessonExists(uuid string) bool {
-	_, ok := s.liveLessonState[uuid]
+func (s *SyringeAPIServer) LiveLessonExists(uuid string) bool {
+	_, ok := s.LiveLessonState[uuid]
 	return ok
 }
 
-func (s *server) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
-	s.liveLessonsMu.Lock()
-	defer s.liveLessonsMu.Unlock()
+func (s *SyringeAPIServer) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
+	s.LiveLessonsMu.Lock()
+	defer s.LiveLessonsMu.Unlock()
 
-	s.liveLessonState[uuid] = ll
+	s.LiveLessonState[uuid] = ll
 }
 
-func (s *server) UpdateLiveLessonStage(uuid string, stage int32) {
-	s.liveLessonsMu.Lock()
-	defer s.liveLessonsMu.Unlock()
+func (s *SyringeAPIServer) UpdateLiveLessonStage(uuid string, stage int32) {
+	s.LiveLessonsMu.Lock()
+	defer s.LiveLessonsMu.Unlock()
 
-	s.liveLessonState[uuid].LessonStage = stage
-	s.liveLessonState[uuid].LiveLessonStatus = pb.Status_CONFIGURATION
+	s.LiveLessonState[uuid].LessonStage = stage
+	s.LiveLessonState[uuid].LiveLessonStatus = pb.Status_CONFIGURATION
 }
 
-func (s *server) DeleteLiveLesson(uuid string) {
-	if _, ok := s.liveLessonState[uuid]; !ok {
+func (s *SyringeAPIServer) DeleteLiveLesson(uuid string) {
+	if _, ok := s.LiveLessonState[uuid]; !ok {
+		// Nothing to do
+		log.Debug("DeleteLiveLesson - Returning early.")
+		return
+	}
+	s.LiveLessonsMu.Lock()
+	defer s.LiveLessonsMu.Unlock()
+	log.Debugf("DeleteLiveLesson - About to Delete. Current state: %s", s.LiveLessonState)
+	delete(s.LiveLessonState, uuid)
+	log.Debugf("DeleteLiveLesson - FINISHED. Current state: %s", s.LiveLessonState)
+}
+
+func (s *SyringeAPIServer) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
+	s.VerificationTasksMu.Lock()
+	defer s.VerificationTasksMu.Unlock()
+
+	s.VerificationTasks[uuid] = vt
+}
+
+func (s *SyringeAPIServer) DeleteVerificationTask(uuid string) {
+	if _, ok := s.VerificationTasks[uuid]; !ok {
 		// Nothing to do
 		return
 	}
-	s.liveLessonsMu.Lock()
-	defer s.liveLessonsMu.Unlock()
-	delete(s.liveLessonState, uuid)
-}
-
-func (s *server) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
-	s.verificationTasksMu.Lock()
-	defer s.verificationTasksMu.Unlock()
-
-	s.verificationTasks[uuid] = vt
-}
-
-func (s *server) DeleteVerificationTask(uuid string) {
-	if _, ok := s.verificationTasks[uuid]; !ok {
-		// Nothing to do
-		return
-	}
-	s.verificationTasksMu.Lock()
-	defer s.verificationTasksMu.Unlock()
-	delete(s.verificationTasks, uuid)
+	s.VerificationTasksMu.Lock()
+	defer s.VerificationTasksMu.Unlock()
+	delete(s.VerificationTasks, uuid)
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

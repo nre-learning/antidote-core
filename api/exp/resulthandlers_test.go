@@ -11,7 +11,7 @@ import (
 // TestHandleResultDELETE verifies that the DELETE result handler cleans up
 // livelesson state appropriately.
 func TestHandleResultDELETE(t *testing.T) {
-	apiServer := &server{
+	apiServer := &SyringeAPIServer{
 		liveLessonState: map[string]*pb.LiveLesson{
 			"100-foobar": &pb.LiveLesson{},
 			"200-foobar": &pb.LiveLesson{},

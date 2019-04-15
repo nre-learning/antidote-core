@@ -88,7 +88,7 @@ func (ls *LessonScheduler) Start() error {
 	go func() {
 		for {
 
-			cleaned, err := ls.purgeOldLessons()
+			cleaned, err := ls.PurgeOldLessons()
 			if err != nil {
 				log.Error("Problem with GCing lessons")
 			}

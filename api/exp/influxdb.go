@@ -16,7 +16,7 @@ var (
 	influxUDPUrl = "influxdb:8089"
 )
 
-func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
+func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
 
 	// Make client
 	c, err := influx.NewUDPClient(influx.UDPConfig{
@@ -74,7 +74,7 @@ func (s *server) recordProvisioningTime(timeSecs int, res *scheduler.LessonSched
 	return nil
 }
 
-func (s *server) startTSDBExport() error {
+func (s *SyringeAPIServer) startTSDBExport() error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -106,16 +106,16 @@ func (s *server) startTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range s.scheduler.LessonDefs {
+		for lessonId, _ := range s.Scheduler.LessonDefs {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = s.scheduler.LessonDefs[lessonId].LessonName
+			tags["lessonName"] = s.Scheduler.LessonDefs[lessonId].LessonName
 
 			count, duration := s.getCountAndDuration(lessonId)
-			fields["lessonName"] = s.scheduler.LessonDefs[lessonId].LessonName
+			fields["lessonName"] = s.Scheduler.LessonDefs[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
 
 			if duration != 0 {
@@ -149,12 +149,12 @@ func (s *server) startTSDBExport() error {
 	return nil
 }
 
-func (s *server) getCountAndDuration(lessonId int32) (int64, int64) {
+func (s *SyringeAPIServer) getCountAndDuration(lessonId int32) (int64, int64) {
 
 	count := 0
 
 	durations := []int64{}
-	for _, liveLesson := range s.liveLessonState {
+	for _, liveLesson := range s.LiveLessonState {
 		if liveLesson.LessonId != lessonId {
 			continue
 		}

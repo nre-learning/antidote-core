@@ -138,7 +138,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 }
 
 // Lesson garbage-collector
-func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
+func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
@@ -160,7 +160,7 @@ func (ls *LessonScheduler) purgeOldLessons() ([]string, error) {
 		// lastAccessed =
 		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		lastAccessed := time.Unix(i, 0)
 
