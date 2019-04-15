@@ -54,7 +54,7 @@ func (s *SyringeAPIServer) handleResultVERIFY(result *scheduler.LessonScheduleRe
 
 // handleResultDELETE runs in response to a scheduler deletion event by removing any tracked state at the API layer.
 func (s *SyringeAPIServer) handleResultDELETE(result *scheduler.LessonScheduleResult) {
-	uuid := strings.TrimRight(result.Uuid, "-ns")
+	uuid := strings.TrimSuffix(result.Uuid, "-ns")
 	s.DeleteLiveLesson(uuid)
 }
 
