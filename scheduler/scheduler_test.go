@@ -17,7 +17,6 @@ import (
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
-	log "github.com/sirupsen/logrus"
 
 	// Fake clients
 	kubernetesCrdFake "github.com/nre-learning/syringe/pkg/client/clientset/versioned/fake"
@@ -143,6 +142,8 @@ func createFakeScheduler() *LessonScheduler {
 		KubeLabs:      make(map[string]*KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
 
+		DisableGC: true,
+
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
@@ -165,7 +166,7 @@ func TestSchedulerSetup(t *testing.T) {
 	go func() {
 		for {
 			result := <-lessonScheduler.Results
-			log.Info(result)
+			// log.Info(result)
 
 			if !result.Success && result.Operation == OperationType_CREATE {
 				t.Fatal("Received error from scheduler")
@@ -188,15 +189,18 @@ func TestSchedulerSetup(t *testing.T) {
 		lessonScheduler.Requests <- req
 	}
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 5)
 
 	if len(lessonScheduler.KubeLabs) != numberKubeLabs {
 		t.Fatalf("Not the expected number of kubelabs (expected %d, got %d)", numberKubeLabs, len(lessonScheduler.KubeLabs))
 	}
 	// TODO(mierdin): Need to create a fake health check tester
 
-	cleaned, err := lessonScheduler.purgeOldLessons()
+	cleaned, err := lessonScheduler.PurgeOldLessons()
 	ok(t, err)
+
+	// time.Sleep(time.Second * 5)
+
 	assert(t, (len(cleaned) == numberKubeLabs),
 		fmt.Sprintf("got %d cleaned lessons, expected %d", len(cleaned), numberKubeLabs))
 	// assert(t, (cleaned[0] == "100-foobar-ns"), "")

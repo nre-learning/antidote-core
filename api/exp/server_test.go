@@ -56,10 +56,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 	}
 }
 
-// the leak is in the API server. We're planning on removing state from this,
-// but we should try to replicate the behavior through tests and find the cause before
-// just ripping it out blindly
-func TestGCFromHere(t *testing.T) {
+func TestGCWithAPIServerCreatedLessons(t *testing.T) {
 
 	fakeScheduler := createFakeScheduler()
 	go func() {
@@ -70,9 +67,9 @@ func TestGCFromHere(t *testing.T) {
 	}()
 
 	s := &SyringeAPIServer{
-		liveLessonState: map[string]*pb.LiveLesson{},
-		liveLessonsMu:   &sync.Mutex{},
-		scheduler:       fakeScheduler,
+		LiveLessonState: map[string]*pb.LiveLesson{},
+		LiveLessonsMu:   &sync.Mutex{},
+		Scheduler:       fakeScheduler,
 	}
 	go func() {
 		err := s.StartAPI(fakeScheduler, nil)
@@ -93,8 +90,8 @@ func TestGCFromHere(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	assert(t, (len(s.liveLessonState) == numberCreateRequests),
-		fmt.Sprintf("livelessonstate has %d members, expected %d", len(s.liveLessonState), numberCreateRequests))
+	assert(t, (len(s.LiveLessonState) == numberCreateRequests),
+		fmt.Sprintf("livelessonstate has %d members, expected %d", len(s.LiveLessonState), numberCreateRequests))
 
 	////////////////////////////
 
@@ -122,8 +119,8 @@ func TestGCFromHere(t *testing.T) {
 		}
 	}
 
-	assert(t, (len(s.liveLessonState) == 0),
-		fmt.Sprintf("livelessonstate has %d members, expected %d", len(s.liveLessonState), 0))
+	assert(t, (len(s.LiveLessonState) == 0),
+		fmt.Sprintf("livelessonstate has %d members, expected %d", len(s.LiveLessonState), 0))
 
 }
 
@@ -201,6 +198,8 @@ func createFakeScheduler() *scheduler.LessonScheduler {
 		GcWhiteListMu: &sync.Mutex{},
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
+
+		DisableGC: true,
 
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),

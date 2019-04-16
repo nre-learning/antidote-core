@@ -115,8 +115,8 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"syringeManaged": "yes",
 				"name":           nsName,
 				"syringeTier":    ls.SyringeConfig.Tier,
-				"lastAccessed":   strconv.Itoa(int(time.Now().Unix())),
-				"created":        strconv.Itoa(int(time.Now().Unix())),
+				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
+				"created":        strconv.Itoa(int(req.Created.Unix())),
 			},
 		},
 	}

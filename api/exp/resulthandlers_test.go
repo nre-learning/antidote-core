@@ -12,17 +12,17 @@ import (
 // livelesson state appropriately.
 func TestHandleResultDELETE(t *testing.T) {
 	apiServer := &SyringeAPIServer{
-		liveLessonState: map[string]*pb.LiveLesson{
+		LiveLessonState: map[string]*pb.LiveLesson{
 			"100-foobar": &pb.LiveLesson{},
 			"200-foobar": &pb.LiveLesson{},
 			"300-foobar": &pb.LiveLesson{},
 		},
-		liveLessonsMu: &sync.Mutex{},
+		LiveLessonsMu: &sync.Mutex{},
 	}
 
 	apiServer.handleResultDELETE(&scheduler.LessonScheduleResult{
 		Uuid: "200-foobar-ns",
 	})
 
-	assert(t, (len(apiServer.liveLessonState) == 2), "")
+	assert(t, (len(apiServer.LiveLessonState) == 2), "")
 }
