@@ -2,6 +2,7 @@
 
 ## In development
 
+- [Fix state bug (for real this time) and add more state tests](https://github.com/nre-learning/syringe/pull/100)
 
 ## v0.3.1 - March 27, 2019
 
