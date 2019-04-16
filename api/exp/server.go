@@ -147,10 +147,8 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 			"Uuid":      result.Uuid,
 		}).Debug("Received result from scheduler.")
 
-		go func() {
-			handleFunc := handlers[result.Operation].(func(*scheduler.LessonScheduleResult))
-			handleFunc(result)
-		}()
+		handleFunc := handlers[result.Operation].(func(*scheduler.LessonScheduleResult))
+		handleFunc(result)
 
 	}
 	return nil

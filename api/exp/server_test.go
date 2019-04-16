@@ -101,7 +101,6 @@ func TestGCWithAPIServerCreatedLessons(t *testing.T) {
 	cleaned, err := fakeScheduler.PurgeOldLessons()
 	ok(t, err)
 
-	// assert(t, false, "")
 	time.Sleep(5 * time.Second)
 
 	assert(t, (len(cleaned) == numberCreateRequests),
@@ -118,6 +117,8 @@ func TestGCWithAPIServerCreatedLessons(t *testing.T) {
 			Operation: scheduler.OperationType_DELETE,
 		}
 	}
+
+	time.Sleep(5 * time.Second)
 
 	assert(t, (len(s.LiveLessonState) == 0),
 		fmt.Sprintf("livelessonstate has %d members, expected %d", len(s.LiveLessonState), 0))
