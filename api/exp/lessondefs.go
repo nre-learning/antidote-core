@@ -15,12 +15,12 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-func (s *server) ListLessonDefs(ctx context.Context, filter *pb.LessonDefFilter) (*pb.LessonDefs, error) {
+func (s *SyringeAPIServer) ListLessonDefs(ctx context.Context, filter *pb.LessonDefFilter) (*pb.LessonDefs, error) {
 
 	defs := []*pb.LessonDef{}
 
 	// TODO(mierdin): Okay for now, but not super efficient. Should store in category keys when loaded.
-	for _, lessonDef := range s.scheduler.LessonDefs {
+	for _, lessonDef := range s.Scheduler.LessonDefs {
 
 		if filter.Category == "" {
 			defs = append(defs, lessonDef)
@@ -39,7 +39,7 @@ func (s *server) ListLessonDefs(ctx context.Context, filter *pb.LessonDefFilter)
 
 // var preReqs []int32
 
-func (s *server) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonID) (*pb.LessonPrereqs, error) {
+func (s *SyringeAPIServer) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonID) (*pb.LessonPrereqs, error) {
 
 	// Preload the requested lesson ID so we can strip it before returning
 	pr := s.getPrereqs(lid.Id, []int32{lid.Id})
@@ -51,10 +51,10 @@ func (s *server) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonID) (*pb
 	}, nil
 }
 
-func (s *server) getPrereqs(lessonID int32, currentPrereqs []int32) []int32 {
+func (s *SyringeAPIServer) getPrereqs(lessonID int32, currentPrereqs []int32) []int32 {
 
 	// Return if lesson ID doesn't exist
-	if _, ok := s.scheduler.LessonDefs[lessonID]; !ok {
+	if _, ok := s.Scheduler.LessonDefs[lessonID]; !ok {
 		return currentPrereqs
 	}
 
@@ -64,7 +64,7 @@ func (s *server) getPrereqs(lessonID int32, currentPrereqs []int32) []int32 {
 	}
 
 	// Return if lesson doesn't have prerequisites
-	lesson := s.scheduler.LessonDefs[lessonID]
+	lesson := s.Scheduler.LessonDefs[lessonID]
 	if len(lesson.Prereqs) == 0 {
 		return currentPrereqs
 	}
@@ -87,13 +87,13 @@ func isAlreadyInSlice(lessonID int32, currentPrereqs []int32) bool {
 	return false
 }
 
-func (s *server) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.LessonDef, error) {
+func (s *SyringeAPIServer) GetLessonDef(ctx context.Context, lid *pb.LessonID) (*pb.LessonDef, error) {
 
-	if _, ok := s.scheduler.LessonDefs[lid.Id]; !ok {
+	if _, ok := s.Scheduler.LessonDefs[lid.Id]; !ok {
 		return nil, errors.New("Invalid lesson ID")
 	}
 
-	lessonDef := s.scheduler.LessonDefs[lid.Id]
+	lessonDef := s.Scheduler.LessonDefs[lid.Id]
 
 	return lessonDef, nil
 }

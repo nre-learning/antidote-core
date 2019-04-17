@@ -14,7 +14,7 @@ do
         -I api/exp/definitions/ \
         api/exp/definitions/"$i" \
             -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-            -I$GOPATH/src/github.com/lyft/protoc-gen-validate \
+            -I$GOPATH/src/github.com/envoyproxy/protoc-gen-validate \
         --go_out=plugins=grpc:api/exp/generated/ \
         --grpc-gateway_out=logtostderr=true,allow_delete_body=true:api/exp/generated/ \
         --validate_out=lang=go:api/exp/generated/ \

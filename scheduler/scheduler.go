@@ -63,6 +63,10 @@ type LessonScheduler struct {
 	KubeLabsMu    *sync.Mutex
 	HealthChecker LessonHealthCheck
 
+	// Allows us to disable GC for testing. Production code should leave this at
+	// false
+	DisableGC bool
+
 	// Client for interacting with normal Kubernetes resources
 	Client kubernetes.Interface
 
@@ -85,31 +89,33 @@ func (ls *LessonScheduler) Start() error {
 	ls.createNetworkCrd()
 
 	// Garbage collection
-	go func() {
-		for {
+	if !ls.DisableGC {
+		go func() {
+			for {
 
-			cleaned, err := ls.purgeOldLessons()
-			if err != nil {
-				log.Error("Problem with GCing lessons")
-			}
-
-			for i := range cleaned {
-
-				// Clean up local kubelab state
-				ls.deleteKubelab(cleaned[i])
-
-				// Send result to API server to clean up livelesson state
-				ls.Results <- &LessonScheduleResult{
-					Success:   true,
-					LessonDef: nil,
-					Uuid:      cleaned[i],
-					Operation: OperationType_DELETE,
+				cleaned, err := ls.PurgeOldLessons()
+				if err != nil {
+					log.Error("Problem with GCing lessons")
 				}
-			}
-			time.Sleep(1 * time.Minute)
 
-		}
-	}()
+				for i := range cleaned {
+
+					// Clean up local kubelab state
+					ls.deleteKubelab(cleaned[i])
+
+					// Send result to API server to clean up livelesson state
+					ls.Results <- &LessonScheduleResult{
+						Success:   true,
+						LessonDef: nil,
+						Uuid:      cleaned[i],
+						Operation: OperationType_DELETE,
+					}
+				}
+				time.Sleep(1 * time.Minute)
+
+			}
+		}()
+	}
 
 	// Handle incoming requests asynchronously
 	var handlers = map[OperationType]interface{}{

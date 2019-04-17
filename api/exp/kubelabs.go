@@ -8,10 +8,10 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func (s *server) ListKubeLabs(ctx context.Context, _ *empty.Empty) (*pb.KubeLabs, error) {
+func (s *SyringeAPIServer) ListKubeLabs(ctx context.Context, _ *empty.Empty) (*pb.KubeLabs, error) {
 	pbKl := map[string]*pb.KubeLab{}
 
-	for k, v := range s.scheduler.KubeLabs {
+	for k, v := range s.Scheduler.KubeLabs {
 		pbKl[k] = v.ToProtoKubeLab()
 	}
 
@@ -20,9 +20,9 @@ func (s *server) ListKubeLabs(ctx context.Context, _ *empty.Empty) (*pb.KubeLabs
 	}, nil
 }
 
-func (s *server) GetKubeLab(ctx context.Context, uuid *pb.KubeLabUuid) (*pb.KubeLab, error) {
-	if _, ok := s.scheduler.KubeLabs[uuid.Id]; !ok {
+func (s *SyringeAPIServer) GetKubeLab(ctx context.Context, uuid *pb.KubeLabUuid) (*pb.KubeLab, error) {
+	if _, ok := s.Scheduler.KubeLabs[uuid.Id]; !ok {
 		return nil, fmt.Errorf("Kubelab %s not found", uuid.Id)
 	}
-	return s.scheduler.KubeLabs[uuid.Id].ToProtoKubeLab(), nil
+	return s.Scheduler.KubeLabs[uuid.Id].ToProtoKubeLab(), nil
 }

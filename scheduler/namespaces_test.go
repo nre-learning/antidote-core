@@ -61,7 +61,7 @@ func TestNamespaces(t *testing.T) {
 
 	// Test that namespaces are GC'd as expected.
 	t.Run("A=1", func(t *testing.T) {
-		cleaned, err := lessonScheduler.purgeOldLessons()
+		cleaned, err := lessonScheduler.PurgeOldLessons()
 		ok(t, err)
 		assert(t, (len(cleaned) == 1), "")
 		assert(t, (cleaned[0] == "100-foobar-ns"), "")
