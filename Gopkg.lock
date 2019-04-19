@@ -166,14 +166,6 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:e0634682fffd776e09ffe332c37ac2c5996bdee5a8a6160d8a3ab3393a02163a"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "UT"
-  revision = "1ffd5e8db575ed8a61c7e0d415af263c39cef1ab"
-  version = "v0.0.11"
-
-[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -710,7 +702,6 @@
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
-    "github.com/lyft/protoc-gen-validate/validate",
     "github.com/philips/go-bindata-assetfs",
     "github.com/sirupsen/logrus",
     "golang.org/x/crypto/ssh",
