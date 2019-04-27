@@ -104,7 +104,8 @@ func ImportLessonDefs(syringeConfig *config.SyringeConfig) (map[int32]*pb.Lesson
 	fileList := []string{}
 	log.Debugf("Searching %s for lesson definitions", syringeConfig.LessonsDir)
 	err := filepath.Walk(syringeConfig.LessonsDir, func(path string, f os.FileInfo, err error) error {
-		syringeFileLocation := fmt.Sprintf("%s/syringe.yaml", path)
+		log.Infof("Looking at %s", path)
+		syringeFileLocation := fmt.Sprintf("%s/lesson.meta.yaml", path)
 		if _, err := os.Stat(syringeFileLocation); err == nil {
 			log.Debugf("Found lesson definition at: %s", syringeFileLocation)
 			fileList = append(fileList, syringeFileLocation)

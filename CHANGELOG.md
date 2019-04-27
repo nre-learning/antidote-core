@@ -2,10 +2,11 @@
 
 ## In development
 
+- Use the more appropriate lesson.meta.yaml instead of syringe.yaml [#101](https://github.com/nre-learning/syringe/pull/101)
 
 ## v0.3.2 - April 19, 2019
 
-- [Fix state bug (for real this time) and add more state tests](https://github.com/nre-learning/syringe/pull/100)
+- Fix state bug (for real this time) and add more state tests [#100](https://github.com/nre-learning/syringe/pull/100)
 
 ## v0.3.1 - March 27, 2019
 
