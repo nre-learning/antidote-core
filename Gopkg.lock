@@ -166,14 +166,6 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:e0634682fffd776e09ffe332c37ac2c5996bdee5a8a6160d8a3ab3393a02163a"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "UT"
-  revision = "1ffd5e8db575ed8a61c7e0d415af263c39cef1ab"
-  version = "v0.0.11"
-
-[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -702,6 +694,7 @@
     "github.com/golang/glog",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/protoc-gen-go/descriptor",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/empty",
     "github.com/golang/protobuf/ptypes/timestamp",
@@ -709,7 +702,6 @@
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
-    "github.com/lyft/protoc-gen-validate/validate",
     "github.com/philips/go-bindata-assetfs",
     "github.com/sirupsen/logrus",
     "golang.org/x/crypto/ssh",
@@ -729,14 +721,22 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/fields",
+    "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
+    "k8s.io/apimachinery/pkg/util/runtime",
+    "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/rest",
+    "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator/cmd/client-gen",
   ]
   solver-name = "gps-cdcl"

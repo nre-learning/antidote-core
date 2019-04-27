@@ -8,19 +8,19 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func (s *server) GetSyringeInfo(ctx context.Context, _ *empty.Empty) (*pb.SyringeInfo, error) {
+func (s *SyringeAPIServer) GetSyringeInfo(ctx context.Context, _ *empty.Empty) (*pb.SyringeInfo, error) {
 
-	if _, ok := s.buildInfo["buildSha"]; !ok {
+	if _, ok := s.BuildInfo["buildSha"]; !ok {
 		return &pb.SyringeInfo{}, errors.New("Build SHA not found")
 	}
 
-	if _, ok := s.buildInfo["antidoteSha"]; !ok {
+	if _, ok := s.BuildInfo["antidoteSha"]; !ok {
 		return &pb.SyringeInfo{}, errors.New("Antidote SHA not found")
 	}
 
 	si := pb.SyringeInfo{
-		BuildSha:    s.buildInfo["buildSha"],
-		AntidoteSha: s.buildInfo["antidoteSha"],
+		BuildSha:    s.BuildInfo["buildSha"],
+		AntidoteSha: s.BuildInfo["antidoteSha"],
 	}
 
 	return &si, nil

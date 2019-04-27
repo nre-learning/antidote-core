@@ -8,7 +8,7 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.2.0/protoc-
 RUN go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 RUN go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
 RUN go get -u github.com/golang/protobuf/protoc-gen-go
-RUN go get -u github.com/lyft/protoc-gen-validate
+RUN go get -u github.com/envoyproxy/protoc-gen-validate
 RUN go get github.com/jteeuwen/go-bindata/...
 
 env PATH $GOPATH/bin:$PATH

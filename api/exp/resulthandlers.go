@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *server) handleResultCREATE(result *scheduler.LessonScheduleResult) {
+func (s *SyringeAPIServer) handleResultCREATE(result *scheduler.LessonScheduleResult) {
 	if !result.Success {
 		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
@@ -19,22 +19,22 @@ func (s *server) handleResultCREATE(result *scheduler.LessonScheduleResult) {
 	}
 
 	s.recordProvisioningTime(result.ProvisioningTime, result)
-	s.SetLiveLesson(result.Uuid, s.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
+	s.SetLiveLesson(result.Uuid, s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 
-func (s *server) handleResultMODIFY(result *scheduler.LessonScheduleResult) {
+func (s *SyringeAPIServer) handleResultMODIFY(result *scheduler.LessonScheduleResult) {
 	if !result.Success {
 		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
 		return
 	}
-	s.SetLiveLesson(result.Uuid, s.scheduler.KubeLabs[result.Uuid].ToLiveLesson())
+	s.SetLiveLesson(result.Uuid, s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 
-func (s *server) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
+func (s *SyringeAPIServer) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
 	vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
 
-	vt := s.verificationTasks[vtUUID]
+	vt := s.VerificationTasks[vtUUID]
 	vt.Working = false
 	vt.Success = result.Success
 	if result.Success == true {
@@ -53,8 +53,9 @@ func (s *server) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
 }
 
 // handleResultDELETE runs in response to a scheduler deletion event by removing any tracked state at the API layer.
-func (s *server) handleResultDELETE(result *scheduler.LessonScheduleResult) {
-	s.DeleteLiveLesson(strings.TrimRight(result.Uuid, "-ns"))
+func (s *SyringeAPIServer) handleResultDELETE(result *scheduler.LessonScheduleResult) {
+	uuid := strings.TrimSuffix(result.Uuid, "-ns")
+	s.DeleteLiveLesson(uuid)
 }
 
-func (s *server) handleResultBOOP(result *scheduler.LessonScheduleResult) {}
+func (s *SyringeAPIServer) handleResultBOOP(result *scheduler.LessonScheduleResult) {}

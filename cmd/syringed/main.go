@@ -102,8 +102,16 @@ func main() {
 	}
 
 	// Start API, and feed it pointer to lesson scheduler so they can talk
+	apiServer := &api.SyringeAPIServer{
+		LiveLessonState:     make(map[string]*pb.LiveLesson),
+		LiveLessonsMu:       &sync.Mutex{},
+		VerificationTasks:   make(map[string]*pb.VerificationTask),
+		VerificationTasksMu: &sync.Mutex{},
+		Scheduler:           &lessonScheduler,
+		BuildInfo:           buildInfo,
+	}
 	go func() {
-		err = api.StartAPI(&lessonScheduler, syringeConfig.GRPCPort, syringeConfig.HTTPPort, buildInfo)
+		err = apiServer.StartAPI(&lessonScheduler, buildInfo)
 		if err != nil {
 			log.Fatalf("Problem starting API: %s", err)
 		}
