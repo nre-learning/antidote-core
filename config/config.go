@@ -20,12 +20,11 @@ type SyringeConfig struct {
 	HealthCheckInterval int
 	TSDBExportInterval  int
 	TSDBEnabled         bool
-	LessonTTL           int
+	LiveLessonTTL       int
 
-	LessonsLocal     bool
-	LessonRepoRemote string
-	LessonRepoBranch string
-	LessonRepoDir    string
+	CurriculumLocal      bool
+	CurriculumRepoRemote string
+	CurriculumRepoBranch string
 }
 
 func (c *SyringeConfig) JSON() string {
@@ -92,46 +91,38 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		}
 	}
 
-	// +syringeconfig SYRINGE_LESSONS_LOCAL is a boolean variable to specify if lessons should
+	// +syringeconfig SYRINGE_CURRICULUM_LOCAL is a boolean variable to specify if the curriculum should
 	// be pulled from the local filesystem (true), bypassing the need to clone a repository.
-	lessonsLocal, err := strconv.ParseBool(os.Getenv("SYRINGE_LESSONS_LOCAL"))
-	if lessonsLocal == false || err != nil {
-		config.LessonsLocal = false
+	curriculumLocal, err := strconv.ParseBool(os.Getenv("SYRINGE_CURRICULUM_LOCAL"))
+	if curriculumLocal == false || err != nil {
+		config.CurriculumLocal = false
 	} else {
-		config.LessonsLocal = true
+		config.CurriculumLocal = true
 	}
 
-	// +syringeconfig SYRINGE_LESSON_REPO_REMOTE is the git repo from which pull lesson content
-	remote := os.Getenv("SYRINGE_LESSON_REPO_REMOTE")
+	// +syringeconfig SYRINGE_CURRICULUM_REPO_REMOTE is the git repo from which pull lesson content
+	remote := os.Getenv("SYRINGE_CURRICULUM_REPO_REMOTE")
 	if remote == "" {
-		config.LessonRepoRemote = "https://github.com/nre-learning/nrelabs-curriculum.git"
+		config.CurriculumRepoRemote = "https://github.com/nre-learning/nrelabs-curriculum.git"
 	} else {
-		config.LessonRepoRemote = remote
+		config.CurriculumRepoRemote = remote
 	}
 
-	// +syringeconfig SYRINGE_LESSON_REPO_BRANCH is the branch of the git repo where lesson content is located
-	branch := os.Getenv("SYRINGE_LESSON_REPO_BRANCH")
+	// +syringeconfig SYRINGE_CURRICULUM_REPO_BRANCH is the branch of the git repo where lesson content is located
+	branch := os.Getenv("SYRINGE_CURRICULUM_REPO_BRANCH")
 	if branch == "" {
-		config.LessonRepoBranch = "master"
+		config.CurriculumRepoBranch = "master"
 	} else {
-		config.LessonRepoBranch = branch
+		config.CurriculumRepoBranch = branch
 	}
 
-	// +syringeconfig SYRINGE_LESSON_REPO_DIR specifies where to clone the lesson directory to
-	repoDir := os.Getenv("SYRINGE_LESSON_REPO_DIR")
-	if repoDir == "" {
-		config.LessonRepoDir = "/antidote"
-	} else {
-		config.LessonRepoDir = repoDir
-	}
-
-	// +syringeconfig SYRINGE_LESSON_TTL is the length of time (in minutes) a lesson is allowed
+	// +syringeconfig SYRINGE_LIVELESSON_TTL is the length of time (in minutes) a lesson is allowed
 	// to remain active without being interacted with, before it is shut down.
-	gc, err := strconv.Atoi(os.Getenv("SYRINGE_LESSON_TTL"))
+	gc, err := strconv.Atoi(os.Getenv("SYRINGE_LIVELESSON_TTL"))
 	if gc == 0 || err != nil {
-		config.LessonTTL = 30
+		config.LiveLessonTTL = 30
 	} else {
-		config.LessonTTL = gc
+		config.LiveLessonTTL = gc
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())

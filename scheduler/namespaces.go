@@ -164,7 +164,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 		}
 		lastAccessed := time.Unix(i, 0)
 
-		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.LessonTTL)*time.Minute {
+		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.LiveLessonTTL)*time.Minute {
 			continue
 		}
 

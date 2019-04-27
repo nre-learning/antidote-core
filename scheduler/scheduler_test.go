@@ -55,7 +55,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 }
 
 func createFakeScheduler() *LessonScheduler {
-	os.Setenv("SYRINGE_LESSONS", "foo")
+	os.Setenv("SYRINGE_CURRICULUM", "foo")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {

@@ -56,8 +56,8 @@ func main() {
 			Action: func(c *cli.Context) {
 
 				_, err := api.ImportLessonDefs(&config.SyringeConfig{
-					Tier:       "local",
-					LessonsDir: c.Args().First(),
+					Tier:          "local",
+					CurriculumDir: c.Args().First(),
 				})
 				if err != nil {
 					color.Red("Some lessons failed to validate.")

@@ -19,9 +19,9 @@ func TestNamespaces(t *testing.T) {
 	// SETUP
 	nsName := "100-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
-		LessonsDir: "/antidote",
-		Domain:     "localhost",
-		Tier:       "prod",
+		CurriculumDir: "/antidote",
+		Domain:        "localhost",
+		Tier:          "prod",
 	}
 	lessonScheduler := LessonScheduler{
 		SyringeConfig: syringeConfig,

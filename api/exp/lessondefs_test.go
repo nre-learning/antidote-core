@@ -31,9 +31,9 @@ func TestValidationMissingConfig(t *testing.T) {
 
 	// Because a config is missing, this should fail to validate
 	err = validateLesson(&config.SyringeConfig{
-		LessonsDir: "../antidote",
-		Domain:     "localhost",
-		Tier:       "prod",
+		CurriculumDir: "../antidote",
+		Domain:        "localhost",
+		Tier:          "prod",
 	}, &lessonDef)
 	assert(t, err != nil, "")
 }

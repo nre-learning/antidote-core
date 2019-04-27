@@ -93,7 +93,7 @@ func main() {
 		}
 	}()
 
-	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.LessonRepoDir, syringeConfig.LessonRepoBranch))
+	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.CurriculumDir, syringeConfig.CurriculumRepoBranch))
 	if err != nil {
 		log.Error("Encountered problem getting antidote SHA")
 		buildInfo["antidoteSha"] = "null"

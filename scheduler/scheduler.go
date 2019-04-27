@@ -209,7 +209,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
 
-	if ls.SyringeConfig.LessonsLocal {
+	if ls.SyringeConfig.CurriculumLocal {
 
 		// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 		initContainers = append(initContainers, corev1.Container{
@@ -221,20 +221,20 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Args: []string{
 				"-c",
 				fmt.Sprintf("cp -r %s-ro/lessons/ %s && adduser -D antidote && chown -R antidote:antidote %s",
-					ls.SyringeConfig.LessonRepoDir,
-					ls.SyringeConfig.LessonRepoDir,
-					ls.SyringeConfig.LessonRepoDir),
+					ls.SyringeConfig.CurriculumDir,
+					ls.SyringeConfig.CurriculumDir,
+					ls.SyringeConfig.CurriculumDir),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "host-volume",
 					ReadOnly:  true,
-					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.LessonRepoDir),
+					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.CurriculumDir),
 				},
 				{
 					Name:      "local-copy",
 					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.LessonRepoDir,
+					MountPath: ls.SyringeConfig.CurriculumDir,
 				},
 			},
 		})
@@ -244,7 +244,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Name: "host-volume",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: ls.SyringeConfig.LessonRepoDir,
+					Path: ls.SyringeConfig.CurriculumDir,
 				},
 			},
 		})
@@ -261,7 +261,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "local-copy",
 			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.LessonRepoDir,
+			MountPath: ls.SyringeConfig.CurriculumDir,
 		})
 
 	} else {
@@ -275,22 +275,22 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "git-volume",
 			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.LessonRepoDir,
+			MountPath: ls.SyringeConfig.CurriculumDir,
 		})
 
 		initContainers = append(initContainers, corev1.Container{
 			Name:  "git-clone",
 			Image: "antidotelabs/githelper",
 			Args: []string{
-				ls.SyringeConfig.LessonRepoRemote,
-				ls.SyringeConfig.LessonRepoBranch,
-				ls.SyringeConfig.LessonRepoDir,
+				ls.SyringeConfig.CurriculumRepoRemote,
+				ls.SyringeConfig.CurriculumRepoBranch,
+				ls.SyringeConfig.CurriculumDir,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "git-volume",
 					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.LessonRepoDir,
+					MountPath: ls.SyringeConfig.CurriculumDir,
 				},
 			},
 		})

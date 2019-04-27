@@ -41,13 +41,16 @@ func equals(tb testing.TB, exp, act interface{}) {
 
 // TestConfigJSON ensures a given config renders correctly as JSON
 func TestConfigJSON(t *testing.T) {
-	os.Setenv("SYRINGE_LESSONS", "foo")
+	os.Setenv("SYRINGE_CURRICULUM", "foo")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := LoadConfigVars()
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	t.Log(syringeConfig.JSON())
+	t.Log(`{"CurriculumDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"TSDBExportInterval":0,"TSDBEnabled":false,"LiveLessonTTL":30,"CurriculumLocal":false,"CurriculumRepoRemote":"https://github.com/nre-learning/nrelabs-curriculum.git","CurriculumRepoBranch":"master"}`)
+
 	// Pretty barbaric but works for now
-	assert(t, syringeConfig.JSON() == `{"LessonsDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"TSDBExportInterval":0,"TSDBEnabled":false,"LessonTTL":30,"LessonsLocal":false,"LessonRepoRemote":"https://github.com/nre-learning/antidote.git","LessonRepoBranch":"master","LessonRepoDir":"/antidote"}`, "")
+	assert(t, syringeConfig.JSON() == `{"CurriculumDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"TSDBExportInterval":0,"TSDBEnabled":false,"LiveLessonTTL":30,"CurriculumLocal":false,"CurriculumRepoRemote":"https://github.com/nre-learning/nrelabs-curriculum.git","CurriculumRepoBranch":"master"}`, "")
 }

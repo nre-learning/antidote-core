@@ -96,7 +96,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
 
-	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.LessonRepoDir, req.LessonDef.LessonId, req.Stage, ep.Name)
+	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.LessonDef.LessonId, req.Stage, ep.Name)
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

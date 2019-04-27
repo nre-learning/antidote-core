@@ -19,8 +19,8 @@ func TestPods(t *testing.T) {
 	// SETUP
 	nsName := "1-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
-		LessonsDir: "/antidote",
-		Domain:     "localhost",
+		CurriculumDir: "/antidote",
+		Domain:        "localhost",
 	}
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
