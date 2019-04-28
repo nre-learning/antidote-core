@@ -48,7 +48,7 @@ func TestPods(t *testing.T) {
 			[]string{"1", "2", "3"},
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},
@@ -81,7 +81,7 @@ func TestPods(t *testing.T) {
 			[]string{"1", "2", "3"},
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},

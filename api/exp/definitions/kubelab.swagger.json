@@ -137,7 +137,7 @@
         }
       }
     },
-    "expLessonDef": {
+    "expLesson": {
       "type": "object",
       "properties": {
         "LessonId": {
@@ -226,8 +226,8 @@
     "expLessonScheduleRequest": {
       "type": "object",
       "properties": {
-        "LessonDef": {
-          "$ref": "#/definitions/expLessonDef"
+        "Lesson": {
+          "$ref": "#/definitions/expLesson"
         },
         "OperationType": {
           "type": "integer",

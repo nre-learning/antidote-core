@@ -9,7 +9,7 @@ import (
 )
 
 type LessonScheduleRequest struct {
-	LessonDef *pb.LessonDef
+	Lesson    *pb.Lesson
 	Operation OperationType
 	Uuid      string
 	Stage     int32
@@ -19,7 +19,7 @@ type LessonScheduleRequest struct {
 type LessonScheduleResult struct {
 	Success          bool
 	Stage            int32
-	LessonDef        *pb.LessonDef
+	Lesson           *pb.Lesson
 	Operation        OperationType
 	Message          string
 	ProvisioningTime int
@@ -41,7 +41,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		log.Errorf("Error creating lesson: %s", err)
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
-			LessonDef: newRequest.LessonDef,
+			Lesson:    newRequest.Lesson,
 			Uuid:      newRequest.Uuid,
 			Operation: newRequest.Operation,
 		}
@@ -58,7 +58,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	// Trigger a status update in the API server
 	ls.Results <- &LessonScheduleResult{
 		Success:   true,
-		LessonDef: newRequest.LessonDef,
+		Lesson:    newRequest.Lesson,
 		Uuid:      newRequest.Uuid,
 		Operation: OperationType_MODIFY,
 		Stage:     newRequest.Stage,
@@ -87,7 +87,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
 			Success:   true,
-			LessonDef: newRequest.LessonDef,
+			Lesson:    newRequest.Lesson,
 			Uuid:      newRequest.Uuid,
 			Operation: OperationType_MODIFY,
 			Stage:     newRequest.Stage,
@@ -104,10 +104,10 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	}
 
 	if !success {
-		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.LessonDef.LessonId)
+		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.Lesson.LessonId)
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
-			LessonDef: newRequest.LessonDef,
+			Lesson:    newRequest.Lesson,
 			Uuid:      newRequest.Uuid,
 			Operation: newRequest.Operation,
 			Stage:     newRequest.Stage,
@@ -121,20 +121,20 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
 			Success:   true,
-			LessonDef: newRequest.LessonDef,
+			Lesson:    newRequest.Lesson,
 			Uuid:      newRequest.Uuid,
 			Operation: OperationType_MODIFY,
 			Stage:     newRequest.Stage,
 		}
 	}
 
-	if HasDevices(newRequest.LessonDef) {
-		log.Infof("Performing configuration for new instance of lesson %d", newRequest.LessonDef.LessonId)
+	if HasDevices(newRequest.Lesson) {
+		log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
 		err := ls.configureStuff(nsName, liveLesson, newRequest)
 		if err != nil {
 			ls.Results <- &LessonScheduleResult{
 				Success:   false,
-				LessonDef: newRequest.LessonDef,
+				Lesson:    newRequest.Lesson,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 				Stage:     newRequest.Stage,
@@ -156,7 +156,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 	ls.Results <- &LessonScheduleResult{
 		Success:          true,
-		LessonDef:        newRequest.LessonDef,
+		Lesson:           newRequest.Lesson,
 		Uuid:             newRequest.Uuid,
 		ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
 		Operation:        newRequest.Operation,
@@ -175,13 +175,13 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 
 	liveLesson := kl.ToLiveLesson()
 
-	if HasDevices(newRequest.LessonDef) {
-		log.Infof("Performing configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
+	if HasDevices(newRequest.Lesson) {
+		log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
 		err := ls.configureStuff(nsName, liveLesson, newRequest)
 		if err != nil {
 			ls.Results <- &LessonScheduleResult{
 				Success:   false,
-				LessonDef: newRequest.LessonDef,
+				Lesson:    newRequest.Lesson,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 				Stage:     newRequest.Stage,
@@ -189,7 +189,7 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 			return
 		}
 	} else {
-		log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.LessonDef.LessonId)
+		log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
 	}
 
 	err := ls.boopNamespace(nsName)
@@ -199,7 +199,7 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 
 	ls.Results <- &LessonScheduleResult{
 		Success:   true,
-		LessonDef: newRequest.LessonDef,
+		Lesson:    newRequest.Lesson,
 		Uuid:      newRequest.Uuid,
 		Operation: newRequest.Operation,
 		Stage:     newRequest.Stage,
@@ -216,7 +216,7 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 
 		ls.Results <- &LessonScheduleResult{
 			Success:   false,
-			LessonDef: newRequest.LessonDef,
+			Lesson:    newRequest.Lesson,
 			Uuid:      newRequest.Uuid,
 			Operation: newRequest.Operation,
 			Stage:     newRequest.Stage,
@@ -231,7 +231,7 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 		if err != nil {
 			ls.Results <- &LessonScheduleResult{
 				Success:   false,
-				LessonDef: newRequest.LessonDef,
+				Lesson:    newRequest.Lesson,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 				Stage:     newRequest.Stage,
@@ -243,7 +243,7 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 		if finished == true {
 			ls.Results <- &LessonScheduleResult{
 				Success:   true,
-				LessonDef: newRequest.LessonDef,
+				Lesson:    newRequest.Lesson,
 				Uuid:      newRequest.Uuid,
 				Operation: newRequest.Operation,
 				Stage:     newRequest.Stage,
@@ -258,7 +258,7 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 	// Return failure, there's clearly a problem.
 	ls.Results <- &LessonScheduleResult{
 		Success:   false,
-		LessonDef: newRequest.LessonDef,
+		Lesson:    newRequest.Lesson,
 		Uuid:      newRequest.Uuid,
 		Operation: newRequest.Operation,
 		Stage:     newRequest.Stage,

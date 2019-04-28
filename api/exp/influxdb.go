@@ -45,15 +45,15 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonId":   strconv.Itoa(int(res.LessonDef.LessonId)),
-		"lessonName": res.LessonDef.LessonName,
+		"lessonId":   strconv.Itoa(int(res.Lesson.LessonId)),
+		"lessonName": res.Lesson.LessonName,
 	}
 
 	fields := map[string]interface{}{
-		"lessonId":         strconv.Itoa(int(res.LessonDef.LessonId)),
+		"lessonId":         strconv.Itoa(int(res.Lesson.LessonId)),
 		"provisioningTime": timeSecs,
-		"lessonName":       res.LessonDef.LessonName,
-		"lessonIDName":     fmt.Sprintf("%d - %s", res.LessonDef.LessonId, res.LessonDef.LessonName),
+		"lessonName":       res.Lesson.LessonName,
+		"lessonIDName":     fmt.Sprintf("%d - %s", res.Lesson.LessonId, res.Lesson.LessonName),
 	}
 
 	pt, err := influx.NewPoint("provisioningTime", tags, fields, time.Now())
@@ -106,16 +106,16 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range s.Scheduler.LessonDefs {
+		for lessonId, _ := range s.Scheduler.Curriculum.Lessons {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = s.Scheduler.LessonDefs[lessonId].LessonName
+			tags["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
 
 			count, duration := s.getCountAndDuration(lessonId)
-			fields["lessonName"] = s.Scheduler.LessonDefs[lessonId].LessonName
+			fields["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
 
 			if duration != 0 {

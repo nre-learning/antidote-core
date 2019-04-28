@@ -40,7 +40,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 	lessonUuid := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
 
 	// Identify lesson definition - return error if doesn't exist by ID
-	if _, ok := s.Scheduler.LessonDefs[lp.LessonId]; !ok {
+	if _, ok := s.Scheduler.Curriculum.Lessons[lp.LessonId]; !ok {
 		log.Errorf("Couldn't find lesson ID %d", lp.LessonId)
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
@@ -49,7 +49,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 	// stage ID 1 refers to the second index (1) in the stage slice.
 	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
 	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
-	if len(s.Scheduler.LessonDefs[lp.LessonId].Stages) < int(lp.LessonStage) {
+	if len(s.Scheduler.Curriculum.Lessons[lp.LessonId].Stages) < int(lp.LessonStage) {
 		msg := "Invalid stage ID for this lesson"
 		log.Error(msg)
 		return nil, errors.New(msg)
@@ -76,7 +76,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 
 			// Request the schedule move forward with stage change activities
 			req := &scheduler.LessonScheduleRequest{
-				LessonDef: s.Scheduler.LessonDefs[lp.LessonId],
+				Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
 				Operation: scheduler.OperationType_MODIFY,
 				Stage:     lp.LessonStage,
 				Uuid:      lessonUuid,
@@ -90,7 +90,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 			req := &scheduler.LessonScheduleRequest{
 				Operation: scheduler.OperationType_BOOP,
 				Uuid:      lessonUuid,
-				LessonDef: s.Scheduler.LessonDefs[lp.LessonId],
+				Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
 			}
 
 			s.Scheduler.Requests <- req
@@ -101,7 +101,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 
 	// 3 - if doesn't already exist, put together schedule request and send to channel
 	req := &scheduler.LessonScheduleRequest{
-		LessonDef: s.Scheduler.LessonDefs[lp.LessonId],
+		Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
 		Operation: scheduler.OperationType_CREATE,
 		Stage:     lp.LessonStage,
 		Uuid:      lessonUuid,
@@ -226,7 +226,7 @@ func (s *SyringeAPIServer) RequestVerification(ctx context.Context, uuid *pb.Les
 	}
 	ll := s.LiveLessonState[uuid.Id]
 
-	if ld, ok := s.Scheduler.LessonDefs[ll.LessonId]; !ok {
+	if ld, ok := s.Scheduler.Curriculum.Lessons[ll.LessonId]; !ok {
 		// Unlikely to happen since we've verified the livelesson exists,
 		// but easy to check
 		return nil, errors.New("Invalid lesson ID")
@@ -254,7 +254,7 @@ func (s *SyringeAPIServer) RequestVerification(ctx context.Context, uuid *pb.Les
 	s.SetVerificationTask(vtUUID, newVt)
 
 	s.Scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		LessonDef: s.Scheduler.LessonDefs[ll.LessonId],
+		Lesson: s.Scheduler.Curriculum.Lessons[ll.LessonId],
 		Operation: scheduler.OperationType_VERIFY,
 		Stage:     ll.LessonStage,
 		Uuid:      uuid.Id,

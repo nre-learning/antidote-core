@@ -175,7 +175,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 			},
 		},

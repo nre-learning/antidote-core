@@ -1,0 +1,34 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "lesson.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+service CurriculumService {
+
+  rpc GetCurriculumInfo(CurriculumFilter) returns (CurriculumInfo) {
+    option (google.api.http) = {
+      get: "/exp/curriculum"
+    };
+  }
+
+}
+
+message CurriculumFilter {}
+
+// Use this to return only metadata about the installed curriculum.
+message CurriculumInfo {
+    string Name = 1 [(validate.rules).string.min_len = 1];
+    string Description = 2 [(validate.rules).string.min_len = 1];
+    string Website = 3 [(validate.rules).string.min_len = 1];
+}
+
+// The full curriculum, including both metadata and loaded resources.
+message Curriculum {
+    string Name = 1 [(validate.rules).string.min_len = 1];
+    string Description = 2 [(validate.rules).string.min_len = 1];
+    string Website = 3 [(validate.rules).string.min_len = 1];
+
+    map<int32, Lesson> Lessons = 4;
+}

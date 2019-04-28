@@ -64,7 +64,7 @@ func TestNetworks(t *testing.T) {
 			"vqfx1-vqfx2",
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},

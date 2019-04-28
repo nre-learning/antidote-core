@@ -1,0 +1,52 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "curriculum.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/curriculum": {
+      "get": {
+        "operationId": "GetCurriculumInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCurriculumInfo"
+            }
+          }
+        },
+        "tags": [
+          "CurriculumService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expCurriculumInfo": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Website": {
+          "type": "string"
+        }
+      },
+      "description": "Use this to return only metadata about the installed curriculum."
+    }
+  }
+}

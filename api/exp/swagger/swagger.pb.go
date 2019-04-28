@@ -1,6 +1,59 @@
 package swagger 
 
 const (
+Curriculum = `{
+  "swagger": "2.0",
+  "info": {
+    "title": "curriculum.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/curriculum": {
+      "get": {
+        "operationId": "GetCurriculumInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCurriculumInfo"
+            }
+          }
+        },
+        "tags": [
+          "CurriculumService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expCurriculumInfo": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Website": {
+          "type": "string"
+        }
+      },
+      "description": "Use this to return only metadata about the installed curriculum."
+    }
+  }
+}
+`
 Kubelab = `{
   "swagger": "2.0",
   "info": {
@@ -140,7 +193,7 @@ Kubelab = `{
         }
       }
     },
-    "expLessonDef": {
+    "expLesson": {
       "type": "object",
       "properties": {
         "LessonId": {
@@ -229,8 +282,8 @@ Kubelab = `{
     "expLessonScheduleRequest": {
       "type": "object",
       "properties": {
-        "LessonDef": {
-          "$ref": "#/definitions/expLessonDef"
+        "Lesson": {
+          "$ref": "#/definitions/expLesson"
         },
         "OperationType": {
           "type": "integer",
@@ -288,10 +341,10 @@ Kubelab = `{
   }
 }
 `
-Lessondef = `{
+Lesson = `{
   "swagger": "2.0",
   "info": {
-    "title": "lessondef.proto",
+    "title": "lesson.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -305,15 +358,15 @@ Lessondef = `{
     "application/json"
   ],
   "paths": {
-    "/exp/lessondef": {
+    "/exp/lesson": {
       "get": {
-        "summary": "Retrieve all LessonDefs with filter",
-        "operationId": "ListLessonDefs",
+        "summary": "Retrieve all Lessons with filter",
+        "operationId": "ListLessons",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expLessonDefs"
+              "$ref": "#/definitions/expLessons"
             }
           }
         },
@@ -326,18 +379,18 @@ Lessondef = `{
           }
         ],
         "tags": [
-          "LessonDefService"
+          "LessonService"
         ]
       }
     },
-    "/exp/lessondef/{id}": {
+    "/exp/lesson/{id}": {
       "get": {
-        "operationId": "GetLessonDef",
+        "operationId": "GetLesson",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expLessonDef"
+              "$ref": "#/definitions/expLesson"
             }
           }
         },
@@ -351,11 +404,11 @@ Lessondef = `{
           }
         ],
         "tags": [
-          "LessonDefService"
+          "LessonService"
         ]
       }
     },
-    "/exp/lessondef/{id}/prereqs": {
+    "/exp/lesson/{id}/prereqs": {
       "get": {
         "operationId": "GetAllLessonPrereqs",
         "responses": {
@@ -376,7 +429,7 @@ Lessondef = `{
           }
         ],
         "tags": [
-          "LessonDefService"
+          "LessonService"
         ]
       }
     }
@@ -444,7 +497,7 @@ Lessondef = `{
         }
       }
     },
-    "expLessonDef": {
+    "expLesson": {
       "type": "object",
       "properties": {
         "LessonId": {
@@ -530,17 +583,6 @@ Lessondef = `{
         }
       }
     },
-    "expLessonDefs": {
-      "type": "object",
-      "properties": {
-        "lessonDefs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expLessonDef"
-          }
-        }
-      }
-    },
     "expLessonPrereqs": {
       "type": "object",
       "properties": {
@@ -576,6 +618,17 @@ Lessondef = `{
         },
         "VerifyObjective": {
           "type": "string"
+        }
+      }
+    },
+    "expLessons": {
+      "type": "object",
+      "properties": {
+        "lessons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLesson"
+          }
         }
       }
     }

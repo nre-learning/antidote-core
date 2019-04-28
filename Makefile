@@ -19,8 +19,10 @@ compile:
 	@./compile-proto.sh
 
 	@# Adding equivalent YAML tags so we can import lesson definitions into protobuf-created structs
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lessondef.pb.go
-	@rm -f api/exp/generated/lessondef.pb.go.bak
+	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lesson.pb.go
+	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/curriculum.pb.go
+	@rm -f api/exp/generated/lesson.pb.go.bak
+	@rm -f api/exp/generated/curriculum.pb.go.bak
 
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/

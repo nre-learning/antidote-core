@@ -63,8 +63,8 @@ func createFakeScheduler() *LessonScheduler {
 		panic(err)
 	}
 
-	var lessonDefs = map[int32]*pb.LessonDef{
-		1: &pb.LessonDef{
+	var lessons = map[int32]*pb.Lesson{
+		1: &pb.Lesson{
 			LessonId: 1,
 			Stages: []*pb.LessonStage{
 				{
@@ -135,7 +135,7 @@ func createFakeScheduler() *LessonScheduler {
 		// KubeConfig:    kubeConfig,
 		Requests:      make(chan *LessonScheduleRequest),
 		Results:       make(chan *LessonScheduleResult),
-		LessonDefs:    lessonDefs,
+		Lessons:    lessons,
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
@@ -180,7 +180,7 @@ func TestSchedulerSetup(t *testing.T) {
 	for i := 1; i <= numberKubeLabs; i++ {
 		uuid, _ := newUUID()
 		req := &LessonScheduleRequest{
-			LessonDef: lessonScheduler.LessonDefs[1],
+			Lesson: lessonScheduler.Lessons[1],
 			Operation: OperationType_CREATE,
 			Stage:     1,
 			Uuid:      uuid,

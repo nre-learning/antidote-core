@@ -41,7 +41,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lessonDefs, err := api.ImportLessonDefs(syringeConfig)
+	curriculum, err := api.ImportCurriculum(syringeConfig)
 	if err != nil {
 		log.Warn(err)
 	}
@@ -51,7 +51,7 @@ func main() {
 		KubeConfig:    kubeConfig,
 		Requests:      make(chan *scheduler.LessonScheduleRequest),
 		Results:       make(chan *scheduler.LessonScheduleResult),
-		LessonDefs:    lessonDefs,
+		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},

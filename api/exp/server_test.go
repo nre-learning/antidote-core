@@ -95,7 +95,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 // 		// Send result to API server to clean up livelesson state
 // 		fakeScheduler.Results <- &scheduler.LessonScheduleResult{
 // 			Success:   true,
-// 			LessonDef: nil,
+// 			Lesson: nil,
 // 			Uuid:      cleaned[i],
 // 			Operation: scheduler.OperationType_DELETE,
 // 		}
@@ -133,8 +133,8 @@ func equals(tb testing.TB, exp, act interface{}) {
 // 		panic(err)
 // 	}
 
-// 	var lessonDefs = map[int32]*pb.LessonDef{
-// 		1: &pb.LessonDef{
+// 	var lessons = map[int32]*pb.Lesson{
+// 		1: &pb.Lesson{
 // 			LessonId: 1,
 // 			Stages: []*pb.LessonStage{
 // 				{
@@ -176,7 +176,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 // 		// KubeConfig:    kubeConfig,
 // 		Requests:      make(chan *scheduler.LessonScheduleRequest),
 // 		Results:       make(chan *scheduler.LessonScheduleResult),
-// 		LessonDefs:    lessonDefs,
+// 		Lessons:    lessons,
 // 		SyringeConfig: syringeConfig,
 // 		GcWhiteList:   make(map[string]*pb.Session),
 // 		GcWhiteListMu: &sync.Mutex{},
