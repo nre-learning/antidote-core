@@ -122,6 +122,10 @@ func createFakeScheduler() *LessonScheduler {
 		},
 	}
 
+	curriculum := &pb.Curriculum{
+		Lessons: lessons,
+	}
+
 	nsName := "1-foobar-ns"
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +139,7 @@ func createFakeScheduler() *LessonScheduler {
 		// KubeConfig:    kubeConfig,
 		Requests:      make(chan *LessonScheduleRequest),
 		Results:       make(chan *LessonScheduleResult),
-		Lessons:    lessons,
+		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
@@ -180,7 +184,7 @@ func TestSchedulerSetup(t *testing.T) {
 	for i := 1; i <= numberKubeLabs; i++ {
 		uuid, _ := newUUID()
 		req := &LessonScheduleRequest{
-			Lesson: lessonScheduler.Lessons[1],
+			Lesson:    lessonScheduler.Curriculum.Lessons[1],
 			Operation: OperationType_CREATE,
 			Stage:     1,
 			Uuid:      uuid,
