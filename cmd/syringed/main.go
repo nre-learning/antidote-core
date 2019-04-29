@@ -41,7 +41,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lessonDefs, err := api.ImportLessonDefs(syringeConfig)
+	curriculum, err := api.ImportCurriculum(syringeConfig)
 	if err != nil {
 		log.Warn(err)
 	}
@@ -51,7 +51,7 @@ func main() {
 		KubeConfig:    kubeConfig,
 		Requests:      make(chan *scheduler.LessonScheduleRequest),
 		Results:       make(chan *scheduler.LessonScheduleResult),
-		LessonDefs:    lessonDefs,
+		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
@@ -93,7 +93,7 @@ func main() {
 		}
 	}()
 
-	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.LessonRepoDir, syringeConfig.LessonRepoBranch))
+	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.CurriculumDir, syringeConfig.CurriculumRepoBranch))
 	if err != nil {
 		log.Error("Encountered problem getting antidote SHA")
 		buildInfo["antidoteSha"] = "null"

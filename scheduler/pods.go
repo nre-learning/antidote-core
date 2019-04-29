@@ -44,7 +44,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Name:      ep.GetName(),
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"endpointType":   ep.GetType().String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
@@ -65,7 +65,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+									"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 									"syringeManaged": "yes",
 								},
 							},
@@ -132,7 +132,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	}
 
 	// else if etype.String() == "IFRAME" {
-	// 	port := req.LessonDef.Stages[req.Stage].IframeResource.Port
+	// 	port := req.Lesson.Stages[req.Stage].IframeResource.Port
 	// 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
 	// }
 

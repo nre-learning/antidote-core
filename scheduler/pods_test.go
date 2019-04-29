@@ -19,8 +19,8 @@ func TestPods(t *testing.T) {
 	// SETUP
 	nsName := "1-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
-		LessonsDir: "/antidote",
-		Domain:     "localhost",
+		CurriculumDir: "/antidote",
+		Domain:        "localhost",
 	}
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +48,7 @@ func TestPods(t *testing.T) {
 			[]string{"1", "2", "3"},
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},
@@ -81,7 +81,7 @@ func TestPods(t *testing.T) {
 			[]string{"1", "2", "3"},
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},

@@ -57,7 +57,7 @@ func (kl *KubeLab) ToProtoKubeLab() *pb.KubeLab {
 	return &pb.KubeLab{
 		Namespace: kl.Namespace.ObjectMeta.Name,
 		CreateRequest: &pb.LessonScheduleRequest{
-			LessonDef:     kl.CreateRequest.LessonDef,
+			Lesson:     kl.CreateRequest.Lesson,
 			OperationType: int32(kl.CreateRequest.Operation),
 			Uuid:          kl.CreateRequest.Uuid,
 			Stage:         kl.CreateRequest.Stage,
@@ -97,13 +97,13 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 
 	ret := pb.LiveLesson{
 		LessonUUID:      kl.CreateRequest.Uuid,
-		LessonId:        kl.CreateRequest.LessonDef.LessonId,
+		LessonId:        kl.CreateRequest.Lesson.LessonId,
 		LiveEndpoints:   map[string]*pb.LiveEndpoint{},
 		LessonStage:     kl.CurrentStage,
-		LessonDiagram:   kl.CreateRequest.LessonDef.LessonDiagram,
-		LessonVideo:     kl.CreateRequest.LessonDef.LessonVideo,
-		LabGuide:        kl.CreateRequest.LessonDef.Stages[kl.CurrentStage].LabGuide,
-		JupyterLabGuide: kl.CreateRequest.LessonDef.Stages[kl.CurrentStage].JupyterLabGuide,
+		LessonDiagram:   kl.CreateRequest.Lesson.LessonDiagram,
+		LessonVideo:     kl.CreateRequest.Lesson.LessonVideo,
+		LabGuide:        kl.CreateRequest.Lesson.Stages[kl.CurrentStage].LabGuide,
+		JupyterLabGuide: kl.CreateRequest.Lesson.Stages[kl.CurrentStage].JupyterLabGuide,
 		CreatedTime: &timestamp.Timestamp{
 			Seconds: ts,
 		},
@@ -142,9 +142,9 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		ret.LiveEndpoints[endpoint.Name] = endpoint
 	}
 
-	for i := range kl.CreateRequest.LessonDef.IframeResources {
+	for i := range kl.CreateRequest.Lesson.IframeResources {
 
-		ifr := kl.CreateRequest.LessonDef.IframeResources[i]
+		ifr := kl.CreateRequest.Lesson.IframeResources[i]
 
 		endpoint := &pb.LiveEndpoint{
 			Name:       ifr.Ref,
@@ -180,14 +180,14 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	}
 
 	// Append black box container and create ingress for jupyter lab guide if necessary
-	if usesJupyterLabGuide(req.LessonDef) {
+	if usesJupyterLabGuide(req.Lesson) {
 		jupyterBB := &pb.Endpoint{
 			Name:  "jupyterlabguide",
 			Image: "antidotelabs/jupyter",
 			Type:  pb.Endpoint_BLACKBOX,
 			Ports: []int32{8888},
 		}
-		req.LessonDef.Blackboxes = append(req.LessonDef.Blackboxes, jupyterBB)
+		req.Lesson.Blackboxes = append(req.Lesson.Blackboxes, jupyterBB)
 
 		iframeIngress, _ := ls.createIngress(
 			ns.ObjectMeta.Name,
@@ -196,7 +196,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 				Protocol: "http",
 
 				// Not needed. The front-end will append this specific path to the iframe src
-				// Path:     fmt.Sprintf("/notebooks/lesson-%d/stage%d/notebook.ipynb", req.LessonDef.LessonId, req.Stage),
+				// Path:     fmt.Sprintf("/notebooks/lesson-%d/stage%d/notebook.ipynb", req.Lesson.LessonId, req.Stage),
 
 				Port: 8888,
 			},
@@ -204,13 +204,13 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
 	}
 
-	if HasDevices(kl.CreateRequest.LessonDef) {
+	if HasDevices(kl.CreateRequest.Lesson) {
 
 		log.Debug("Creating devices and connections")
 
 		// Create networks from connections property
-		for c := range req.LessonDef.Connections {
-			connection := req.LessonDef.Connections[c]
+		for c := range req.Lesson.Connections {
+			connection := req.Lesson.Connections[c]
 			newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
 			if err != nil {
 				log.Error(err)
@@ -222,13 +222,13 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		}
 
 		// Create pods and services for devices
-		for d := range req.LessonDef.Devices {
+		for d := range req.Lesson.Devices {
 
 			// Create pods from devices property
-			device := req.LessonDef.Devices[d]
+			device := req.Lesson.Devices[d]
 			newPod, err := ls.createPod(
 				device,
-				getMemberNetworks(device.Name, req.LessonDef.Connections),
+				getMemberNetworks(device.Name, req.Lesson.Connections),
 				req,
 			)
 			if err != nil {
@@ -254,12 +254,12 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	}
 
 	// Create pods and services for utility containers
-	for d := range req.LessonDef.Utilities {
+	for d := range req.Lesson.Utilities {
 
-		utility := req.LessonDef.Utilities[d]
+		utility := req.Lesson.Utilities[d]
 		newPod, err := ls.createPod(
 			utility,
-			getMemberNetworks(utility.Name, req.LessonDef.Connections),
+			getMemberNetworks(utility.Name, req.Lesson.Connections),
 			req,
 		)
 		if err != nil {
@@ -279,12 +279,12 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	}
 
 	// Create pods and services for black box containers
-	for d := range req.LessonDef.Blackboxes {
+	for d := range req.Lesson.Blackboxes {
 
-		blackbox := req.LessonDef.Blackboxes[d]
+		blackbox := req.Lesson.Blackboxes[d]
 		newPod, err := ls.createPod(
 			blackbox,
-			getMemberNetworks(blackbox.Name, req.LessonDef.Connections),
+			getMemberNetworks(blackbox.Name, req.Lesson.Connections),
 			req,
 		)
 		if err != nil {
@@ -306,9 +306,9 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	}
 
 	// Create pods, services, and ingresses for iframe resources
-	for d := range req.LessonDef.IframeResources {
+	for d := range req.Lesson.IframeResources {
 
-		ifr := req.LessonDef.IframeResources[d]
+		ifr := req.Lesson.IframeResources[d]
 
 		// Iframe resources don't create pods/services on their own. You must define a blackbox/utility/device endpoint
 		// and then refer to that in the iframeresource definition. We're just creating an ingress here to access that endpoint.

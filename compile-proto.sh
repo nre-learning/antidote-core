@@ -2,9 +2,10 @@
 
 declare -a protos=(
     'kubelab.proto'
-    'lessondef.proto'
+    'lesson.proto'
     'livelesson.proto'
     'syringeinfo.proto'
+    'curriculum.proto'
 );
 
 for i in "${protos[@]}"

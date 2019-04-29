@@ -60,7 +60,8 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
-	pb.RegisterLessonDefServiceServer(grpcServer, apiServer)
+	pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
+	pb.RegisterLessonServiceServer(grpcServer, apiServer)
 	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
 	pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
 	defer grpcServer.Stop()
@@ -81,7 +82,7 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	if err != nil {
 		return err
 	}
-	err = gw.RegisterLessonDefServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	err = gw.RegisterLessonServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -96,8 +97,8 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	mux.HandleFunc("/livelesson.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Livelesson))
 	})
-	mux.HandleFunc("/lessondef.json", func(w http.ResponseWriter, req *http.Request) {
-		io.Copy(w, strings.NewReader(swag.Lessondef))
+	mux.HandleFunc("/lesson.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Lesson))
 	})
 	mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Syringeinfo))

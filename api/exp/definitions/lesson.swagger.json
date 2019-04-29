@@ -1,0 +1,293 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "lesson.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/lesson": {
+      "get": {
+        "summary": "Retrieve all Lessons with filter",
+        "operationId": "ListLessons",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expLessons"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Category",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "LessonService"
+        ]
+      }
+    },
+    "/exp/lesson/{id}": {
+      "get": {
+        "operationId": "GetLesson",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expLesson"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "LessonService"
+        ]
+      }
+    },
+    "/exp/lesson/{id}/prereqs": {
+      "get": {
+        "operationId": "GetAllLessonPrereqs",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expLessonPrereqs"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "LessonService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "EndpointEndpointType": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "DEVICE",
+        "IFRAME",
+        "BLACKBOX",
+        "UTILITY"
+      ],
+      "default": "UNKNOWN",
+      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
+    },
+    "expConnection": {
+      "type": "object",
+      "properties": {
+        "A": {
+          "type": "string"
+        },
+        "B": {
+          "type": "string"
+        }
+      }
+    },
+    "expEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Type": {
+          "$ref": "#/definitions/EndpointEndpointType"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expIframeResource": {
+      "type": "object",
+      "properties": {
+        "Ref": {
+          "type": "string"
+        },
+        "Protocol": {
+          "type": "string"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "expLesson": {
+      "type": "object",
+      "properties": {
+        "LessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Stages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonStage"
+          }
+        },
+        "LessonName": {
+          "type": "string"
+        },
+        "IframeResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expIframeResource"
+          }
+        },
+        "Devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expEndpoint"
+          }
+        },
+        "Utilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expEndpoint"
+          }
+        },
+        "Blackboxes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expEndpoint"
+          }
+        },
+        "Connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expConnection"
+          }
+        },
+        "Category": {
+          "type": "string"
+        },
+        "LessonDiagram": {
+          "type": "string"
+        },
+        "LessonVideo": {
+          "type": "string"
+        },
+        "Tier": {
+          "type": "string"
+        },
+        "Prereqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "Tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Collection": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Slug": {
+          "type": "string",
+          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+        },
+        "LessonFile": {
+          "type": "string"
+        }
+      }
+    },
+    "expLessonPrereqs": {
+      "type": "object",
+      "properties": {
+        "prereqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "expLessonStage": {
+      "type": "object",
+      "properties": {
+        "Id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "LabGuide": {
+          "type": "string"
+        },
+        "JupyterLabGuide": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "VerifyCompleteness": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "VerifyObjective": {
+          "type": "string"
+        }
+      }
+    },
+    "expLessons": {
+      "type": "object",
+      "properties": {
+        "lessons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLesson"
+          }
+        }
+      }
+    }
+  }
+}

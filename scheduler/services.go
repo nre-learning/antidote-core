@@ -29,14 +29,14 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"endpointType":   pod.ObjectMeta.Labels["endpointType"],
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"lessonId": fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId": fmt.Sprintf("%d", req.Lesson.LessonId),
 				"podName":  pod.ObjectMeta.Name,
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below

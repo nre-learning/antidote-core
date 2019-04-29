@@ -2,7 +2,7 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "livelesson.proto";
-import "lessondef.proto";
+import "lesson.proto";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -19,7 +19,7 @@ message KubeLabUuid {
 }
 
 message LessonScheduleRequest {
-    LessonDef LessonDef = 1;
+    Lesson Lesson = 1;
     int32 OperationType = 2;
     string Uuid = 3;
     int32 Stage = 4;

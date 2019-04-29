@@ -39,8 +39,8 @@ func TestNetworks(t *testing.T) {
 	// SETUP
 	nsName := "1-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
-		LessonsDir: "/antidote",
-		Domain:     "localhost",
+		CurriculumDir: "/antidote",
+		Domain:        "localhost",
 	}
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +64,7 @@ func TestNetworks(t *testing.T) {
 			"vqfx1-vqfx2",
 			&LessonScheduleRequest{
 				Uuid: uuid,
-				LessonDef: &pb.LessonDef{
+				Lesson: &pb.Lesson{
 					LessonId: 1,
 				},
 			},

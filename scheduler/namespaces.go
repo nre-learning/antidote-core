@@ -111,7 +111,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"name":           nsName,
 				"syringeTier":    ls.SyringeConfig.Tier,
@@ -164,7 +164,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 		}
 		lastAccessed := time.Unix(i, 0)
 
-		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.LessonTTL)*time.Minute {
+		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.LiveLessonTTL)*time.Minute {
 			continue
 		}
 

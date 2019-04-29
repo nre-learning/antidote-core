@@ -96,14 +96,14 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
 
-	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.LessonRepoDir, req.LessonDef.LessonId, req.Stage, ep.Name)
+	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Lesson.LessonId, req.Stage, ep.Name)
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"jobType":        "config",
 				"stageId":        strconv.Itoa(int(req.Stage)),
@@ -116,7 +116,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 						"syringeManaged": "yes",
 						"configPod":      "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
@@ -177,8 +177,8 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	jobName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
-	podName := fmt.Sprintf("verify-%d-%d", req.LessonDef.LessonId, req.Stage)
+	jobName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
+	podName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
 
 	var retry int32 = 1
 
@@ -189,7 +189,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"jobType":        "verify",
 				"stageId":        strconv.Itoa(int(req.Stage)),
@@ -202,7 +202,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.LessonDef.LessonId),
+						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 						"syringeManaged": "yes",
 						"verifyPod":      "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
@@ -216,7 +216,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 							Image: "antidotelabs/utility",
 							Command: []string{
 								"python",
-								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/verify.py", req.LessonDef.LessonId, req.Stage),
+								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/verify.py", req.Lesson.LessonId, req.Stage),
 							},
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod

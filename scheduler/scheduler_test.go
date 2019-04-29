@@ -55,7 +55,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 }
 
 func createFakeScheduler() *LessonScheduler {
-	os.Setenv("SYRINGE_LESSONS", "foo")
+	os.Setenv("SYRINGE_CURRICULUM", "foo")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {
@@ -63,8 +63,8 @@ func createFakeScheduler() *LessonScheduler {
 		panic(err)
 	}
 
-	var lessonDefs = map[int32]*pb.LessonDef{
-		1: &pb.LessonDef{
+	var lessons = map[int32]*pb.Lesson{
+		1: &pb.Lesson{
 			LessonId: 1,
 			Stages: []*pb.LessonStage{
 				{
@@ -122,6 +122,10 @@ func createFakeScheduler() *LessonScheduler {
 		},
 	}
 
+	curriculum := &pb.Curriculum{
+		Lessons: lessons,
+	}
+
 	nsName := "1-foobar-ns"
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +139,7 @@ func createFakeScheduler() *LessonScheduler {
 		// KubeConfig:    kubeConfig,
 		Requests:      make(chan *LessonScheduleRequest),
 		Results:       make(chan *LessonScheduleResult),
-		LessonDefs:    lessonDefs,
+		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
 		GcWhiteList:   make(map[string]*pb.Session),
 		GcWhiteListMu: &sync.Mutex{},
@@ -180,7 +184,7 @@ func TestSchedulerSetup(t *testing.T) {
 	for i := 1; i <= numberKubeLabs; i++ {
 		uuid, _ := newUUID()
 		req := &LessonScheduleRequest{
-			LessonDef: lessonScheduler.LessonDefs[1],
+			Lesson:    lessonScheduler.Curriculum.Lessons[1],
 			Operation: OperationType_CREATE,
 			Stage:     1,
 			Uuid:      uuid,
