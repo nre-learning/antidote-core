@@ -1,0 +1,55 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+service CollectionService {
+
+  rpc ListCollection(CollectionFilter) returns (Collections) {
+    option (google.api.http) = {
+      get: "/exp/collection"
+    };
+  }
+
+  rpc GetCollection(CollectionID) returns (Collection) {
+    option (google.api.http) = {
+      get: "/exp/collection/{id}"
+    };
+  }
+
+}
+
+message CollectionFilter {}
+
+message Collections {
+  repeated Collection collections = 1;
+}
+
+message CollectionID {
+  int32 id = 1;
+}
+
+message Collection {
+  int32 Id = 1 [(validate.rules).int32.gt = 0];
+
+  string Title = 2 [(validate.rules).string.min_len = 1];
+
+  string Image = 3 [(validate.rules).string.min_len = 1];
+
+  // Why should users view your collection?
+  string BriefDescription = 4 [(validate.rules).string.min_len = 1];
+
+  // Why should users continue and view your lessons?
+  string LongDescription = 5 [(validate.rules).string.min_len = 1];
+
+  enum CollectionType {
+    UNKNOWN = 0;
+    CONSULTANCY = 1;
+    COMMUNITY = 2;
+    VENDOR = 3;
+  }
+  CollectionType Type = 6;
+  string Tier = 7 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
+  string CollectionFile = 8;
+}
