@@ -6,7 +6,7 @@ import "validate/validate.proto";
 
 service CollectionService {
 
-  rpc ListCollection(CollectionFilter) returns (Collections) {
+  rpc ListCollections(CollectionFilter) returns (Collections) {
     option (google.api.http) = {
       get: "/exp/collection"
     };
@@ -32,24 +32,18 @@ message CollectionID {
 
 message Collection {
   int32 Id = 1 [(validate.rules).int32.gt = 0];
-
   string Title = 2 [(validate.rules).string.min_len = 1];
-
   string Image = 3 [(validate.rules).string.min_len = 1];
+  string Website = 4 [(validate.rules).string.min_len = 1];
+  string ContactEmail = 5;
 
   // Why should users view your collection?
-  string BriefDescription = 4 [(validate.rules).string.min_len = 1];
+  string BriefDescription = 6 [(validate.rules).string.min_len = 1];
 
   // Why should users continue and view your lessons?
-  string LongDescription = 5 [(validate.rules).string.min_len = 1];
+  string LongDescription = 7 [(validate.rules).string.min_len = 1];
 
-  enum CollectionType {
-    UNKNOWN = 0;
-    CONSULTANCY = 1;
-    COMMUNITY = 2;
-    VENDOR = 3;
-  }
-  CollectionType Type = 6;
-  string Tier = 7 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
-  string CollectionFile = 8;
+  string Type = 8 [(validate.rules).string = {in: ["consultancy", "vendor", "community"]}];
+  string Tier = 9 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
+  string CollectionFile = 10;
 }

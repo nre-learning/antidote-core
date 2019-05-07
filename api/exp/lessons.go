@@ -298,6 +298,8 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 			log.Error("Must provide a VerifyObjective for stages with VerifyCompleteness set to true")
 			return fail
 		}
+
+		//TODO(mierdin): How to check to make sure referenced collection exists
 	}
 
 	return nil
