@@ -38,10 +38,10 @@ message Collection {
   string ContactEmail = 5;
 
   // Why should users view your collection?
-  string BriefDescription = 6 [(validate.rules).string.min_len = 1];
+  string BriefDescription = 6 [(validate.rules).string = {min_len: 1, max_len: 350}];
 
   // Why should users continue and view your lessons?
-  string LongDescription = 7 [(validate.rules).string.min_len = 1];
+  string LongDescription = 7 [(validate.rules).string = {min_len: 1, max_len: 700}];
 
   string Type = 8 [(validate.rules).string = {in: ["consultancy", "vendor", "community"]}];
   string Tier = 9 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
