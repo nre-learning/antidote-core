@@ -18,9 +18,14 @@ type SyringeConfig struct {
 	DeviceGCAge         int
 	NonDeviceGCAge      int
 	HealthCheckInterval int
-	TSDBExportInterval  int
-	TSDBEnabled         bool
 	LiveLessonTTL       int
+
+	InfluxURL      string
+	InfluxUsername string
+	InfluxPassword string
+
+	TSDBExportInterval int
+	TSDBEnabled        bool
 
 	CurriculumLocal      bool
 	CurriculumRepoRemote string
@@ -123,6 +128,30 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LiveLessonTTL = 30
 	} else {
 		config.LiveLessonTTL = gc
+	}
+
+	// +syringeconfig SYRINGE_INFLUXDB_URL is the URL for the influxdb-based metrics server.
+	influxURL := os.Getenv("SYRINGE_INFLUXDB_URL")
+	if influxURL == "" {
+		config.InfluxURL = "https: //influxdb.networkreliability.engineering/"
+	} else {
+		config.InfluxURL = influxURL
+	}
+
+	// +syringeconfig SYRINGE_INFLUXDB_USERNAME is the username for the influxdb-based metrics server.
+	influxUsername := os.Getenv("SYRINGE_INFLUXDB_USERNAME")
+	if influxUsername == "" {
+		config.InfluxUsername = "admin"
+	} else {
+		config.InfluxUsername = influxUsername
+	}
+
+	// +syringeconfig SYRINGE_INFLUXDB_PASSWORD is the password for the influxdb-based metrics server.
+	influxPassword := os.Getenv("SYRINGE_INFLUXDB_PASSWORD")
+	if influxPassword == "" {
+		config.InfluxPassword = "zerocool"
+	} else {
+		config.InfluxPassword = influxPassword
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())

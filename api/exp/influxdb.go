@@ -11,19 +11,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	influxURL    = "http://influxdb:8086"
-	influxUDPUrl = "influxdb:8089"
-)
-
 func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
 
 	// Make client
-	c, err := influx.NewUDPClient(influx.UDPConfig{
-		Addr: influxUDPUrl,
+	c, err := influx.NewHTTPClient(influx.HTTPConfig{
+		Addr: s.Scheduler.SyringeConfig.InfluxURL,
 	})
 	if err != nil {
-		log.Error("Error creating InfluxDB UDP Client: ", err.Error())
+		log.Error("Error creating InfluxDB Client: ", err.Error())
 		return err
 	}
 	defer c.Close()
@@ -78,7 +73,7 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: influxURL,
+		Addr: s.Scheduler.SyringeConfig.InfluxURL,
 	})
 	if err != nil {
 		log.Error("Error creating InfluxDB Client: ", err.Error())
