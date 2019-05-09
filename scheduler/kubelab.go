@@ -57,7 +57,7 @@ func (kl *KubeLab) ToProtoKubeLab() *pb.KubeLab {
 	return &pb.KubeLab{
 		Namespace: kl.Namespace.ObjectMeta.Name,
 		CreateRequest: &pb.LessonScheduleRequest{
-			Lesson:     kl.CreateRequest.Lesson,
+			Lesson:        kl.CreateRequest.Lesson,
 			OperationType: int32(kl.CreateRequest.Operation),
 			Uuid:          kl.CreateRequest.Uuid,
 			Stage:         kl.CreateRequest.Stage,
@@ -183,7 +183,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 	if usesJupyterLabGuide(req.Lesson) {
 		jupyterBB := &pb.Endpoint{
 			Name:  "jupyterlabguide",
-			Image: "antidotelabs/jupyter",
+			Image: "antidotelabs/jupyter:newpath",
 			Type:  pb.Endpoint_BLACKBOX,
 			Ports: []int32{8888},
 		}
