@@ -56,9 +56,6 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
   name = "github.com/influxdata/influxdb"
   version = "~1.6.3"
 
-[[constraint]]
-  name = "github.com/envoyproxy/protoc-gen-validate"
-  version = "0.0.11"
 
 [[constraint]]
   branch = "master"

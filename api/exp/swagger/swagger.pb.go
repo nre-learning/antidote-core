@@ -96,6 +96,12 @@ Collection = `{
         },
         "CollectionFile": {
           "type": "string"
+        },
+        "Lessons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonSummary"
+          }
         }
       }
     },
@@ -107,6 +113,21 @@ Collection = `{
           "items": {
             "$ref": "#/definitions/expCollection"
           }
+        }
+      }
+    },
+    "expLessonSummary": {
+      "type": "object",
+      "properties": {
+        "lessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "lessonName": {
+          "type": "string"
+        },
+        "lessonDescription": {
+          "type": "string"
         }
       }
     }

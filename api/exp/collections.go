@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
+	config "github.com/nre-learning/syringe/config"
 )
 
 func (s *SyringeAPIServer) ListCollections(ctx context.Context, filter *pb.CollectionFilter) (*pb.Collections, error) {
@@ -28,7 +30,21 @@ func (s *SyringeAPIServer) ListCollections(ctx context.Context, filter *pb.Colle
 }
 
 func (s *SyringeAPIServer) GetCollection(ctx context.Context, filter *pb.CollectionID) (*pb.Collection, error) {
-	return s.Scheduler.Curriculum.Collections[filter.Id], nil
+
+	collection := &pb.Collection{}
+	copier.Copy(&collection, s.Scheduler.Curriculum.Collections[filter.Id])
+
+	for lessonID, lesson := range s.Scheduler.Curriculum.Lessons {
+		if lesson.Collection == filter.Id {
+			collection.Lessons = append(collection.Lessons, &pb.LessonSummary{
+				LessonId:          lessonID,
+				LessonDescription: lesson.Description,
+				LessonName:        lesson.LessonName,
+			})
+		}
+	}
+
+	return collection, nil
 }
 
 func ImportCollections(syringeConfig *config.SyringeConfig) (map[int32]*pb.Collection, error) {
@@ -65,6 +81,7 @@ func ImportCollections(syringeConfig *config.SyringeConfig) (map[int32]*pb.Colle
 		if err != nil {
 			log.Errorf("Failed to import %s: %s", file, err)
 		}
+		collection.CollectionFile = file
 
 		if _, ok := retCollections[collection.Id]; ok {
 			log.Errorf("Failed to import %s: Collection ID %d already exists in another collection definition.", file, collection.Id)
