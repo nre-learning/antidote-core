@@ -238,6 +238,9 @@
         },
         "LessonFile": {
           "type": "string"
+        },
+        "LessonDir": {
+          "type": "string"
         }
       }
     },

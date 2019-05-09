@@ -37,7 +37,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
