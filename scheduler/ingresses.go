@@ -16,6 +16,14 @@ import (
 
 func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
 
+	redir := "true"
+
+	// temporary but functional hack to disable SSL redirection for selfmedicate
+	// (doesn't currently use HTTPS)
+	if ls.SyringeConfig.Domain == "antidote-local" {
+		redir = "false"
+	}
+
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ifr.Ref,
@@ -26,8 +34,8 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/ingress.class":      "nginx",
 				"ingress.kubernetes.io/ssl-services":       ifr.Ref,
-				"ingress.kubernetes.io/ssl-redirect":       "true",
-				"ingress.kubernetes.io/force-ssl-redirect": "true",
+				"ingress.kubernetes.io/ssl-redirect":       redir,
+				"ingress.kubernetes.io/force-ssl-redirect": redir,
 				// "ingress.kubernetes.io/rewrite-target":          "/",
 				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
