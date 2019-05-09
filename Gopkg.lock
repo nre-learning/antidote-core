@@ -18,6 +18,14 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:dfe5159383dfcd370555c35374ac99022906f987b55cc65a830fb9ced970b4b1"
+  name = "github.com/envoyproxy/protoc-gen-validate"
+  packages = ["validate"]
+  pruneopts = "UT"
+  revision = "930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc"
+  version = "v0.0.6"
+
+[[projects]]
   digest = "1:f1f2bd73c025d24c3b93abf6364bccb802cf2fdedaa44360804c67800e8fab8d"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
@@ -149,6 +157,14 @@
   pruneopts = "UT"
   revision = "a2ba6e7654fb078f8a3f5add1f8d935df38161bd"
   version = "v1.6.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:5c3444689562053b027ef3b96372e306adbe0d7d109b6cdd48d01eb80f8bab14"
+  name = "github.com/jinzhu/copier"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7e38e58719c33e0d44d585c4ab477a30f8cb82dd"
 
 [[projects]]
   digest = "1:bb3cc4c1b21ea18cfa4e3e47440fc74d316ab25b0cf42927e8c1274917bd9891"
@@ -690,6 +706,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/codegangsta/cli",
+    "github.com/envoyproxy/protoc-gen-validate/validate",
     "github.com/fatih/color",
     "github.com/golang/glog",
     "github.com/golang/protobuf/jsonpb",
@@ -702,6 +719,7 @@
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
+    "github.com/jinzhu/copier",
     "github.com/philips/go-bindata-assetfs",
     "github.com/sirupsen/logrus",
     "golang.org/x/crypto/ssh",

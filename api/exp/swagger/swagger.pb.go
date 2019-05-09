@@ -1,6 +1,139 @@
 package swagger 
 
 const (
+Collection = `{
+  "swagger": "2.0",
+  "info": {
+    "title": "collection.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/collection": {
+      "get": {
+        "operationId": "ListCollections",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCollections"
+            }
+          }
+        },
+        "tags": [
+          "CollectionService"
+        ]
+      }
+    },
+    "/exp/collection/{id}": {
+      "get": {
+        "operationId": "GetCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCollection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "CollectionService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expCollection": {
+      "type": "object",
+      "properties": {
+        "Id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Title": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Website": {
+          "type": "string"
+        },
+        "ContactEmail": {
+          "type": "string"
+        },
+        "BriefDescription": {
+          "type": "string",
+          "title": "Why should users view your collection?"
+        },
+        "LongDescription": {
+          "type": "string",
+          "title": "Why should users continue and view your lessons?"
+        },
+        "Type": {
+          "type": "string"
+        },
+        "Tier": {
+          "type": "string"
+        },
+        "CollectionFile": {
+          "type": "string"
+        },
+        "Lessons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonSummary"
+          }
+        }
+      }
+    },
+    "expCollections": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expCollection"
+          }
+        }
+      }
+    },
+    "expLessonSummary": {
+      "type": "object",
+      "properties": {
+        "lessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "lessonName": {
+          "type": "string"
+        },
+        "lessonDescription": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+`
 Curriculum = `{
   "swagger": "2.0",
   "info": {
@@ -265,7 +398,8 @@ Kubelab = `{
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"
@@ -569,7 +703,8 @@ Lesson = `{
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"

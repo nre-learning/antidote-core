@@ -65,7 +65,7 @@ message Lesson {
   string Tier = 12 [(validate.rules).string = {in: ["local", "ptr", "prod"]}];
   repeated int32 Prereqs = 13;
   repeated string Tags = 14;
-  string Collection = 15;
+  int32 Collection = 15;
   string Description = 16 [(validate.rules).string.min_len = 10];
 
   // This is meant to fill: "How well do you know <slug>?"

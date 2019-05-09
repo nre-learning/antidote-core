@@ -209,7 +209,8 @@
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"

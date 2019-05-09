@@ -61,6 +61,7 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
 	pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
+	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
 	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
 	pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
@@ -90,6 +91,14 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	if err != nil {
 		return err
 	}
+	err = gw.RegisterCollectionServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
+	err = gw.RegisterCurriculumServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
 
 	// Handle swagger requests
 	mux := http.NewServeMux()
@@ -102,6 +111,12 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	})
 	mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Syringeinfo))
+	})
+	mux.HandleFunc("/collection.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Collection))
+	})
+	mux.HandleFunc("/curriculum.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Curriculum))
 	})
 	serveSwagger(mux)
 
