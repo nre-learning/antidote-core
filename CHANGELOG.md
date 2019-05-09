@@ -4,6 +4,7 @@
 
 - Use the more appropriate lesson.meta.yaml instead of syringe.yaml [#101](https://github.com/nre-learning/syringe/pull/101)
 - Center API and Configuration on Curriculum [#98](https://github.com/nre-learning/syringe/pull/98)
+- Collections Feature and API [#104](https://github.com/nre-learning/syringe/pull/104)
 
 ## v0.3.2 - April 19, 2019
 
