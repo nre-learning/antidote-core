@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,7 +107,7 @@ func (ls *LessonScheduler) Start() error {
 					// Send result to API server to clean up livelesson state
 					ls.Results <- &LessonScheduleResult{
 						Success:   true,
-						Lesson: nil,
+						Lesson:    nil,
 						Uuid:      cleaned[i],
 						Operation: OperationType_DELETE,
 					}
@@ -204,7 +205,7 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
@@ -272,10 +273,13 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			},
 		})
 
+		lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
+
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "git-volume",
 			ReadOnly:  false,
 			MountPath: ls.SyringeConfig.CurriculumDir,
+			SubPath:   lessonDir,
 		})
 
 		initContainers = append(initContainers, corev1.Container{

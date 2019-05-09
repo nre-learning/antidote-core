@@ -94,9 +94,10 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 	jobName := fmt.Sprintf("config-%s", ep.GetName())
 	podName := fmt.Sprintf("config-%s", ep.GetName())
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
 
-	configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Lesson.LessonId, req.Stage, ep.Name)
+	// configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Lesson.LessonId, req.Stage, ep.Name)
+	configFile := fmt.Sprintf("%s/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Stage, ep.Name)
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -182,7 +183,7 @@ func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv
 
 	var retry int32 = 1
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration()
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
 
 	verifyJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{

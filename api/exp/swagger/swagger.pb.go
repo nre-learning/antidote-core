@@ -410,6 +410,9 @@ Kubelab = `{
         },
         "LessonFile": {
           "type": "string"
+        },
+        "LessonDir": {
+          "type": "string"
         }
       }
     },
@@ -714,6 +717,9 @@ Lesson = `{
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
         },
         "LessonFile": {
+          "type": "string"
+        },
+        "LessonDir": {
           "type": "string"
         }
       }

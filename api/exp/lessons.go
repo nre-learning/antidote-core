@@ -134,6 +134,7 @@ func ImportLessons(syringeConfig *config.SyringeConfig) (map[int32]*pb.Lesson, e
 			log.Errorf("Failed to import %s: %s", file, err)
 		}
 		lesson.LessonFile = file
+		lesson.LessonDir = filepath.Dir(file)
 
 		// Set type property as appropriate
 		for ep := range lesson.Blackboxes {
