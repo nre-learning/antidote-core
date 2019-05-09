@@ -210,6 +210,8 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
 
+	lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
+
 	if ls.SyringeConfig.CurriculumLocal {
 
 		// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
@@ -263,6 +265,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 			Name:      "local-copy",
 			ReadOnly:  false,
 			MountPath: ls.SyringeConfig.CurriculumDir,
+			SubPath:   lessonDir,
 		})
 
 	} else {
@@ -272,8 +275,6 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
-
-		lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
 
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "git-volume",
