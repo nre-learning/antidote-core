@@ -98,7 +98,7 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 	ret := pb.LiveLesson{
 		LessonUUID:      kl.CreateRequest.Uuid,
 		LessonId:        kl.CreateRequest.Lesson.LessonId,
-		LiveEndpoints:   map[string]*pb.LiveEndpoint{},
+		LiveEndpoints:   map[string]*pb.Endpoint{},
 		LessonStage:     kl.CurrentStage,
 		LessonDiagram:   kl.CreateRequest.Lesson.LessonDiagram,
 		LessonVideo:     kl.CreateRequest.Lesson.LessonVideo,
@@ -126,9 +126,9 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		host, port, _ := getConnectivityInfo(kl.Services[s])
 		// portInt, _ := strconv.Atoi(port)
 
-		endpoint := &pb.LiveEndpoint{
+		endpoint := &pb.Endpoint{
 			Name: podBuddy.ObjectMeta.Name,
-			Type: pb.LiveEndpoint_EndpointType(pb.LiveEndpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
+			// Type: pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
 			Host: host,
 			Port: int32(port),
 			// ApiPort

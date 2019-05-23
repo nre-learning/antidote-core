@@ -59,7 +59,7 @@ message Lesson {
   // repeated Endpoint Utilities = 6;
   // repeated Endpoint Blackboxes = 7;
 
-  repeated Endpoint Endpoints = 4;
+  repeated Endpoint Endpoints = 4 [(validate.rules).repeated = {min_items: 1}];
   repeated Connection Connections = 8;
   string Category = 9 [(validate.rules).string = {in: ["fundamentals", "tools", "workflows"]}];
   string LessonDiagram = 10;
@@ -110,10 +110,22 @@ message Endpoint {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
 
-  string configurationType = 3 [(validate.rules).string = {in: ["napalm", "python", "bash", "ansible"]}];
+  message EndpointConfiguration {
+    string Type = 1 [(validate.rules).string = {in: ["python", "bash", "ansible", "none"]}];
+    // map<string, string> Params = 2;
+  }
+  EndpointConfiguration Config = 3;
 
   repeated int32 Ports = 4;
   repeated Presentation Presentations = 5;
+  
+  // This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,
+  // this will get set to the FQDN needed to connect to the external IP allocated for it.
+  string Host = 6;
+  int32 Port  = 7;
+
+  bool Reachable = 8;
+
 }
 
 message Presentation {

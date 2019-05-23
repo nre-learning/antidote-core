@@ -92,6 +92,14 @@
     }
   },
   "definitions": {
+    "EndpointEndpointConfiguration": {
+      "type": "object",
+      "properties": {
+        "Type": {
+          "type": "string"
+        }
+      }
+    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -112,8 +120,8 @@
         "Image": {
           "type": "string"
         },
-        "configurationType": {
-          "type": "string"
+        "Config": {
+          "$ref": "#/definitions/EndpointEndpointConfiguration"
         },
         "Ports": {
           "type": "array",
@@ -127,6 +135,18 @@
           "items": {
             "$ref": "#/definitions/expPresentation"
           }
+        },
+        "Host": {
+          "type": "string",
+          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Reachable": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

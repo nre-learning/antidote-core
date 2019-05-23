@@ -136,17 +136,6 @@ func ImportLessons(syringeConfig *config.SyringeConfig) (map[int32]*pb.Lesson, e
 		lesson.LessonFile = file
 		lesson.LessonDir = filepath.Dir(file)
 
-		// Set type property as appropriate
-		for ep := range lesson.Blackboxes {
-			lesson.Blackboxes[ep].Type = pb.Endpoint_BLACKBOX
-		}
-		for ep := range lesson.Utilities {
-			lesson.Utilities[ep].Type = pb.Endpoint_UTILITY
-		}
-		for ep := range lesson.Devices {
-			lesson.Devices[ep].Type = pb.Endpoint_DEVICE
-		}
-
 		if _, ok := retLds[lesson.LessonId]; ok {
 			log.Errorf("Failed to import %s: Lesson ID %d already exists in another lesson definition.", file, lesson.LessonId)
 			continue
@@ -156,13 +145,7 @@ func ImportLessons(syringeConfig *config.SyringeConfig) (map[int32]*pb.Lesson, e
 		if err != nil {
 			continue
 		}
-		log.Infof("Successfully imported lesson %d: %s --- BLACKBOX: %d, IFR: %d, UTILITY: %d, DEVICE: %d, CONNECTIONS: %d", lesson.LessonId, lesson.LessonName,
-			len(lesson.Blackboxes),
-			len(lesson.IframeResources),
-			len(lesson.Utilities),
-			len(lesson.Devices),
-			len(lesson.Connections),
-		)
+		log.Infof("Successfully imported lesson %d: %s  with %d endpoints.", lesson.LessonId, lesson.LessonName, len(lesson.Endpoints))
 
 		// Insert stage at zero-index so we can use slice indexes to refer to each stage without jumping through hoops
 		// or making the user use 0 as a stage ID
@@ -211,22 +194,27 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 		}
 	}
 
-	// Ensure there is at least one type of endpoint in the lesson definition
-	// TODO(mierdin): If there are only blackboxes, you may also want to validate there are iframes to display them
-	if len(lesson.Utilities) == 0 && len(lesson.Devices) == 0 && len(lesson.Blackboxes) == 0 {
-		log.Errorf("No endpoints present in %s", file)
-		return fail
-	}
-
 	// Ensure each device in the definition has a corresponding config for each stage
-	for d := range lesson.Devices {
-		device := lesson.Devices[d]
+	for i := range lesson.Endpoints {
+
+		ep := lesson.Endpoints[i]
+
+		if ep.Config.Type == "none" {
+			continue
+		}
+
+		fileMap := map[string]string{
+			"python":  ".py",
+			"bash":    ".sh",
+			"ansible": ".yml",
+		}
+
+		// Ensure the necessary config file is present for all stages
 		for s := range lesson.Stages {
-			stage := lesson.Stages[s]
-			fileName := fmt.Sprintf("%s/stage%d/configs/%s.txt", filepath.Dir(file), stage.Id, device.Name)
+			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileMap[ep.Config.Type])
 			_, err := ioutil.ReadFile(fileName)
 			if err != nil {
-				log.Errorf("Configuration for device %s for stage %d was not found.", device.Name, stage.Id)
+				log.Errorf("Configuration for endpoint %s stage %d was not found.", ep.Name, lesson.Stages[s].Id)
 				return fail
 			}
 		}
@@ -244,16 +232,6 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 		if !entityInLabDef(connection.B, lesson) {
 			log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Connection %s refers to nonexistent entity", connection.B)))
 			return fail
-		}
-	}
-
-	if len(lesson.IframeResources) > 0 {
-		for i := range lesson.IframeResources {
-			ifr := lesson.IframeResources[i]
-			if !entityInLabDef(ifr.Ref, lesson) {
-				log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Iframe resource refers to nonexistent entity %s", ifr.Ref)))
-				return fail
-			}
 		}
 	}
 
@@ -309,21 +287,8 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 // entityInLabDef is a helper function to ensure that a device is found by name in a lab definition
 func entityInLabDef(entityName string, ld *pb.Lesson) bool {
 
-	for i := range ld.Devices {
-		device := ld.Devices[i]
-		if entityName == device.Name {
-			return true
-		}
-	}
-	for i := range ld.Utilities {
-		utility := ld.Utilities[i]
-		if entityName == utility.Name {
-			return true
-		}
-	}
-	for i := range ld.Blackboxes {
-		blackbox := ld.Blackboxes[i]
-		if entityName == blackbox.Name {
+	for i := range ld.Endpoints {
+		if entityName == ld.Endpoints[i].Name {
 			return true
 		}
 	}

@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -70,10 +71,9 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 		"failed":     result.Status.Failed,
 	}).Info("Job Status")
 
-	if result.Status.Failed > 0 {
+	if result.Status.Failed >= 3 {
 		log.Errorf("Problem configuring with %s", result.Name)
-
-		//TODO(mierdin): need to count N failures, then when exceeded, surface this back up the channel, to the API, and to the user, so they're not waiting forever.
+		return true, errors.New(fmt.Sprintf("Problem configuring with %s", result.Name))
 	}
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
@@ -87,17 +87,40 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 }
 
-func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
-	jobName := fmt.Sprintf("config-%s", ep.GetName())
-	podName := fmt.Sprintf("config-%s", ep.GetName())
+	jobName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
+	podName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
 
 	// configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Lesson.LessonId, req.Stage, ep.Name)
-	configFile := fmt.Sprintf("%s/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Stage, ep.Name)
+	// configFile := fmt.Sprintf("%s/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Stage, ep.Name)
+
+	var configCommand []string
+
+	if ep.Config.Type == "python" {
+		configCommand = []string{
+			"python",
+			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
+		}
+	} else if ep.Config.Type == "bash" {
+		configCommand = []string{
+			"bash",
+			fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
+		}
+	} else if ep.Config.Type == "ansible" {
+		configCommand = []string{
+			"ansible-playbook",
+			"-i",
+			fmt.Sprintf("10.0.3.248,", ep.Host),
+			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
+		}
+	} else {
+		return nil, errors.New("Unknown config type")
+	}
 
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,6 +135,7 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 		},
 
 		Spec: batchv1.JobSpec{
+			// BackoffLimit: int32(3),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
@@ -128,17 +152,9 @@ func (ls *LessonScheduler) configureDevice(ep *pb.LiveEndpoint, req *LessonSched
 					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
-							Name:  "configurator",
-							Image: "antidotelabs/configurator",
-							Command: []string{
-								"/configure.py",
-								"antidote",
-								"antidotepassword",
-								"junos",
-								strconv.Itoa(int(ep.Port)),
-								ep.Host,
-								configFile,
-							},
+							Name:    "configurator",
+							Image:   "antidotelabs/configurator",
+							Command: configCommand,
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
 							ImagePullPolicy: "Always",

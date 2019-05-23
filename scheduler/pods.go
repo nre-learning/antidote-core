@@ -20,7 +20,6 @@ import (
 func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-	b := true
 
 	type networkAnnotation struct {
 		Name string `json:"name"`

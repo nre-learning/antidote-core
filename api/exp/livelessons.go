@@ -76,7 +76,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 
 			// Request the schedule move forward with stage change activities
 			req := &scheduler.LessonScheduleRequest{
-				Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
+				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
 				Operation: scheduler.OperationType_MODIFY,
 				Stage:     lp.LessonStage,
 				Uuid:      lessonUuid,
@@ -90,7 +90,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 			req := &scheduler.LessonScheduleRequest{
 				Operation: scheduler.OperationType_BOOP,
 				Uuid:      lessonUuid,
-				Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
+				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
 			}
 
 			s.Scheduler.Requests <- req
@@ -101,7 +101,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 
 	// 3 - if doesn't already exist, put together schedule request and send to channel
 	req := &scheduler.LessonScheduleRequest{
-		Lesson: s.Scheduler.Curriculum.Lessons[lp.LessonId],
+		Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
 		Operation: scheduler.OperationType_CREATE,
 		Stage:     lp.LessonStage,
 		Uuid:      lessonUuid,
@@ -148,16 +148,6 @@ func (s *SyringeAPIServer) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUI
 	if ll.Error {
 		return nil, errors.New("Livelesson encountered errors during provisioning. See syringe logs")
 	}
-
-	// Remove all blackbox entries
-	newEndpoints := map[string]*pb.LiveEndpoint{}
-	for name, e := range ll.LiveEndpoints {
-		if e.Type != pb.LiveEndpoint_BLACKBOX {
-			newEndpoints[name] = e
-		}
-	}
-	ll.LiveEndpoints = newEndpoints
-
 	return ll, nil
 
 }
@@ -254,7 +244,7 @@ func (s *SyringeAPIServer) RequestVerification(ctx context.Context, uuid *pb.Les
 	s.SetVerificationTask(vtUUID, newVt)
 
 	s.Scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		Lesson: s.Scheduler.Curriculum.Lessons[ll.LessonId],
+		Lesson:    s.Scheduler.Curriculum.Lessons[ll.LessonId],
 		Operation: scheduler.OperationType_VERIFY,
 		Stage:     ll.LessonStage,
 		Uuid:      uuid.Id,

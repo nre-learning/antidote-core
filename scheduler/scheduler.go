@@ -160,28 +160,32 @@ func (ls *LessonScheduler) deleteKubelab(uuid string) {
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
 	ls.killAllJobs(nsName, "config")
 
-	// Perform configuration changes for devices only
-	var deviceEndpoints []*pb.LiveEndpoint
-	for i := range liveLesson.LiveEndpoints {
-		ep := liveLesson.LiveEndpoints[i]
-		if ep.Type == pb.LiveEndpoint_DEVICE {
-			deviceEndpoints = append(deviceEndpoints, ep)
-		}
-	}
 	wg := new(sync.WaitGroup)
-	wg.Add(len(deviceEndpoints))
+	wg.Add(len(liveLesson.LiveEndpoints))
 	allGood := true
-	for i := range deviceEndpoints {
-		job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
+	for i := range liveLesson.LiveEndpoints {
+
+		// Ignore any endpoints that don't have a configuration option
+		if liveLesson.LiveEndpoints[i].Config.Type == "none" {
+			wg.Done()
+			continue
+		}
+
+		job, err := ls.configureDevice(liveLesson.LiveEndpoints[i], newRequest)
 		if err != nil {
-			log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
+			log.Errorf("Problem configuring device %s", liveLesson.LiveEndpoints[i].Name)
 			continue // TODO(mierdin): should quit entirely and return an error result to the channel
 		}
 		go func() {
 			defer wg.Done()
 
 			for i := 0; i < 120; i++ {
-				completed, _ := ls.isCompleted(job, newRequest)
+				completed, err := ls.isCompleted(job, newRequest)
+				if err != nil {
+					allGood = false
+					return
+				}
+
 				time.Sleep(5 * time.Second)
 				if completed {
 					return
@@ -323,15 +327,21 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 			testResult := false
 
-			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
-				log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = ls.HealthChecker.sshTest(ep)
-			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
-				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = ls.HealthChecker.tcpTest(ep)
-			} else {
-				testResult = true
-			}
+			// if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
+			// 	log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
+			// 	testResult = ls.HealthChecker.sshTest(ep)
+			// } else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
+			// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
+			// 	testResult = ls.HealthChecker.tcpTest(ep)
+			// } else {
+			// 	testResult = true
+			// }
+
+			// TODO: since the presentation layer work isn't done yet, I'm just running TCP health checks.
+			// need to update this with a health check for each presentation.
+			log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
+			testResult = ls.HealthChecker.tcpTest(ep)
+
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
 			reachableMap[ep.Name] = testResult
@@ -356,13 +366,13 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 // LessonHealthChecker describes a struct which offers a variety of reachability
 // tests for lesson endpoints.
 type LessonHealthChecker interface {
-	sshTest(*pb.LiveEndpoint) bool
-	tcpTest(*pb.LiveEndpoint) bool
+	sshTest(*pb.Endpoint) bool
+	tcpTest(*pb.Endpoint) bool
 }
 
 type LessonHealthCheck struct{}
 
-func (lhc *LessonHealthCheck) sshTest(ep *pb.LiveEndpoint) bool {
+func (lhc *LessonHealthCheck) sshTest(ep *pb.Endpoint) bool {
 	port := strconv.Itoa(int(ep.Port))
 	sshConfig := &ssh.ClientConfig{
 		User:            "antidote",
@@ -383,7 +393,7 @@ func (lhc *LessonHealthCheck) sshTest(ep *pb.LiveEndpoint) bool {
 	return true
 }
 
-func (lhc *LessonHealthCheck) tcpTest(ep *pb.LiveEndpoint) bool {
+func (lhc *LessonHealthCheck) tcpTest(ep *pb.Endpoint) bool {
 	intPort := strconv.Itoa(int(ep.Port))
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
 	if err != nil {
@@ -410,6 +420,7 @@ func usesJupyterLabGuide(ld *pb.Lesson) bool {
 func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
 
 	var host string
+	// TODO will need to address this
 	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
 		if len(svc.Spec.ExternalIPs) > 0 {
 			host = "svc.Spec.ExternalIPs[0]"
