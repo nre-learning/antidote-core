@@ -225,8 +225,8 @@ Kubelab = `{
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/expEndpointEndpointType"
+        "configurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -234,36 +234,12 @@ Kubelab = `{
             "type": "integer",
             "format": "int32"
           }
-        }
-      }
-    },
-    "expEndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
-          "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
+          }
         }
       }
     },
@@ -342,25 +318,7 @@ Kubelab = `{
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -461,6 +419,21 @@ Kubelab = `{
           "format": "boolean"
         },
         "VerifyObjective": {
+          "type": "string"
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
           "type": "string"
         }
       }
@@ -572,18 +545,6 @@ Lesson = `{
     }
   },
   "definitions": {
-    "EndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -604,8 +565,8 @@ Lesson = `{
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/EndpointEndpointType"
+        "configurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -613,24 +574,12 @@ Lesson = `{
             "type": "integer",
             "format": "int32"
           }
-        }
-      }
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
-          "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
+          }
         }
       }
     },
@@ -650,25 +599,7 @@ Lesson = `{
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -770,6 +701,21 @@ Lesson = `{
           "items": {
             "$ref": "#/definitions/expLesson"
           }
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
+          "type": "string"
         }
       }
     }

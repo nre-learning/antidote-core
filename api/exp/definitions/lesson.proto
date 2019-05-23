@@ -54,10 +54,12 @@ message Lesson {
   int32 LessonId = 1 [(validate.rules).int32.gt = 0];
   repeated LessonStage Stages = 2 [(validate.rules).repeated.min_items = 1];
   string LessonName = 3 [(validate.rules).string.min_len = 10];
-  repeated IframeResource IframeResources = 4;
-  repeated Endpoint Devices = 5;
-  repeated Endpoint Utilities = 6;
-  repeated Endpoint Blackboxes = 7;
+  // repeated IframeResource IframeResources = 4;
+  // repeated Endpoint Devices = 5;
+  // repeated Endpoint Utilities = 6;
+  // repeated Endpoint Blackboxes = 7;
+
+  repeated Endpoint Endpoints = 4;
   repeated Connection Connections = 8;
   string Category = 9 [(validate.rules).string = {in: ["fundamentals", "tools", "workflows"]}];
   string LessonDiagram = 10;
@@ -87,7 +89,7 @@ message LessonStage {
   string VerifyObjective = 6;
 }
 
-message Endpoint {
+message OldEndpoint {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
 
@@ -104,12 +106,31 @@ message Endpoint {
   repeated int32 Ports = 4;
 }
 
-message IframeResource {
-  string Ref = 1 [(validate.rules).string.min_len = 1];
-  string Protocol = 2 [(validate.rules).string.min_len = 1];
-  string Path = 3 [(validate.rules).string.min_len = 1];
-  int32 Port = 4 [(validate.rules).int32.gt = 0];
+message Endpoint {
+  string Name = 1 [(validate.rules).string.min_len = 1];
+  string Image = 2 [(validate.rules).string.min_len = 1];
+
+  string configurationType = 3 [(validate.rules).string = {in: ["napalm", "python", "bash", "ansible"]}];
+
+  repeated int32 Ports = 4;
+  repeated Presentation Presentations = 5;
 }
+
+message Presentation {
+  string Name = 1;
+  int32 Port = 2;
+  string Type = 3 [(validate.rules).string = {in: ["http", "vnc", "ssh"]}];
+
+  // string path? see iframe resource. This may not be needed on things that aren't jupyter
+}
+
+
+// message IframeResource {
+//   string Ref = 1 [(validate.rules).string.min_len = 1];
+//   string Protocol = 2 [(validate.rules).string.min_len = 1];
+//   string Path = 3 [(validate.rules).string.min_len = 1];
+//   int32 Port = 4 [(validate.rules).int32.gt = 0];
+// }
 
 message Connection {
   string A = 1 [(validate.rules).string.min_len = 1];

@@ -395,10 +395,6 @@ func (lhc *LessonHealthCheck) tcpTest(ep *pb.LiveEndpoint) bool {
 	return true
 }
 
-func HasDevices(ld *pb.Lesson) bool {
-	return len(ld.Devices) > 0
-}
-
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
 // jupyter notebook as a lab guide in any stage.
 func usesJupyterLabGuide(ld *pb.Lesson) bool {

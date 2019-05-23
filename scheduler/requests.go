@@ -128,20 +128,16 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		}
 	}
 
-	if HasDevices(newRequest.Lesson) {
-		log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
-		err := ls.configureStuff(nsName, liveLesson, newRequest)
-		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
+	log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
+	err = ls.configureStuff(nsName, liveLesson, newRequest)
+	if err != nil {
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			Lesson:    newRequest.Lesson,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
 		}
-	} else {
-		log.Infof("Nothing to configure in %s", newRequest.Uuid)
 	}
 
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
@@ -175,24 +171,20 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 
 	liveLesson := kl.ToLiveLesson()
 
-	if HasDevices(newRequest.Lesson) {
-		log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
-		err := ls.configureStuff(nsName, liveLesson, newRequest)
-		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
+	log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
+	err := ls.configureStuff(nsName, liveLesson, newRequest)
+	if err != nil {
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			Lesson:    newRequest.Lesson,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
 		}
-	} else {
-		log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
+		return
 	}
 
-	err := ls.boopNamespace(nsName)
+	err = ls.boopNamespace(nsName)
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
 	}

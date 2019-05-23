@@ -45,7 +45,6 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"endpointType":   ep.GetType().String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
 			},
@@ -113,27 +112,25 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 
 	ports := ep.GetPorts()
 
-	if ep.Type.String() == "DEVICE" || ep.Type.String() == "UTILITY" {
-		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-			Privileged:               &b,
-			AllowPrivilegeEscalation: &b,
-		}
+	// We should do away with the below. Not only should we be able to run containers in unprivileged mode, we should also
+	// not do any hidden things like provide a port 22 secretly. Consider removing this entirely.
+	//
+	// if ep.Type.String() == "DEVICE" || ep.Type.String() == "UTILITY" {
+	// 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+	// 		Privileged:               &b,
+	// 		AllowPrivilegeEscalation: &b,
+	// 	}
 
-		// Remove any existing port 22
-		newports := []int32{}
-		for p := range ports {
-			if ports[p] != 22 {
-				newports = append(newports, ports[p])
-			}
-		}
+	// 	// Remove any existing port 22
+	// 	newports := []int32{}
+	// 	for p := range ports {
+	// 		if ports[p] != 22 {
+	// 			newports = append(newports, ports[p])
+	// 		}
+	// 	}
 
-		// Add back in at the beginning, and append the rest.
-		ports = append([]int32{22}, newports...)
-	}
-
-	// else if etype.String() == "IFRAME" {
-	// 	port := req.Lesson.Stages[req.Stage].IframeResource.Port
-	// 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
+	// 	// Add back in at the beginning, and append the rest.
+	// 	ports = append([]int32{22}, newports...)
 	// }
 
 	// Add any remaining ports not specified by the user

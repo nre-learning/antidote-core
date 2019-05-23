@@ -36,8 +36,8 @@
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/expEndpointEndpointType"
+        "configurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -45,36 +45,12 @@
             "type": "integer",
             "format": "int32"
           }
-        }
-      }
-    },
-    "expEndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
-          "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
+          }
         }
       }
     },
@@ -153,25 +129,7 @@
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -272,6 +230,21 @@
           "format": "boolean"
         },
         "VerifyObjective": {
+          "type": "string"
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
           "type": "string"
         }
       }
