@@ -87,7 +87,9 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 }
 
-func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+
+	log.Debugf("Configuring endpoint %s", ep.Name)
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
 
@@ -101,21 +103,21 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 
 	var configCommand []string
 
-	if ep.Config.Type == "python" {
+	if ep.ConfigurationType == "python" {
 		configCommand = []string{
 			"python",
 			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
 		}
-	} else if ep.Config.Type == "bash" {
+	} else if ep.ConfigurationType == "bash" {
 		configCommand = []string{
 			"bash",
 			fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
 		}
-	} else if ep.Config.Type == "ansible" {
+	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
 			"ansible-playbook",
 			"-i",
-			fmt.Sprintf("10.0.3.248,", ep.Host),
+			fmt.Sprintf("%s,", ep.Host),
 			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
 		}
 	} else {
@@ -158,7 +160,12 @@ func (ls *LessonScheduler) configureDevice(ep *pb.Endpoint, req *LessonScheduleR
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
 							ImagePullPolicy: "Always",
-							VolumeMounts:    volumeMounts,
+							Env: []corev1.EnvVar{
+
+								// Providing intended host to configurator
+								{Name: "SYRINGE_TARGET_HOST", Value: ep.Host},
+							},
+							VolumeMounts: volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",

@@ -122,6 +122,8 @@ func ImportLessons(syringeConfig *config.SyringeConfig) (map[int32]*pb.Lesson, e
 
 		file := fileList[f]
 
+		log.Infof("Importing lesson definition at: %s", file)
+
 		yamlDef, err := ioutil.ReadFile(file)
 		if err != nil {
 			log.Errorf("Encountered problem %s", err)
@@ -199,7 +201,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 
 		ep := lesson.Endpoints[i]
 
-		if ep.Config.Type == "none" {
+		if ep.ConfigurationType == "" {
 			continue
 		}
 
@@ -211,12 +213,22 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 
 		// Ensure the necessary config file is present for all stages
 		for s := range lesson.Stages {
-			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileMap[ep.Config.Type])
+			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileMap[ep.ConfigurationType])
 			_, err := ioutil.ReadFile(fileName)
 			if err != nil {
-				log.Errorf("Configuration for endpoint %s stage %d was not found.", ep.Name, lesson.Stages[s].Id)
+				log.Errorf("Configuration script %s was not found.", fileName)
 				return fail
 			}
+		}
+
+		// Ensure each presentation name is unique for each endpoint
+		seenPresentations := map[string]*pb.Presentation{}
+		for n := range ep.Presentations {
+			if _, ok := seenPresentations[ep.Presentations[n].Name]; ok {
+				log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Presentation %s appears more than once for an endpoint", ep.Presentations[n].Name)))
+				return fail
+			}
+			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n]
 		}
 	}
 

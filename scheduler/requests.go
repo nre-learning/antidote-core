@@ -138,6 +138,18 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 			Operation: newRequest.Operation,
 			Stage:     newRequest.Stage,
 		}
+	} else {
+		log.Debugf("Setting %s to READY", newRequest.Uuid)
+		newKubeLab.Status = pb.Status_READY
+
+		ls.Results <- &LessonScheduleResult{
+			Success:          true,
+			Lesson:           newRequest.Lesson,
+			Uuid:             newRequest.Uuid,
+			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
+			Operation:        newRequest.Operation,
+			Stage:            newRequest.Stage,
+		}
 	}
 
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
@@ -147,17 +159,6 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
 
-	log.Debugf("Setting %s to READY", newRequest.Uuid)
-	newKubeLab.Status = pb.Status_READY
-
-	ls.Results <- &LessonScheduleResult{
-		Success:          true,
-		Lesson:           newRequest.Lesson,
-		Uuid:             newRequest.Uuid,
-		ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
-		Operation:        newRequest.Operation,
-		Stage:            newRequest.Stage,
-	}
 }
 
 func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {

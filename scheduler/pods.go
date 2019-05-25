@@ -111,26 +111,13 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 
 	ports := ep.GetPorts()
 
-	// We should do away with the below. Not only should we be able to run containers in unprivileged mode, we should also
-	// not do any hidden things like provide a port 22 secretly. Consider removing this entirely.
-	//
-	// if ep.Type.String() == "DEVICE" || ep.Type.String() == "UTILITY" {
-	// 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-	// 		Privileged:               &b,
-	// 		AllowPrivilegeEscalation: &b,
-	// 	}
-
-	// 	// Remove any existing port 22
-	// 	newports := []int32{}
-	// 	for p := range ports {
-	// 		if ports[p] != 22 {
-	// 			newports = append(newports, ports[p])
-	// 		}
-	// 	}
-
-	// 	// Add back in at the beginning, and append the rest.
-	// 	ports = append([]int32{22}, newports...)
-	// }
+	// TODO(mierdin): Can we remove this? Or at least only set this when certain images are used?
+	// This may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
+	b := true
+	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+		Privileged:               &b,
+		AllowPrivilegeEscalation: &b,
+	}
 
 	// Add any remaining ports not specified by the user
 	for p := range ports {

@@ -80,17 +80,19 @@ enum Status {
 message LiveLesson {
   string LessonUUID = 1;
   int32 LessonId = 2;
+
   map <string, Endpoint> LiveEndpoints  = 3;
-  int32 LessonStage = 4;
-  string LabGuide = 5;
-  bool JupyterLabGuide = 6;
 
-  Status LiveLessonStatus = 7;
+  int32 LessonStage = 5;
+  string LabGuide = 6;
+  bool JupyterLabGuide = 7;
 
-  google.protobuf.Timestamp createdTime = 8;
-  string LessonDiagram = 9;
-  string LessonVideo = 10;
-  bool Error = 11;
+  Status LiveLessonStatus = 8;
+
+  google.protobuf.Timestamp createdTime = 9;
+  string LessonDiagram = 10;
+  string LessonVideo = 11;
+  bool Error = 12;
 }
 
 message LiveLessons {

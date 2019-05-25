@@ -161,20 +161,24 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 	ls.killAllJobs(nsName, "config")
 
 	wg := new(sync.WaitGroup)
+	log.Debugf("Endpoints length: %d", len(liveLesson.LiveEndpoints))
 	wg.Add(len(liveLesson.LiveEndpoints))
 	allGood := true
 	for i := range liveLesson.LiveEndpoints {
 
 		// Ignore any endpoints that don't have a configuration option
-		if liveLesson.LiveEndpoints[i].Config.Type == "none" {
+		if liveLesson.LiveEndpoints[i].ConfigurationType == "" {
+			log.Debugf("No configuration option specified for %s - skipping.", liveLesson.LiveEndpoints[i].Name)
 			wg.Done()
 			continue
 		}
 
-		job, err := ls.configureDevice(liveLesson.LiveEndpoints[i], newRequest)
+		job, err := ls.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
 		if err != nil {
-			log.Errorf("Problem configuring device %s", liveLesson.LiveEndpoints[i].Name)
+			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
 			continue // TODO(mierdin): should quit entirely and return an error result to the channel
+			// though this error is only immediate errors creating the job. This will succeed even if
+			// the eventually configuration fails. See below for a better handle on configuration failures.
 		}
 		go func() {
 			defer wg.Done()
@@ -313,40 +317,62 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 	reachableMap := map[string]bool{}
 
+	pcount := 0
+	for n := range ll.LiveEndpoints {
+		pcount = pcount + len(ll.LiveEndpoints[n].Presentations)
+	}
+
 	wg := new(sync.WaitGroup)
-	wg.Add(len(ll.LiveEndpoints))
+
+	// Instead of using the length of the endpoint slice, use getPresentations
+	// to get the full number of Presentations, and use that length
+	wg.Add(pcount)
 
 	var mapMutex = &sync.Mutex{}
 
-	for d := range ll.LiveEndpoints {
+	for j := range ll.LiveEndpoints {
 
-		ep := ll.LiveEndpoints[d]
+		ep := ll.LiveEndpoints[j]
 
-		go func() {
-			defer wg.Done()
+		// TODO this means that only endpoints with presentations will have healthchecks.
+		// Should consider adding a basic health check for presentation-less endpoints, otherwise the
+		// lesson might be marked ready earlier than intended.
+		// TODO should also find a way to update the endpoint status based on these returns (may need
+		// to do this at the caller). Right now it goes from 0/2 to config
+		for i := range ep.Presentations {
 
-			testResult := false
+			go func() {
+				defer wg.Done()
 
-			// if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
-			// 	log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-			// 	testResult = ls.HealthChecker.sshTest(ep)
-			// } else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
-			// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-			// 	testResult = ls.HealthChecker.tcpTest(ep)
-			// } else {
-			// 	testResult = true
-			// }
+				testResult := false
 
-			// TODO: since the presentation layer work isn't done yet, I'm just running TCP health checks.
-			// need to update this with a health check for each presentation.
-			log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-			testResult = ls.HealthChecker.tcpTest(ep)
+				lp := ep.Presentations[i]
 
-			mapMutex.Lock()
-			defer mapMutex.Unlock()
-			reachableMap[ep.Name] = testResult
+				if lp.Type == "ssh" {
+					log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+					testResult = ls.HealthChecker.sshTest(ep.Host, int(lp.Port))
+				} else if lp.Type == "http" {
+					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				} else if lp.Type == "vnc" {
+					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				} else {
+					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				}
 
-		}()
+				if testResult {
+					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, lp.Port)
+				}
+
+				mapMutex.Lock()
+				defer mapMutex.Unlock()
+				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
+
+			}()
+
+		}
 	}
 
 	c := make(chan struct{})
@@ -366,14 +392,14 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 // LessonHealthChecker describes a struct which offers a variety of reachability
 // tests for lesson endpoints.
 type LessonHealthChecker interface {
-	sshTest(*pb.Endpoint) bool
-	tcpTest(*pb.Endpoint) bool
+	sshTest(string, int) bool
+	tcpTest(string, int) bool
 }
 
 type LessonHealthCheck struct{}
 
-func (lhc *LessonHealthCheck) sshTest(ep *pb.Endpoint) bool {
-	port := strconv.Itoa(int(ep.Port))
+func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
+	strPort := strconv.Itoa(int(port))
 	sshConfig := &ssh.ClientConfig{
 		User:            "antidote",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -383,25 +409,22 @@ func (lhc *LessonHealthCheck) sshTest(ep *pb.Endpoint) bool {
 		Timeout: time.Second * 2,
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ep.Host, port), sshConfig)
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	log.Debugf("%s is live at %s:%s", ep.Name, ep.Host, port)
 	return true
 }
 
-func (lhc *LessonHealthCheck) tcpTest(ep *pb.Endpoint) bool {
-	intPort := strconv.Itoa(int(ep.Port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
+func (lhc *LessonHealthCheck) tcpTest(host string, port int) bool {
+	strPort := strconv.Itoa(int(port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, strPort), 2*time.Second)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
-
-	log.Debugf("done connect testing %s", ep.Host)
 	return true
 }
 
@@ -415,28 +438,4 @@ func usesJupyterLabGuide(ld *pb.Lesson) bool {
 	}
 
 	return false
-}
-
-func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
-
-	var host string
-	// TODO will need to address this
-	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
-		if len(svc.Spec.ExternalIPs) > 0 {
-			host = "svc.Spec.ExternalIPs[0]"
-		} else {
-			host = svc.Spec.ClusterIP
-		}
-		return host, int(svc.Spec.Ports[0].Port), nil
-	} else {
-		host = svc.Spec.ClusterIP
-	}
-
-	// We are only using the first port for the health check.
-	if len(svc.Spec.Ports) == 0 {
-		return "", 0, errors.New("unable to find port for service")
-	} else {
-		return host, int(svc.Spec.Ports[0].Port), nil
-	}
-
 }

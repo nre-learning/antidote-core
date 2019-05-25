@@ -205,14 +205,6 @@ Kubelab = `{
   ],
   "paths": {},
   "definitions": {
-    "EndpointEndpointConfiguration": {
-      "type": "object",
-      "properties": {
-        "Type": {
-          "type": "string"
-        }
-      }
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -233,8 +225,8 @@ Kubelab = `{
         "Image": {
           "type": "string"
         },
-        "Config": {
-          "$ref": "#/definitions/EndpointEndpointConfiguration"
+        "ConfigurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -250,12 +242,7 @@ Kubelab = `{
           }
         },
         "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "Reachable": {
           "type": "boolean",
@@ -565,14 +552,6 @@ Lesson = `{
     }
   },
   "definitions": {
-    "EndpointEndpointConfiguration": {
-      "type": "object",
-      "properties": {
-        "Type": {
-          "type": "string"
-        }
-      }
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -593,8 +572,8 @@ Lesson = `{
         "Image": {
           "type": "string"
         },
-        "Config": {
-          "$ref": "#/definitions/EndpointEndpointConfiguration"
+        "ConfigurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -610,12 +589,7 @@ Lesson = `{
           }
         },
         "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "Reachable": {
           "type": "boolean",
@@ -905,14 +879,6 @@ Livelesson = `{
     }
   },
   "definitions": {
-    "EndpointEndpointConfiguration": {
-      "type": "object",
-      "properties": {
-        "Type": {
-          "type": "string"
-        }
-      }
-    },
     "expEndpoint": {
       "type": "object",
       "properties": {
@@ -922,8 +888,8 @@ Livelesson = `{
         "Image": {
           "type": "string"
         },
-        "Config": {
-          "$ref": "#/definitions/EndpointEndpointConfiguration"
+        "ConfigurationType": {
+          "type": "string"
         },
         "Ports": {
           "type": "array",
@@ -939,12 +905,7 @@ Livelesson = `{
           }
         },
         "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "Reachable": {
           "type": "boolean",

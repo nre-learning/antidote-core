@@ -110,28 +110,18 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 		LiveLessonStatus: kl.Status,
 	}
 
+	// Provide enriched (with Host and Port) Endpoint structs to API by using data from each Kubelab Service
 	for s := range kl.Services {
 
-		// find corresponding pod for this service
-		var podBuddy *corev1.Pod
-		for p := range kl.Pods {
-			if kl.Pods[p].ObjectMeta.Name == kl.Services[s].ObjectMeta.Name {
-				podBuddy = kl.Pods[p]
-				break
+		endpoint := &pb.Endpoint{}
+		for i := range kl.CreateRequest.Lesson.Endpoints {
+			ep := kl.CreateRequest.Lesson.Endpoints[i]
+			if ep.Name == kl.Services[s].ObjectMeta.Name {
+				endpoint.Name = ep.Name
+				endpoint.ConfigurationType = ep.ConfigurationType
+				endpoint.Host = kl.Services[s].Spec.ClusterIP
+				endpoint.Presentations = ep.Presentations
 			}
-		}
-
-		// TODO(mierdin): handle if podbuddy is still empty
-
-		host, port, _ := getConnectivityInfo(kl.Services[s])
-		// portInt, _ := strconv.Atoi(port)
-
-		endpoint := &pb.Endpoint{
-			Name: podBuddy.ObjectMeta.Name,
-			// Type: pb.Endpoint_EndpointType(pb.Endpoint_EndpointType_value[podBuddy.Labels["endpointType"]]),
-			Host: host,
-			Port: int32(port),
-			// ApiPort
 		}
 
 		// Convert kubelab reachability to livelesson reachability
