@@ -92,7 +92,7 @@ message LessonStage {
 message Endpoint {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
-  string ConfigurationType = 3 [(validate.rules).string = {in: ["python", "bash", "ansible", ""]}];
+  string ConfigurationType = 3 [(validate.rules).string = {in: ["python", "ansible", ""]}];
 
   // Handles any ports not explicitly mentioned in a presentation
   repeated int32 AdditionalPorts = 4;
@@ -109,8 +109,6 @@ message Presentation {
   string Name = 1;
   int32 Port = 2;
   string Type = 3 [(validate.rules).string = {in: ["http", "vnc", "ssh"]}];
-
-  // string path? see iframe resource. This may not be needed on things that aren't jupyter
 }
 
 
