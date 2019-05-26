@@ -115,12 +115,14 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		ports = append(ports, ep.Presentations[p].Port)
 	}
 
-	// TODO(mierdin): Can we remove this? Or at least only set this when certain images are used?
-	// This may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
-	b := true
-	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-		Privileged:               &b,
-		AllowPrivilegeEscalation: &b,
+	// TODO this is obviously not ideal, might want to find a better, more dynamic way. Or make it so that this isn't required, that would be best.1
+	// Also, this may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
+	if ep.Image == "antidotelabs/vqfx:snap1" || ep.Image == "antidotelabs/vqfx:snap2" || ep.Image == "antidotelabs/vqfx:snap3" || ep.Image == "antidotelabs/vqfx-full:18.1R1.9" {
+		b := true
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &b,
+			AllowPrivilegeEscalation: &b,
+		}
 	}
 
 	// Convert to ContainerPort and attach to pod container
