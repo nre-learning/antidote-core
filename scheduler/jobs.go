@@ -116,6 +116,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
 			"ansible-playbook",
+			"-vvvv",
 			"-i",
 			fmt.Sprintf("%s,", ep.Host),
 			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
@@ -164,6 +165,8 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 
 								// Providing intended host to configurator
 								{Name: "SYRINGE_TARGET_HOST", Value: ep.Host},
+
+								{Name: "ANSIBLE_HOST_KEY_CHECKING", Value: "False"},
 							},
 							VolumeMounts: volumeMounts,
 						},
