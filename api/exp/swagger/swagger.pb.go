@@ -228,12 +228,13 @@ Kubelab = `{
         "ConfigurationType": {
           "type": "string"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          }
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
         },
         "Presentations": {
           "type": "array",
@@ -575,12 +576,13 @@ Lesson = `{
         "ConfigurationType": {
           "type": "string"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          }
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
         },
         "Presentations": {
           "type": "array",
@@ -891,12 +893,13 @@ Livelesson = `{
         "ConfigurationType": {
           "type": "string"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          }
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
         },
         "Presentations": {
           "type": "array",

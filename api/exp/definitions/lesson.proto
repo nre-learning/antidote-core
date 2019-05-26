@@ -94,7 +94,9 @@ message Endpoint {
   string Image = 2 [(validate.rules).string.min_len = 1];
   string ConfigurationType = 3 [(validate.rules).string = {in: ["python", "bash", "ansible", ""]}];
 
-  repeated int32 Ports = 4;
+  // Handles any ports not explicitly mentioned in a presentation
+  repeated int32 AdditionalPorts = 4;
+
   repeated Presentation Presentations = 5;
   
   string Host = 6;

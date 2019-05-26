@@ -156,12 +156,12 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		Ingresses:     map[string]*v1beta1.Ingress{},
 	}
 
-	// Append black box container and create ingress for jupyter lab guide if necessary
+	// Append endpoint and create ingress for jupyter lab guide if necessary
 	if usesJupyterLabGuide(req.Lesson) {
 		jupyterEp := &pb.Endpoint{
-			Name:  "jupyterlabguide",
-			Image: "antidotelabs/jupyter:newpath",
-			Ports: []int32{8888},
+			Name:            "jupyterlabguide",
+			Image:           "antidotelabs/jupyter:newpath",
+			AdditionalPorts: []int32{8888},
 		}
 		req.Lesson.Endpoints = append(req.Lesson.Endpoints, jupyterEp)
 

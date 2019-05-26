@@ -47,8 +47,6 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	for p := range pod.Spec.Containers[0].Ports {
 
-		// TODO(mierdin): need to do something different for NOTEBOOK/IFRAME endpoints
-
 		port := pod.Spec.Containers[0].Ports[p].ContainerPort
 
 		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{

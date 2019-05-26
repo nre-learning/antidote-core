@@ -109,7 +109,11 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	ports := ep.GetPorts()
+	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
+	ports := ep.GetAdditionalPorts()
+	for p := range ep.Presentations {
+		ports = append(ports, ep.Presentations[p].Port)
+	}
 
 	// TODO(mierdin): Can we remove this? Or at least only set this when certain images are used?
 	// This may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
@@ -119,7 +123,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		AllowPrivilegeEscalation: &b,
 	}
 
-	// Add any remaining ports not specified by the user
+	// Convert to ContainerPort and attach to pod container
 	for p := range ports {
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
 	}
