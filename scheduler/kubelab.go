@@ -179,6 +179,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		newNet, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
 		if err != nil {
 			log.Error(err)
+			return nil, err
 		}
 
 		// log.Infof("About to add %v at index %s", &newNet, &newNet.ObjectMeta.Name)
@@ -198,6 +199,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		)
 		if err != nil {
 			log.Error(err)
+			return nil, err
 		}
 		kl.Pods[newPod.ObjectMeta.Name] = newPod
 
@@ -209,6 +211,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 			)
 			if err != nil {
 				log.Error(err)
+				return nil, err
 			}
 			kl.Services[newSvc.ObjectMeta.Name] = newSvc
 		}

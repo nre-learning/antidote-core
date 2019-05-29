@@ -76,11 +76,19 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 		// Update reachability status
 		endpointUnreachable := false
-		for epName, reachable := range epr {
-			if reachable {
+		for epName, reachables := range epr {
+
+			// Check to see if any tests for this endpoint failed
+			for r := range reachables {
+				if !reachables[r] {
+					endpointUnreachable = true
+					break
+				}
+			}
+
+			// If we're still good, mark the endpoint reachable.
+			if !endpointUnreachable {
 				newKubeLab.setEndpointReachable(epName)
-			} else {
-				endpointUnreachable = true
 			}
 		}
 

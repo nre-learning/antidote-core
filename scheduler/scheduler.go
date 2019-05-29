@@ -313,20 +313,20 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 
 }
 
-func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
+func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string][]bool {
 
-	reachableMap := map[string]bool{}
-
-	pcount := 0
-	for n := range ll.LiveEndpoints {
-		pcount = pcount + len(ll.LiveEndpoints[n].Presentations)
-	}
+	reachableMap := map[string][]bool{}
 
 	wg := new(sync.WaitGroup)
+	for n := range ll.LiveEndpoints {
 
-	// Instead of using the length of the endpoint slice, use getPresentations
-	// to get the full number of Presentations, and use that length
-	wg.Add(pcount)
+		if len(ll.LiveEndpoints[n].Presentations) == 0 {
+			wg.Add(1)
+			continue
+		}
+
+		wg.Add(len(ll.LiveEndpoints[n].Presentations))
+	}
 
 	var mapMutex = &sync.Mutex{}
 
@@ -334,11 +334,29 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 		ep := ll.LiveEndpoints[j]
 
-		// TODO this means that only endpoints with presentations will have healthchecks.
-		// Should consider adding a basic health check for presentation-less endpoints, otherwise the
-		// lesson might be marked ready earlier than intended.
-		// TODO should also find a way to update the endpoint status based on these returns (may need
-		// to do this at the caller). Right now it goes from 0/2 to config
+		// If no presentations, we can just test the first port in the additionalPorts list.
+		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) != 0 {
+
+			go func() {
+				defer wg.Done()
+				testResult := false
+
+				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
+				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.AdditionalPorts[0]))
+
+				if testResult {
+					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
+				}
+
+				mapMutex.Lock()
+				defer mapMutex.Unlock()
+				if _, ok := reachableMap[ep.Name]; !ok {
+					reachableMap[ep.Name] = []bool{}
+				}
+				reachableMap[ep.Name] = append(reachableMap[ep.Name], testResult)
+			}()
+		}
+
 		for i := range ep.Presentations {
 
 			go func() {
@@ -363,15 +381,17 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 				}
 
 				if testResult {
-					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, lp.Port)
+					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
 				}
 
 				mapMutex.Lock()
 				defer mapMutex.Unlock()
-				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
+				if _, ok := reachableMap[ep.Name]; !ok {
+					reachableMap[ep.Name] = []bool{}
+				}
+				reachableMap[ep.Name] = append(reachableMap[ep.Name], testResult)
 
 			}()
-
 		}
 	}
 

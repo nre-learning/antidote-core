@@ -109,12 +109,6 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
-	ports := ep.GetAdditionalPorts()
-	for p := range ep.Presentations {
-		ports = append(ports, ep.Presentations[p].Port)
-	}
-
 	// TODO this is obviously not ideal, might want to find a better, more dynamic way. Or make it so that this isn't required, that would be best.1
 	// Also, this may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
 	if ep.Image == "antidotelabs/vqfx:snap1" || ep.Image == "antidotelabs/vqfx:snap2" || ep.Image == "antidotelabs/vqfx:snap3" || ep.Image == "antidotelabs/vqfx-full:18.1R1.9" {
@@ -125,13 +119,20 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		}
 	}
 
+	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
+	rawPorts := ep.GetAdditionalPorts()
+	for p := range ep.Presentations {
+		rawPorts = append(rawPorts, ep.Presentations[p].Port)
+	}
+	ports := unique(rawPorts)
+
 	// Convert to ContainerPort and attach to pod container
 	for p := range ports {
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
-		return nil, errors.New("not creating pod - must have at least one port exposed")
+		return nil, errors.New(fmt.Sprintf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name))
 	}
 
 	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
@@ -155,4 +156,16 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		return nil, err
 	}
 	return result, err
+}
+
+func unique(intSlice []int32) []int32 {
+	keys := make(map[int32]bool)
+	list := []int32{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
