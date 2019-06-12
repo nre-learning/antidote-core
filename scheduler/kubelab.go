@@ -23,6 +23,8 @@ type KubeLab struct {
 	Status             pb.Status
 	ReachableEndpoints []string // endpoint names
 	CurrentStage       int32
+	HealthyTests       int
+	TotalTests         int
 }
 
 // ToProtoKubeLab is a converter function that transforms a native KubeLab struct instance
@@ -108,6 +110,8 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 			Seconds: ts,
 		},
 		LiveLessonStatus: kl.Status,
+		TotalTests:       int32(kl.TotalTests),
+		HealthyTests:     int32(kl.HealthyTests),
 	}
 
 	// Provide enriched (with Host and Port) Endpoint structs to API by using data from each Kubelab Service
@@ -121,14 +125,9 @@ func (kl *KubeLab) ToLiveLesson() *pb.LiveLesson {
 				endpoint.ConfigurationType = ep.ConfigurationType
 				endpoint.Host = kl.Services[s].Spec.ClusterIP
 				endpoint.Presentations = ep.Presentations
+				endpoint.AdditionalPorts = ep.AdditionalPorts
 			}
 		}
-
-		// Convert kubelab reachability to livelesson reachability
-		if kl.isReachable(endpoint.Name) {
-			endpoint.Reachable = true
-		}
-
 		ret.LiveEndpoints[endpoint.Name] = endpoint
 	}
 

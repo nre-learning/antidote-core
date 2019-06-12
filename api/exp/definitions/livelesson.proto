@@ -93,6 +93,8 @@ message LiveLesson {
   string LessonDiagram = 10;
   string LessonVideo = 11;
   bool Error = 12;
+  int32 HealthyTests = 13;
+  int32 TotalTests = 14;
 }
 
 message LiveLessons {

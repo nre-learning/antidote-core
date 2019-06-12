@@ -244,10 +244,6 @@ Kubelab = `{
         },
         "Host": {
           "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },
@@ -592,10 +588,6 @@ Lesson = `{
         },
         "Host": {
           "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },
@@ -909,10 +901,6 @@ Livelesson = `{
         },
         "Host": {
           "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },
@@ -995,6 +983,14 @@ Livelesson = `{
         "Error": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "HealthyTests": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "TotalTests": {
+          "type": "integer",
+          "format": "int32"
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."

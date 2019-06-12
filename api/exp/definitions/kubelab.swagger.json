@@ -55,10 +55,6 @@
         },
         "Host": {
           "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },

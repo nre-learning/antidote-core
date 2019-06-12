@@ -70,27 +70,25 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		epr := ls.testEndpointReachability(liveLesson)
+		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", liveLesson.LessonUUID, liveLesson.LiveEndpoints)
 
-		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
+		reachability := ls.testEndpointReachability(liveLesson)
+
+		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, reachability)
 
 		// Update reachability status
-		endpointUnreachable := false
-		for epName, reachables := range epr {
-
-			// Check to see if any tests for this endpoint failed
-			for r := range reachables {
-				if !reachables[r] {
-					endpointUnreachable = true
-					break
-				}
-			}
-
-			// If we're still good, mark the endpoint reachable.
-			if !endpointUnreachable {
-				newKubeLab.setEndpointReachable(epName)
+		failed := false
+		healthy := 0
+		total := len(reachability)
+		for _, reachable := range reachability {
+			if reachable {
+				healthy++
+			} else {
+				failed = true
 			}
 		}
+		newKubeLab.HealthyTests = healthy
+		newKubeLab.TotalTests = total
 
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
@@ -102,7 +100,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		}
 
 		// Begin again if one of the endpoints isn't reachable
-		if endpointUnreachable {
+		if failed {
 			continue
 		}
 

@@ -101,8 +101,6 @@ message Endpoint {
   
   string Host = 6;
 
-  bool Reachable = 8;
-
 }
 
 message Presentation {

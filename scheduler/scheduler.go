@@ -313,26 +313,41 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 
 }
 
-func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string][]bool {
+func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
-	reachableMap := map[string][]bool{}
-
+	// Prepare the reachability map as well as the waitgroup to handle the concurrency
+	// of our health checks. We want to pre-populate every possible health check with a
+	// false value, so we don't accidentally "pass" a livelesson reachability test by
+	// omission.
+	reachableMap := map[string]bool{}
 	wg := new(sync.WaitGroup)
 	for n := range ll.LiveEndpoints {
 
+		ep := ll.LiveEndpoints[n]
+
+		// Add one delta value to the waitgroup and prepopulate the reachability map
+		// with a "false" value based on the endpoint name, since it doesn't
+		// have any presentations.
 		if len(ll.LiveEndpoints[n].Presentations) == 0 {
 			wg.Add(1)
+			reachableMap[ep.Name] = false
 			continue
 		}
 
-		wg.Add(len(ll.LiveEndpoints[n].Presentations))
+		// For each presentation, add one delta value to the waitgroup
+		// and add an entry to the reachability map based on the endpoint
+		// and presentation names
+		for p := range ep.Presentations {
+			wg.Add(1)
+			reachableMap[fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name)] = false
+		}
 	}
 
+	// Now that we have a properly sized waitgroup and a prepared reachability map, we can perform the health checks.
 	var mapMutex = &sync.Mutex{}
+	for n := range ll.LiveEndpoints {
 
-	for j := range ll.LiveEndpoints {
-
-		ep := ll.LiveEndpoints[j]
+		ep := ll.LiveEndpoints[n]
 
 		// If no presentations, we can just test the first port in the additionalPorts list.
 		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) != 0 {
@@ -350,46 +365,44 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 				mapMutex.Lock()
 				defer mapMutex.Unlock()
-				if _, ok := reachableMap[ep.Name]; !ok {
-					reachableMap[ep.Name] = []bool{}
-				}
-				reachableMap[ep.Name] = append(reachableMap[ep.Name], testResult)
+				reachableMap[ep.Name] = testResult
 			}()
 		}
 
 		for i := range ep.Presentations {
+
+			lp := ep.Presentations[i]
 
 			go func() {
 				defer wg.Done()
 
 				testResult := false
 
-				lp := ep.Presentations[i]
+				// if lp.Type == "ssh" {
+				// 	log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+				// 	testResult = ls.HealthChecker.sshTest(ep.Host, int(lp.Port))
+				// } else if lp.Type == "http" {
+				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				// } else if lp.Type == "vnc" {
+				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				// } else {
+				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
+				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
+				// }
 
-				if lp.Type == "ssh" {
-					log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-					testResult = ls.HealthChecker.sshTest(ep.Host, int(lp.Port))
-				} else if lp.Type == "http" {
-					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				} else if lp.Type == "vnc" {
-					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				} else {
-					log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-					testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				}
-
+				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
+				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
+				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
+				testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port))
 				if testResult {
 					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
 				}
 
 				mapMutex.Lock()
 				defer mapMutex.Unlock()
-				if _, ok := reachableMap[ep.Name]; !ok {
-					reachableMap[ep.Name] = []bool{}
-				}
-				reachableMap[ep.Name] = append(reachableMap[ep.Name], testResult)
+				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
 
 			}()
 		}
