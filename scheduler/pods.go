@@ -109,9 +109,19 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	// TODO this is obviously not ideal, might want to find a better, more dynamic way. Or make it so that this isn't required, that would be best.1
-	// Also, this may only apply to the vqfx lite (which does stuff with tap interfaces - might want to see how the full vqfx image acts with this disabled)
-	if ep.Image == "antidotelabs/vqfx:snap1" || ep.Image == "antidotelabs/vqfx:snap2" || ep.Image == "antidotelabs/vqfx:snap3" || ep.Image == "antidotelabs/vqfx-full:18.1R1.9" {
+	// TODO(mierdin): Obviously, this isn't ideal. We were previously granting privileged status to
+	// all containers, so this is technically an improvement, but not much of one. Preferably very soon
+	// we should come up with a more suitable short-term solution. The correct long-term solution
+	// might be something like labtainers, or kubevirt.
+	// Privileged status is currently required by both the lite and full vqfx versions.
+	// It may also be required by other images we bring on board.
+	privilegedImages := map[string]string{
+		"antidotelabs/vqfx:snap1":         "",
+		"antidotelabs/vqfx:snap2":         "",
+		"antidotelabs/vqfx:snap3":         "",
+		"antidotelabs/vqfx-full:18.1R1.9": "",
+	}
+	if _, ok := privilegedImages[ep.Image]; ok {
 		b := true
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &b,

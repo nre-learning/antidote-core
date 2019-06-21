@@ -29,7 +29,6 @@ service LessonService {
 
 }
 
-
 extend google.protobuf.FieldOptions {
   Syringe syringe = 1234;
 }
