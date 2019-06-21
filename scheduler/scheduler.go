@@ -378,20 +378,6 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 				testResult := false
 
-				// if lp.Type == "ssh" {
-				// 	log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-				// 	testResult = ls.HealthChecker.sshTest(ep.Host, int(lp.Port))
-				// } else if lp.Type == "http" {
-				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				// } else if lp.Type == "vnc" {
-				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				// } else {
-				// 	log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, lp.Port)
-				// 	testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port)) //TODO: update
-				// }
-
 				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
 				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
 				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
