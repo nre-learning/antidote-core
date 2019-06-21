@@ -31,7 +31,6 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
-				"endpointType":   pod.ObjectMeta.Labels["endpointType"],
 			},
 		},
 		Spec: corev1.ServiceSpec{
