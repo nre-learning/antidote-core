@@ -76,33 +76,37 @@ func createFakeScheduler() *LessonScheduler {
 					Description: "foobar",
 				},
 			},
-			LessonName:      "Test Lesson",
-			IframeResources: []*pb.IframeResource{},
-			Devices: []*pb.Endpoint{
+			LessonName: "Test Lesson",
+			Endpoints: []*pb.Endpoint{
 				{
 					Name:  "vqfx1",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
 				{
 					Name:  "vqfx2",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
 				{
 					Name:  "vqfx3",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
-			},
-			Utilities: []*pb.Endpoint{
 				{
 					Name:  "linux1",
-					Type:  pb.Endpoint_UTILITY,
 					Image: "antidotelabs/utility",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
 			},
-			Blackboxes: []*pb.Endpoint{},
 			Connections: []*pb.Connection{
 				{
 					A: "vqfx1",

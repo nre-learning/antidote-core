@@ -42,8 +42,10 @@ func TestPods(t *testing.T) {
 		pod, err := lessonScheduler.createPod(
 			&pb.Endpoint{
 				Name:  "linux1",
-				Type:  pb.Endpoint_UTILITY,
 				Image: "antidotelabs/utility",
+				Presentations: []*pb.Presentation{
+					{Name: "cli", Type: "ssh", Port: 22},
+				},
 			},
 			[]string{"1", "2", "3"},
 			&LessonScheduleRequest{
@@ -63,33 +65,6 @@ func TestPods(t *testing.T) {
 
 		// TODO(mierdin): Assert expected networks exist properly
 
-	})
-
-	// Test bad pod creation
-	t.Run("A=1", func(t *testing.T) {
-
-		pod, err := lessonScheduler.createPod(
-			&pb.Endpoint{
-				Name: "linux1",
-
-				// Lots of stuff happens if the type of the endpoint is not known.
-				// Such as failing to assign ports. We want to make sure this throws an error
-				// as expected.
-				Type:  pb.Endpoint_UNKNOWN,
-				Image: "antidotelabs/utility",
-			},
-			[]string{"1", "2", "3"},
-			&LessonScheduleRequest{
-				Uuid: uuid,
-				Lesson: &pb.Lesson{
-					LessonId: 1,
-				},
-			},
-		)
-
-		// Assert pod creation had errors.
-		assert(t, (pod == nil), "")
-		assert(t, (err != nil), "")
 	})
 
 }
