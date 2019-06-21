@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -98,9 +99,6 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
 
-	// configFile := fmt.Sprintf("%s/lessons/lesson-%d/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Lesson.LessonId, req.Stage, ep.Name)
-	// configFile := fmt.Sprintf("%s/stage%d/configs/%s.txt", ls.SyringeConfig.CurriculumDir, req.Stage, ep.Name)
-
 	var configCommand []string
 
 	if ep.ConfigurationType == "python" {
@@ -108,11 +106,14 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 			"python",
 			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
 		}
-	} else if ep.ConfigurationType == "bash" {
-		configCommand = []string{
-			"bash",
-			fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
-		}
+
+		// Not yet.
+		// } else if ep.ConfigurationType == "bash" {
+		// 	configCommand = []string{
+		// 		"bash",
+		// 		fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
+		// 	}
+
 	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
 			"ansible-playbook",
@@ -120,6 +121,21 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 			"-i",
 			fmt.Sprintf("%s,", ep.Host),
 			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
+		}
+	} else if strings.HasPrefix(ep.ConfigurationType, "napalm") {
+
+		separated := strings.Split(ep.ConfigurationType, "-")
+		if len(separated) < 2 {
+			return nil, errors.New("Invalid napalm driver string")
+		}
+		configCommand = []string{
+			"/configure.py",
+			"antidote",
+			"antidotepassword",
+			separated[1],
+			"22",
+			ep.Host,
+			fmt.Sprintf("/antidote/stage%d/configs/%s.txt", req.Stage, ep.Name),
 		}
 	} else {
 		return nil, errors.New("Unknown config type")

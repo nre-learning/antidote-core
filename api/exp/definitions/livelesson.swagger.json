@@ -151,7 +151,8 @@
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string"
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
         "AdditionalPorts": {
           "type": "array",

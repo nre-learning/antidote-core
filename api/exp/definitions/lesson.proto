@@ -54,11 +54,6 @@ message Lesson {
   int32 LessonId = 1 [(validate.rules).int32.gt = 0];
   repeated LessonStage Stages = 2 [(validate.rules).repeated.min_items = 1];
   string LessonName = 3 [(validate.rules).string.min_len = 10];
-  // repeated IframeResource IframeResources = 4;
-  // repeated Endpoint Devices = 5;
-  // repeated Endpoint Utilities = 6;
-  // repeated Endpoint Blackboxes = 7;
-
   repeated Endpoint Endpoints = 4 [(validate.rules).repeated = {min_items: 1}];
   repeated Connection Connections = 8;
   string Category = 9 [(validate.rules).string = {in: ["fundamentals", "tools", "workflows"]}];
@@ -92,7 +87,9 @@ message LessonStage {
 message Endpoint {
   string Name = 1 [(validate.rules).string.min_len = 1];
   string Image = 2 [(validate.rules).string.min_len = 1];
-  string ConfigurationType = 3 [(validate.rules).string = {in: ["python", "ansible", ""]}];
+
+  // Validation for this field will be done post-validation
+  string ConfigurationType = 3;
 
   // Handles any ports not explicitly mentioned in a presentation
   repeated int32 AdditionalPorts = 4;

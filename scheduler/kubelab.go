@@ -14,17 +14,16 @@ import (
 
 // KubeLab is the collection of kubernetes resources that makes up a lab instance
 type KubeLab struct {
-	Namespace          *corev1.Namespace
-	CreateRequest      *LessonScheduleRequest // The request that originally resulted in this KubeLab
-	Networks           map[string]*crd.NetworkAttachmentDefinition
-	Pods               map[string]*corev1.Pod
-	Services           map[string]*corev1.Service
-	Ingresses          map[string]*v1beta1.Ingress
-	Status             pb.Status
-	ReachableEndpoints []string // endpoint names
-	CurrentStage       int32
-	HealthyTests       int
-	TotalTests         int
+	Namespace     *corev1.Namespace
+	CreateRequest *LessonScheduleRequest // The request that originally resulted in this KubeLab
+	Networks      map[string]*crd.NetworkAttachmentDefinition
+	Pods          map[string]*corev1.Pod
+	Services      map[string]*corev1.Service
+	Ingresses     map[string]*v1beta1.Ingress
+	Status        pb.Status
+	CurrentStage  int32
+	HealthyTests  int
+	TotalTests    int
 }
 
 // ToProtoKubeLab is a converter function that transforms a native KubeLab struct instance
@@ -65,31 +64,13 @@ func (kl *KubeLab) ToProtoKubeLab() *pb.KubeLab {
 			Stage:         kl.CreateRequest.Stage,
 			Created:       ts,
 		},
-		Networks:           networks,
-		Pods:               pods,
-		Services:           services,
-		Ingresses:          ingresses,
-		Status:             kl.Status,
-		ReachableEndpoints: kl.ReachableEndpoints,
-		CurrentStage:       kl.CurrentStage,
+		Networks:     networks,
+		Pods:         pods,
+		Services:     services,
+		Ingresses:    ingresses,
+		Status:       kl.Status,
+		CurrentStage: kl.CurrentStage,
 	}
-}
-
-func (kl *KubeLab) isReachable(epName string) bool {
-	for _, b := range kl.ReachableEndpoints {
-		if b == epName {
-			return true
-		}
-	}
-	return false
-}
-
-func (kl *KubeLab) setEndpointReachable(epName string) {
-	// Return if already in slice
-	if kl.isReachable(epName) {
-		return
-	}
-	kl.ReachableEndpoints = append(kl.ReachableEndpoints, epName)
 }
 
 // ToLiveLesson exports a KubeLab as a generic LiveLesson so the API can use it

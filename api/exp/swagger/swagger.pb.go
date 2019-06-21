@@ -226,7 +226,8 @@ Kubelab = `{
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string"
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
         "AdditionalPorts": {
           "type": "array",
@@ -570,7 +571,8 @@ Lesson = `{
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string"
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
         "AdditionalPorts": {
           "type": "array",
@@ -883,7 +885,8 @@ Livelesson = `{
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string"
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
         "AdditionalPorts": {
           "type": "array",

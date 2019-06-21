@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	"github.com/nre-learning/syringe/config"
@@ -201,19 +203,56 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 
 		ep := lesson.Endpoints[i]
 
+		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) == 0 {
+			log.Error("No presentations configured, and no additionalPorts specified")
+			return fail
+		}
+
 		if ep.ConfigurationType == "" {
 			continue
 		}
 
+		supportedConfigurationOptions := []string{
+			"python",
+			// "bash",  // not yet
+			"ansible",
+			"napalm-.*$",
+		}
+
+		matchedOne := false
+		for o := range supportedConfigurationOptions {
+			matched, err := regexp.Match(supportedConfigurationOptions[o], []byte(ep.ConfigurationType))
+			if err != nil {
+				log.Error("Unable to determine configurationType")
+				return fail
+			}
+			if matched {
+				matchedOne = true
+				break
+			}
+		}
+		if !matchedOne {
+			log.Error("Unsupported configurationType")
+			return fail
+		}
+
 		fileMap := map[string]string{
-			"python":  ".py",
-			"bash":    ".sh",
+			"python": ".py",
+			// "bash":    ".sh",  // not yet
 			"ansible": ".yml",
+			"napalm":  ".txt",
+		}
+
+		// all napalm configs need to have the same file extension so we're just simplifying for this import
+		// validation.
+		simpleConfigType := ep.GetConfigurationType()
+		if strings.Contains(simpleConfigType, "napalm") {
+			simpleConfigType = "napalm"
 		}
 
 		// Ensure the necessary config file is present for all stages
 		for s := range lesson.Stages {
-			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileMap[ep.ConfigurationType])
+			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileMap[simpleConfigType])
 			_, err := ioutil.ReadFile(fileName)
 			if err != nil {
 				log.Errorf("Configuration script %s was not found.", fileName)
@@ -228,6 +267,12 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 				log.Errorf("Failed to import %s: %s", file, errors.New(fmt.Sprintf("Presentation %s appears more than once for an endpoint", ep.Presentations[n].Name)))
 				return fail
 			}
+
+			if ep.Presentations[n].Port == 0 {
+				log.Error("All presentations must specify a port")
+				return fail
+			}
+
 			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n]
 		}
 	}
@@ -249,7 +294,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 
 	// TODO(mierdin): Make sure lesson ID, lesson name, stage ID and stage name are unique. If you try to read a value in, make sure it doesn't exist. If it does, error out
 
-	// TODO(mierdin): Need to validate that each name is unique across blackboxes, utilities, and devices.
+	// TODO(mierdin): Need to validate that each name is unique across endpoints
 
 	// TODO(mierdin): Need to run checks to see that files are located where they need to be. Things like
 	// configs, and lesson guides
