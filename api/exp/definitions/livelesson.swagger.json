@@ -141,17 +141,37 @@
     }
   },
   "definitions": {
-    "LiveEndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
+    "expEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "ConfigurationType": {
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
+        },
+        "AdditionalPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
+        },
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
+          }
+        },
+        "Host": {
+          "type": "string"
+        }
+      }
     },
     "expHealthCheckMessage": {
       "type": "object"
@@ -189,32 +209,6 @@
         }
       }
     },
-    "expLiveEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "$ref": "#/definitions/LiveEndpointEndpointType"
-        },
-        "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "IframePath": {
-          "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
-        }
-      }
-    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
@@ -228,7 +222,7 @@
         "LiveEndpoints": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expLiveEndpoint"
+            "$ref": "#/definitions/expEndpoint"
           }
         },
         "LessonStage": {
@@ -258,6 +252,14 @@
         "Error": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "HealthyTests": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "TotalTests": {
+          "type": "integer",
+          "format": "int32"
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
@@ -270,6 +272,21 @@
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
           }
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
+          "type": "string"
         }
       }
     },

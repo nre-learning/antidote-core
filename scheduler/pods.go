@@ -20,7 +20,6 @@ import (
 func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-	b := true
 
 	type networkAnnotation struct {
 		Name string `json:"name"`
@@ -45,7 +44,6 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Namespace: nsName,
 			Labels: map[string]string{
 				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"endpointType":   ep.GetType().String(),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
 			},
@@ -111,38 +109,40 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	ports := ep.GetPorts()
-
-	if ep.Type.String() == "DEVICE" || ep.Type.String() == "UTILITY" {
+	// TODO(mierdin): Obviously, this isn't ideal. We were previously granting privileged status to
+	// all containers, so this is technically an improvement, but not much of one. Preferably very soon
+	// we should come up with a more suitable short-term solution. The correct long-term solution
+	// might be something like labtainers, or kubevirt.
+	// Privileged status is currently required by both the lite and full vqfx versions.
+	// It may also be required by other images we bring on board.
+	privilegedImages := map[string]string{
+		"antidotelabs/vqfx:snap1":         "",
+		"antidotelabs/vqfx:snap2":         "",
+		"antidotelabs/vqfx:snap3":         "",
+		"antidotelabs/vqfx-full:18.1R1.9": "",
+	}
+	if _, ok := privilegedImages[ep.Image]; ok {
+		b := true
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &b,
 			AllowPrivilegeEscalation: &b,
 		}
-
-		// Remove any existing port 22
-		newports := []int32{}
-		for p := range ports {
-			if ports[p] != 22 {
-				newports = append(newports, ports[p])
-			}
-		}
-
-		// Add back in at the beginning, and append the rest.
-		ports = append([]int32{22}, newports...)
 	}
 
-	// else if etype.String() == "IFRAME" {
-	// 	port := req.Lesson.Stages[req.Stage].IframeResource.Port
-	// 	pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: port})
-	// }
+	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
+	rawPorts := ep.GetAdditionalPorts()
+	for p := range ep.Presentations {
+		rawPorts = append(rawPorts, ep.Presentations[p].Port)
+	}
+	ports := unique(rawPorts)
 
-	// Add any remaining ports not specified by the user
+	// Convert to ContainerPort and attach to pod container
 	for p := range ports {
 		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
-		return nil, errors.New("not creating pod - must have at least one port exposed")
+		return nil, errors.New(fmt.Sprintf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name))
 	}
 
 	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
@@ -166,4 +166,16 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		return nil, err
 	}
 	return result, err
+}
+
+func unique(intSlice []int32) []int32 {
+	keys := make(map[int32]bool)
+	list := []int32{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }

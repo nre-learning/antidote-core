@@ -76,33 +76,44 @@ func createFakeScheduler() *LessonScheduler {
 					Description: "foobar",
 				},
 			},
-			LessonName:      "Test Lesson",
-			IframeResources: []*pb.IframeResource{},
-			Devices: []*pb.Endpoint{
+			LessonName: "Test Lesson",
+			Endpoints: []*pb.Endpoint{
 				{
 					Name:  "vqfx1",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
 				{
 					Name:  "vqfx2",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
 				{
 					Name:  "vqfx3",
-					Type:  pb.Endpoint_DEVICE,
 					Image: "antidotelabs/vqfx",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
 				},
-			},
-			Utilities: []*pb.Endpoint{
 				{
 					Name:  "linux1",
-					Type:  pb.Endpoint_UTILITY,
 					Image: "antidotelabs/utility",
+					Presentations: []*pb.Presentation{
+						{Name: "cli", Type: "ssh", Port: 22},
+					},
+				},
+				{
+					Name:  "web1",
+					Image: "antidotelabs/webserver",
+					Presentations: []*pb.Presentation{
+						{Name: "webui", Type: "http", Port: 80},
+					},
 				},
 			},
-			Blackboxes: []*pb.Endpoint{},
 			Connections: []*pb.Connection{
 				{
 					A: "vqfx1",
@@ -194,6 +205,17 @@ func TestSchedulerSetup(t *testing.T) {
 	}
 
 	time.Sleep(time.Second * 5)
+
+	for k := range lessonScheduler.KubeLabs {
+		kl := lessonScheduler.KubeLabs[k]
+
+		assert(t, (len(kl.Pods) == 5),
+			fmt.Sprintf("Pods count mismatch: %d", len(kl.Pods)))
+		assert(t, (len(kl.Services) == 5),
+			fmt.Sprintf("Services count mismatch: %d", len(kl.Services)))
+		assert(t, (len(kl.Ingresses) == 1),
+			fmt.Sprintf("Ingress count mismatch: %d", len(kl.Ingresses)))
+	}
 
 	if len(lessonScheduler.KubeLabs) != numberKubeLabs {
 		t.Fatalf("Not the expected number of kubelabs (expected %d, got %d)", numberKubeLabs, len(lessonScheduler.KubeLabs))
