@@ -208,8 +208,8 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	return result, err
 }
 
-// getMemberNetworks gets the names of all networks a device belongs to based on definition.
-func getMemberNetworks(deviceName string, connections []*pb.Connection) []string {
+// getMemberNetworks gets the names of all networks an endpoint belongs to based on definition.
+func getMemberNetworks(epName string, connections []*pb.Connection) []string {
 	// We want the management network to be first always.
 	// EDIT: Commented out since the management network is provided implicitly for now. We may want to move to an explicit model soon.
 	// memberNets := []string{
@@ -218,7 +218,7 @@ func getMemberNetworks(deviceName string, connections []*pb.Connection) []string
 	memberNets := []string{}
 	for c := range connections {
 		connection := connections[c]
-		if connection.A == deviceName || connection.B == deviceName {
+		if connection.A == epName || connection.B == epName {
 			netName := fmt.Sprintf("%s-%s-net", connection.A, connection.B)
 			memberNets = append(memberNets, netName)
 		}

@@ -1,6 +1,139 @@
 package swagger 
 
 const (
+Collection = `{
+  "swagger": "2.0",
+  "info": {
+    "title": "collection.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/collection": {
+      "get": {
+        "operationId": "ListCollections",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCollections"
+            }
+          }
+        },
+        "tags": [
+          "CollectionService"
+        ]
+      }
+    },
+    "/exp/collection/{id}": {
+      "get": {
+        "operationId": "GetCollection",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expCollection"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "CollectionService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expCollection": {
+      "type": "object",
+      "properties": {
+        "Id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Title": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Website": {
+          "type": "string"
+        },
+        "ContactEmail": {
+          "type": "string"
+        },
+        "BriefDescription": {
+          "type": "string",
+          "title": "Why should users view your collection?"
+        },
+        "LongDescription": {
+          "type": "string",
+          "title": "Why should users continue and view your lessons?"
+        },
+        "Type": {
+          "type": "string"
+        },
+        "Tier": {
+          "type": "string"
+        },
+        "CollectionFile": {
+          "type": "string"
+        },
+        "Lessons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLessonSummary"
+          }
+        }
+      }
+    },
+    "expCollections": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expCollection"
+          }
+        }
+      }
+    },
+    "expLessonSummary": {
+      "type": "object",
+      "properties": {
+        "lessonId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "lessonName": {
+          "type": "string"
+        },
+        "lessonDescription": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+`
 Curriculum = `{
   "swagger": "2.0",
   "info": {
@@ -92,45 +225,26 @@ Kubelab = `{
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/expEndpointEndpointType"
+        "ConfigurationType": {
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
+        },
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
           }
-        }
-      }
-    },
-    "expEndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
+        "Host": {
           "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -209,25 +323,7 @@ Kubelab = `{
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -265,7 +361,8 @@ Kubelab = `{
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"
@@ -275,6 +372,9 @@ Kubelab = `{
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
         },
         "LessonFile": {
+          "type": "string"
+        },
+        "LessonDir": {
           "type": "string"
         }
       }
@@ -324,6 +424,21 @@ Kubelab = `{
           "format": "boolean"
         },
         "VerifyObjective": {
+          "type": "string"
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
           "type": "string"
         }
       }
@@ -435,18 +550,6 @@ Lesson = `{
     }
   },
   "definitions": {
-    "EndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -467,33 +570,26 @@ Lesson = `{
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/EndpointEndpointType"
+        "ConfigurationType": {
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
+        },
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
           }
-        }
-      }
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
+        "Host": {
           "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -513,25 +609,7 @@ Lesson = `{
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -569,7 +647,8 @@ Lesson = `{
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"
@@ -579,6 +658,9 @@ Lesson = `{
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
         },
         "LessonFile": {
+          "type": "string"
+        },
+        "LessonDir": {
           "type": "string"
         }
       }
@@ -629,6 +711,21 @@ Lesson = `{
           "items": {
             "$ref": "#/definitions/expLesson"
           }
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
+          "type": "string"
         }
       }
     }
@@ -778,17 +875,37 @@ Livelesson = `{
     }
   },
   "definitions": {
-    "LiveEndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
+    "expEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "ConfigurationType": {
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
+        },
+        "AdditionalPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
+        },
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
+          }
+        },
+        "Host": {
+          "type": "string"
+        }
+      }
     },
     "expHealthCheckMessage": {
       "type": "object"
@@ -826,32 +943,6 @@ Livelesson = `{
         }
       }
     },
-    "expLiveEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Type": {
-          "$ref": "#/definitions/LiveEndpointEndpointType"
-        },
-        "Host": {
-          "type": "string",
-          "description": "This will contain a ClusterIP for SSH endpoints, so we don't need to allocate a public IP for them. If an IFRAME,\nthis will get set to the FQDN needed to connect to the external IP allocated for it."
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "IframePath": {
-          "type": "string"
-        },
-        "Reachable": {
-          "type": "boolean",
-          "format": "boolean"
-        }
-      }
-    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
@@ -865,7 +956,7 @@ Livelesson = `{
         "LiveEndpoints": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expLiveEndpoint"
+            "$ref": "#/definitions/expEndpoint"
           }
         },
         "LessonStage": {
@@ -895,6 +986,14 @@ Livelesson = `{
         "Error": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "HealthyTests": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "TotalTests": {
+          "type": "integer",
+          "format": "int32"
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
@@ -907,6 +1006,21 @@ Livelesson = `{
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
           }
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
+          "type": "string"
         }
       }
     },

@@ -9,10 +9,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/empty"
-	api "github.com/nre-learning/syringe/api/exp"
 	"github.com/nre-learning/syringe/config"
 	grpc "google.golang.org/grpc"
 
+	api "github.com/nre-learning/syringe/api/exp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 

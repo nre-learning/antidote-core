@@ -2,6 +2,7 @@ syntax = "proto3";
 package syringe.api.exp;
 
 import "lesson.proto";
+import "collection.proto";
 import "google/api/annotations.proto";
 import "validate/validate.proto";
 
@@ -31,4 +32,5 @@ message Curriculum {
     string Website = 3 [(validate.rules).string.min_len = 1];
 
     map<int32, Lesson> Lessons = 4;
+    map<int32, Collection> Collections = 5;
 }

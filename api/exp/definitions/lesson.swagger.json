@@ -92,18 +92,6 @@
     }
   },
   "definitions": {
-    "EndpointEndpointType": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEVICE",
-        "IFRAME",
-        "BLACKBOX",
-        "UTILITY"
-      ],
-      "default": "UNKNOWN",
-      "description": "This field helps the web client understand how to connect to this endpoint. Some might be done via SSH/Guacamole, others might be iframes, etc."
-    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -124,33 +112,26 @@
         "Image": {
           "type": "string"
         },
-        "Type": {
-          "$ref": "#/definitions/EndpointEndpointType"
+        "ConfigurationType": {
+          "type": "string",
+          "title": "Validation for this field will be done post-validation"
         },
-        "Ports": {
+        "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
+          },
+          "title": "Handles any ports not explicitly mentioned in a presentation"
+        },
+        "Presentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expPresentation"
           }
-        }
-      }
-    },
-    "expIframeResource": {
-      "type": "object",
-      "properties": {
-        "Ref": {
-          "type": "string"
         },
-        "Protocol": {
+        "Host": {
           "type": "string"
-        },
-        "Path": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -170,25 +151,7 @@
         "LessonName": {
           "type": "string"
         },
-        "IframeResources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expIframeResource"
-          }
-        },
-        "Devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Utilities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Blackboxes": {
+        "Endpoints": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expEndpoint"
@@ -226,7 +189,8 @@
           }
         },
         "Collection": {
-          "type": "string"
+          "type": "integer",
+          "format": "int32"
         },
         "Description": {
           "type": "string"
@@ -236,6 +200,9 @@
           "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
         },
         "LessonFile": {
+          "type": "string"
+        },
+        "LessonDir": {
           "type": "string"
         }
       }
@@ -286,6 +253,21 @@
           "items": {
             "$ref": "#/definitions/expLesson"
           }
+        }
+      }
+    },
+    "expPresentation": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "Type": {
+          "type": "string"
         }
       }
     }

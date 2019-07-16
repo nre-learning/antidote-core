@@ -70,19 +70,25 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		epr := ls.testEndpointReachability(liveLesson)
+		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", liveLesson.LessonUUID, liveLesson.LiveEndpoints)
 
-		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, epr)
+		reachability := ls.testEndpointReachability(liveLesson)
+
+		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, reachability)
 
 		// Update reachability status
-		endpointUnreachable := false
-		for epName, reachable := range epr {
+		failed := false
+		healthy := 0
+		total := len(reachability)
+		for _, reachable := range reachability {
 			if reachable {
-				newKubeLab.setEndpointReachable(epName)
+				healthy++
 			} else {
-				endpointUnreachable = true
+				failed = true
 			}
 		}
+		newKubeLab.HealthyTests = healthy
+		newKubeLab.TotalTests = total
 
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
@@ -94,7 +100,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		}
 
 		// Begin again if one of the endpoints isn't reachable
-		if endpointUnreachable {
+		if failed {
 			continue
 		}
 
@@ -128,20 +134,28 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		}
 	}
 
-	if HasDevices(newRequest.Lesson) {
-		log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
-		err := ls.configureStuff(nsName, liveLesson, newRequest)
-		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
+	log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
+	err = ls.configureStuff(nsName, liveLesson, newRequest)
+	if err != nil {
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			Lesson:    newRequest.Lesson,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
 		}
 	} else {
-		log.Infof("Nothing to configure in %s", newRequest.Uuid)
+		log.Debugf("Setting %s to READY", newRequest.Uuid)
+		newKubeLab.Status = pb.Status_READY
+
+		ls.Results <- &LessonScheduleResult{
+			Success:          true,
+			Lesson:           newRequest.Lesson,
+			Uuid:             newRequest.Uuid,
+			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
+			Operation:        newRequest.Operation,
+			Stage:            newRequest.Stage,
+		}
 	}
 
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
@@ -151,17 +165,6 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
 
-	log.Debugf("Setting %s to READY", newRequest.Uuid)
-	newKubeLab.Status = pb.Status_READY
-
-	ls.Results <- &LessonScheduleResult{
-		Success:          true,
-		Lesson:           newRequest.Lesson,
-		Uuid:             newRequest.Uuid,
-		ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
-		Operation:        newRequest.Operation,
-		Stage:            newRequest.Stage,
-	}
 }
 
 func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
@@ -175,24 +178,20 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 
 	liveLesson := kl.ToLiveLesson()
 
-	if HasDevices(newRequest.Lesson) {
-		log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
-		err := ls.configureStuff(nsName, liveLesson, newRequest)
-		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
+	log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
+	err := ls.configureStuff(nsName, liveLesson, newRequest)
+	if err != nil {
+		ls.Results <- &LessonScheduleResult{
+			Success:   false,
+			Lesson:    newRequest.Lesson,
+			Uuid:      newRequest.Uuid,
+			Operation: newRequest.Operation,
+			Stage:     newRequest.Stage,
 		}
-	} else {
-		log.Infof("Skipping configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
+		return
 	}
 
-	err := ls.boopNamespace(nsName)
+	err = ls.boopNamespace(nsName)
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
 	}

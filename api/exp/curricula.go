@@ -16,7 +16,12 @@ func ImportCurriculum(config *config.SyringeConfig) (*pb.Curriculum, error) {
 
 	curriculum := &pb.Curriculum{}
 
-	// Load lessons
+	collections, err := ImportCollections(config)
+	if err != nil {
+		log.Warn(err)
+	}
+	curriculum.Collections = collections
+
 	lessons, err := ImportLessons(config)
 	if err != nil {
 		log.Warn(err)

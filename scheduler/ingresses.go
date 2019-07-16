@@ -14,20 +14,28 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) (*v1beta1.Ingress, error) {
+func (ls *LessonScheduler) createIngress(nsName string, ep *pb.Endpoint, port int32) (*v1beta1.Ingress, error) {
+
+	redir := "true"
+
+	// temporary but functional hack to disable SSL redirection for selfmedicate
+	// (doesn't currently use HTTPS)
+	if ls.SyringeConfig.Domain == "antidote-local" {
+		redir = "false"
+	}
 
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ifr.Ref,
+			Name:      ep.Name,
 			Namespace: nsName,
 			Labels: map[string]string{
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/ingress.class":      "nginx",
-				"ingress.kubernetes.io/ssl-services":       ifr.Ref,
-				"ingress.kubernetes.io/ssl-redirect":       "true",
-				"ingress.kubernetes.io/force-ssl-redirect": "true",
+				"ingress.kubernetes.io/ssl-services":       ep.Name,
+				"ingress.kubernetes.io/ssl-redirect":       redir,
+				"ingress.kubernetes.io/force-ssl-redirect": redir,
 				// "ingress.kubernetes.io/rewrite-target":          "/",
 				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
 				"nginx.ingress.kubernetes.io/limit-connections": "10",
@@ -53,10 +61,10 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{
 								{
-									Path: fmt.Sprintf("/%s-%s", nsName, ifr.Ref),
+									Path: fmt.Sprintf("/%s-%s", nsName, ep.Name),
 									Backend: v1beta1.IngressBackend{
-										ServiceName: ifr.Ref,
-										ServicePort: intstr.FromInt(int(ifr.Port)),
+										ServiceName: ep.Name,
+										ServicePort: intstr.FromInt(int(port)),
 									},
 								},
 							},
@@ -73,16 +81,16 @@ func (ls *LessonScheduler) createIngress(nsName string, ifr *pb.IframeResource) 
 		}).Infof("Created ingress: %s", result.ObjectMeta.Name)
 
 	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Ingress %s already exists.", ifr.Ref)
+		log.Warnf("Ingress %s already exists.", ep.Name)
 
-		result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ifr.Ref, metav1.GetOptions{})
+		result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ep.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
 	} else {
-		log.Errorf("Problem creating ingress %s: %s", ifr.Ref, err)
+		log.Errorf("Problem creating ingress %s: %s", ep.Name, err)
 		return nil, err
 	}
 

@@ -28,7 +28,8 @@ func (s *SyringeAPIServer) handleResultMODIFY(result *scheduler.LessonScheduleRe
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
 		return
 	}
-	s.SetLiveLesson(result.Uuid, s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson())
+	ll := s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson()
+	s.SetLiveLesson(result.Uuid, ll)
 }
 
 func (s *SyringeAPIServer) handleResultVERIFY(result *scheduler.LessonScheduleResult) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,7 +107,7 @@ func (ls *LessonScheduler) Start() error {
 					// Send result to API server to clean up livelesson state
 					ls.Results <- &LessonScheduleResult{
 						Success:   true,
-						Lesson: nil,
+						Lesson:    nil,
 						Uuid:      cleaned[i],
 						Operation: OperationType_DELETE,
 					}
@@ -159,28 +160,36 @@ func (ls *LessonScheduler) deleteKubelab(uuid string) {
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
 	ls.killAllJobs(nsName, "config")
 
-	// Perform configuration changes for devices only
-	var deviceEndpoints []*pb.LiveEndpoint
-	for i := range liveLesson.LiveEndpoints {
-		ep := liveLesson.LiveEndpoints[i]
-		if ep.Type == pb.LiveEndpoint_DEVICE {
-			deviceEndpoints = append(deviceEndpoints, ep)
-		}
-	}
 	wg := new(sync.WaitGroup)
-	wg.Add(len(deviceEndpoints))
+	log.Debugf("Endpoints length: %d", len(liveLesson.LiveEndpoints))
+	wg.Add(len(liveLesson.LiveEndpoints))
 	allGood := true
-	for i := range deviceEndpoints {
-		job, err := ls.configureDevice(deviceEndpoints[i], newRequest)
+	for i := range liveLesson.LiveEndpoints {
+
+		// Ignore any endpoints that don't have a configuration option
+		if liveLesson.LiveEndpoints[i].ConfigurationType == "" {
+			log.Debugf("No configuration option specified for %s - skipping.", liveLesson.LiveEndpoints[i].Name)
+			wg.Done()
+			continue
+		}
+
+		job, err := ls.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
 		if err != nil {
-			log.Errorf("Problem configuring device %s", deviceEndpoints[i].Name)
+			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
 			continue // TODO(mierdin): should quit entirely and return an error result to the channel
+			// though this error is only immediate errors creating the job. This will succeed even if
+			// the eventually configuration fails. See below for a better handle on configuration failures.
 		}
 		go func() {
 			defer wg.Done()
 
 			for i := 0; i < 120; i++ {
-				completed, _ := ls.isCompleted(job, newRequest)
+				completed, err := ls.isCompleted(job, newRequest)
+				if err != nil {
+					allGood = false
+					return
+				}
+
 				time.Sleep(5 * time.Second)
 				if completed {
 					return
@@ -204,10 +213,12 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
+
+	lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
 
 	if ls.SyringeConfig.CurriculumLocal {
 
@@ -262,6 +273,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Name:      "local-copy",
 			ReadOnly:  false,
 			MountPath: ls.SyringeConfig.CurriculumDir,
+			SubPath:   lessonDir,
 		})
 
 	} else {
@@ -276,6 +288,7 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 			Name:      "git-volume",
 			ReadOnly:  false,
 			MountPath: ls.SyringeConfig.CurriculumDir,
+			SubPath:   lessonDir,
 		})
 
 		initContainers = append(initContainers, corev1.Container{
@@ -302,36 +315,83 @@ func (ls *LessonScheduler) getVolumesConfiguration() ([]corev1.Volume, []corev1.
 
 func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
 
+	// Prepare the reachability map as well as the waitgroup to handle the concurrency
+	// of our health checks. We want to pre-populate every possible health check with a
+	// false value, so we don't accidentally "pass" a livelesson reachability test by
+	// omission.
 	reachableMap := map[string]bool{}
-
 	wg := new(sync.WaitGroup)
-	wg.Add(len(ll.LiveEndpoints))
+	for n := range ll.LiveEndpoints {
 
+		ep := ll.LiveEndpoints[n]
+
+		// Add one delta value to the waitgroup and prepopulate the reachability map
+		// with a "false" value based on the endpoint name, since it doesn't
+		// have any presentations.
+		if len(ll.LiveEndpoints[n].Presentations) == 0 {
+			wg.Add(1)
+			reachableMap[ep.Name] = false
+			continue
+		}
+
+		// For each presentation, add one delta value to the waitgroup
+		// and add an entry to the reachability map based on the endpoint
+		// and presentation names
+		for p := range ep.Presentations {
+			wg.Add(1)
+			reachableMap[fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name)] = false
+		}
+	}
+
+	// Now that we have a properly sized waitgroup and a prepared reachability map, we can perform the health checks.
 	var mapMutex = &sync.Mutex{}
+	for n := range ll.LiveEndpoints {
 
-	for d := range ll.LiveEndpoints {
+		ep := ll.LiveEndpoints[n]
 
-		ep := ll.LiveEndpoints[d]
+		// If no presentations, we can just test the first port in the additionalPorts list.
+		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) != 0 {
 
-		go func() {
-			defer wg.Done()
+			go func() {
+				defer wg.Done()
+				testResult := false
 
-			testResult := false
+				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
+				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.AdditionalPorts[0]))
 
-			if ep.GetType() == pb.LiveEndpoint_DEVICE || ep.GetType() == pb.LiveEndpoint_UTILITY {
-				log.Debugf("Performing SSH connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = ls.HealthChecker.sshTest(ep)
-			} else if ep.GetType() == pb.LiveEndpoint_BLACKBOX {
-				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Port)
-				testResult = ls.HealthChecker.tcpTest(ep)
-			} else {
-				testResult = true
-			}
-			mapMutex.Lock()
-			defer mapMutex.Unlock()
-			reachableMap[ep.Name] = testResult
+				if testResult {
+					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
+				}
 
-		}()
+				mapMutex.Lock()
+				defer mapMutex.Unlock()
+				reachableMap[ep.Name] = testResult
+			}()
+		}
+
+		for i := range ep.Presentations {
+
+			lp := ep.Presentations[i]
+
+			go func() {
+				defer wg.Done()
+
+				testResult := false
+
+				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
+				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
+				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
+				testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port))
+				if testResult {
+					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
+				}
+
+				mapMutex.Lock()
+				defer mapMutex.Unlock()
+				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
+
+			}()
+		}
 	}
 
 	c := make(chan struct{})
@@ -351,14 +411,14 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 // LessonHealthChecker describes a struct which offers a variety of reachability
 // tests for lesson endpoints.
 type LessonHealthChecker interface {
-	sshTest(*pb.LiveEndpoint) bool
-	tcpTest(*pb.LiveEndpoint) bool
+	sshTest(string, int) bool
+	tcpTest(string, int) bool
 }
 
 type LessonHealthCheck struct{}
 
-func (lhc *LessonHealthCheck) sshTest(ep *pb.LiveEndpoint) bool {
-	port := strconv.Itoa(int(ep.Port))
+func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
+	strPort := strconv.Itoa(int(port))
 	sshConfig := &ssh.ClientConfig{
 		User:            "antidote",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -368,30 +428,23 @@ func (lhc *LessonHealthCheck) sshTest(ep *pb.LiveEndpoint) bool {
 		Timeout: time.Second * 2,
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ep.Host, port), sshConfig)
+	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
 
-	log.Debugf("%s is live at %s:%s", ep.Name, ep.Host, port)
 	return true
 }
 
-func (lhc *LessonHealthCheck) tcpTest(ep *pb.LiveEndpoint) bool {
-	intPort := strconv.Itoa(int(ep.Port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", ep.Host, intPort), 2*time.Second)
+func (lhc *LessonHealthCheck) tcpTest(host string, port int) bool {
+	strPort := strconv.Itoa(int(port))
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, strPort), 2*time.Second)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
-
-	log.Debugf("done connect testing %s", ep.Host)
 	return true
-}
-
-func HasDevices(ld *pb.Lesson) bool {
-	return len(ld.Devices) > 0
 }
 
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
@@ -404,27 +457,4 @@ func usesJupyterLabGuide(ld *pb.Lesson) bool {
 	}
 
 	return false
-}
-
-func getConnectivityInfo(svc *corev1.Service) (string, int, error) {
-
-	var host string
-	if svc.ObjectMeta.Labels["endpointType"] == "IFRAME" {
-		if len(svc.Spec.ExternalIPs) > 0 {
-			host = "svc.Spec.ExternalIPs[0]"
-		} else {
-			host = svc.Spec.ClusterIP
-		}
-		return host, int(svc.Spec.Ports[0].Port), nil
-	} else {
-		host = svc.Spec.ClusterIP
-	}
-
-	// We are only using the first port for the health check.
-	if len(svc.Spec.Ports) == 0 {
-		return "", 0, errors.New("unable to find port for service")
-	} else {
-		return host, int(svc.Spec.Ports[0].Port), nil
-	}
-
 }
