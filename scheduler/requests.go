@@ -161,7 +161,9 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
-	ls.createNetworkPolicy(nsName)
+	if ls.SyringeConfig.AllowEgress {
+		ls.createNetworkPolicy(nsName)
+	}
 
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
 
