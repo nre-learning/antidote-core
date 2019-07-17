@@ -24,6 +24,9 @@ type SyringeConfig struct {
 	InfluxUsername string
 	InfluxPassword string
 
+	TSDBExportInterval int
+	TSDBEnabled        bool
+
 	CurriculumLocal      bool
 	CurriculumRepoRemote string
 	CurriculumRepoBranch string
