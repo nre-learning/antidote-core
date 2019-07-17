@@ -8,6 +8,7 @@
 - Collections Feature and API [#104](https://github.com/nre-learning/syringe/pull/104)
 - Limit volume mount to lesson directory [#109](https://github.com/nre-learning/syringe/pull/109)
 - Add configuration options to influxdb export [#108](https://github.com/nre-learning/syringe/pull/108)
+- Add config flag to permit egress traffic [#119](https://github.com/nre-learning/syringe/pull/119)
 
 ## v0.3.2 - April 19, 2019
 
