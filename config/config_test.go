@@ -66,6 +66,7 @@ func TestConfigJSON(t *testing.T) {
 		CurriculumLocal:      false,
 		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
 		CurriculumRepoBranch: "master",
+		AllowEgress:          false,
 	}
 
 	t.Log(syringeConfig.JSON())

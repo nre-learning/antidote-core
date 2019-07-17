@@ -30,6 +30,8 @@ type SyringeConfig struct {
 	CurriculumLocal      bool
 	CurriculumRepoRemote string
 	CurriculumRepoBranch string
+
+	AllowEgress bool
 }
 
 func (c *SyringeConfig) JSON() string {
@@ -152,6 +154,16 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.InfluxPassword = "zerocool"
 	} else {
 		config.InfluxPassword = influxPassword
+	}
+
+	// +syringeconfig SYRINGE_ALLOW_EGRESS is a boolean variable to specify if network traffic should be
+	// allowed to egress lesson namespaces. Defaults to false. If set to true, no NetworkPolicy will be created
+	// for lesson namespaces.
+	allowEgress, err := strconv.ParseBool(os.Getenv("SYRINGE_ALLOW_EGRESS"))
+	if allowEgress == false || err != nil {
+		config.AllowEgress = false
+	} else {
+		config.AllowEgress = true
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())
