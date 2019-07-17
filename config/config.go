@@ -133,7 +133,7 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	// +syringeconfig SYRINGE_INFLUXDB_URL is the URL for the influxdb-based metrics server.
 	influxURL := os.Getenv("SYRINGE_INFLUXDB_URL")
 	if influxURL == "" {
-		config.InfluxURL = "https: //influxdb.networkreliability.engineering/"
+		config.InfluxURL = "https://influxdb.networkreliability.engineering/"
 	} else {
 		config.InfluxURL = influxURL
 	}

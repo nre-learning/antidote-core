@@ -15,7 +15,13 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: s.Scheduler.SyringeConfig.InfluxURL,
+		Addr:     s.Scheduler.SyringeConfig.InfluxURL,
+		Username: s.Scheduler.SyringeConfig.InfluxUsername,
+		Password: s.Scheduler.SyringeConfig.InfluxPassword,
+
+		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
+		// I was getting validation errors.
+		InsecureSkipVerify: true,
 	})
 	if err != nil {
 		log.Error("Error creating InfluxDB Client: ", err.Error())
@@ -40,8 +46,9 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonId":   strconv.Itoa(int(res.Lesson.LessonId)),
-		"lessonName": res.Lesson.LessonName,
+		"lessonId":    strconv.Itoa(int(res.Lesson.LessonId)),
+		"lessonName":  res.Lesson.LessonName,
+		"syringeTier": s.Scheduler.SyringeConfig.Tier,
 	}
 
 	fields := map[string]interface{}{
@@ -74,6 +81,13 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr: s.Scheduler.SyringeConfig.InfluxURL,
+
+		Username: s.Scheduler.SyringeConfig.InfluxUsername,
+		Password: s.Scheduler.SyringeConfig.InfluxPassword,
+
+		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
+		// I was getting validation errors.
+		InsecureSkipVerify: true,
 	})
 	if err != nil {
 		log.Error("Error creating InfluxDB Client: ", err.Error())
@@ -108,6 +122,7 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
 			tags["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
+			tags["syringeTier"] = s.Scheduler.SyringeConfig.Tier
 
 			count, duration := s.getCountAndDuration(lessonId)
 			fields["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
