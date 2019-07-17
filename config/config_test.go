@@ -48,11 +48,29 @@ func TestConfigJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	desired := `{"CurriculumDir":"foo","Tier":"local","Domain":"bar","GRPCPort":50099,"HTTPPort":8086,"DeviceGCAge":0,"NonDeviceGCAge":0,"HealthCheckInterval":0,"LiveLessonTTL":30,"InfluxURL":"https://influxdb.networkreliability.engineering/","InfluxUsername":"admin","InfluxPassword":"zerocool","TSDBExportInterval":0,"TSDBEnabled":false,"CurriculumLocal":false,"CurriculumRepoRemote":"https://github.com/nre-learning/nrelabs-curriculum.git","CurriculumRepoBranch":"master"}`
+	desired := SyringeConfig{
+		CurriculumDir:        "foo",
+		Tier:                 "local",
+		Domain:               "bar",
+		GRPCPort:             50099,
+		HTTPPort:             8086,
+		DeviceGCAge:          0,
+		NonDeviceGCAge:       0,
+		HealthCheckInterval:  0,
+		LiveLessonTTL:        30,
+		InfluxURL:            "https://influxdb.networkreliability.engineering/",
+		InfluxUsername:       "admin",
+		InfluxPassword:       "zerocool",
+		TSDBExportInterval:   0,
+		TSDBEnabled:          false,
+		CurriculumLocal:      false,
+		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
+		CurriculumRepoBranch: "master",
+	}
 
 	t.Log(syringeConfig.JSON())
-	t.Log(desired)
+	t.Log(desired.JSON())
 
 	// Pretty barbaric but works for now
-	assert(t, syringeConfig.JSON() == desired, "")
+	assert(t, syringeConfig.JSON() == desired.JSON(), "")
 }
