@@ -80,7 +80,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Containers: []corev1.Container{
 				{
 					Name:  ep.GetName(),
-					Image: ep.GetImage(),
+					Image: fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion),
 
 					// Omitting in order to keep things speedy. For debugging, uncomment this, and the image will be pulled every time.
 					ImagePullPolicy: "Always",
@@ -116,10 +116,10 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// Privileged status is currently required by both the lite and full vqfx versions.
 	// It may also be required by other images we bring on board.
 	privilegedImages := map[string]string{
-		"antidotelabs/vqfx:snap1":         "",
-		"antidotelabs/vqfx:snap2":         "",
-		"antidotelabs/vqfx:snap3":         "",
-		"antidotelabs/vqfx-full:18.1R1.9": "",
+		"antidotelabs/container-vqfx": "",
+		// "antidotelabs/vqfx:snap2":         "",
+		// "antidotelabs/vqfx:snap3":         "",
+		// "antidotelabs/vqfx-full:18.1R1.9": "",
 	}
 	if _, ok := privilegedImages[ep.Image]; ok {
 		b := true
