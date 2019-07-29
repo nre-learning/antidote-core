@@ -111,7 +111,6 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	// +syringeconfig SYRINGE_CURRICULUM_VERSION is the version of the curriculum to use.
 	version := os.Getenv("SYRINGE_CURRICULUM_VERSION")
 	if version == "" {
-
 		// This is used to form docker image refs, so we're specifying "latest" here by default.
 		config.CurriculumVersion = "latest"
 	} else {
