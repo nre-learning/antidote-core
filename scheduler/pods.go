@@ -79,11 +79,8 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			InitContainers: initContainers,
 			Containers: []corev1.Container{
 				{
-					Name: ep.GetName(),
-					// TODO(mierdin): Switch back the below once the NRE Labs curriculum has been adjusted
-					// Image: fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion),
-					Image: ep.GetImage(),
-					// Omitting in order to keep things speedy. For debugging, uncomment this, and the image will be pulled every time.
+					Name:            ep.GetName(),
+					Image:           fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion),
 					ImagePullPolicy: "Always",
 
 					// ImagePullPolicy: "IfNotPresent",
@@ -118,8 +115,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// It may also be required by other images we bring on board.
 	privilegedImages := map[string]string{
 
-		// TODO(mierdin): Fix these once the new image is available
-		// "antidotelabs/container-vqfx":     "",
+		"antidotelabs/container-vqfx":     "",
 		"antidotelabs/vqfx:snap1":         "",
 		"antidotelabs/vqfx:snap2":         "",
 		"antidotelabs/vqfx:snap3":         "",
