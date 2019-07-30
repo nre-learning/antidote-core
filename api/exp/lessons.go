@@ -208,10 +208,11 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *pb.Lesson) erro
 			return fail
 		}
 
-		if strings.Contains(ep.Image, ":") {
-			log.Error("Tags are not allowed in endpoint image refs")
-			return fail
-		}
+		// TODO(mierdin): Enable once the NRE Labs curriculum has been adjusted
+		// if strings.Contains(ep.Image, ":") {
+		// 	log.Error("Tags are not allowed in endpoint image refs")
+		// 	return fail
+		// }
 
 		if ep.ConfigurationType == "" {
 			continue
