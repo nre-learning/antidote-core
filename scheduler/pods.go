@@ -117,10 +117,13 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// Privileged status is currently required by both the lite and full vqfx versions.
 	// It may also be required by other images we bring on board.
 	privilegedImages := map[string]string{
-		"antidotelabs/container-vqfx": "",
-		// "antidotelabs/vqfx:snap2":         "",
-		// "antidotelabs/vqfx:snap3":         "",
-		// "antidotelabs/vqfx-full:18.1R1.9": "",
+
+		// TODO(mierdin): Fix these once the new image is available
+		// "antidotelabs/container-vqfx":     "",
+		"antidotelabs/vqfx:snap1":         "",
+		"antidotelabs/vqfx:snap2":         "",
+		"antidotelabs/vqfx:snap3":         "",
+		"antidotelabs/vqfx-full:18.1R1.9": "",
 	}
 	if _, ok := privilegedImages[ep.Image]; ok {
 		b := true
