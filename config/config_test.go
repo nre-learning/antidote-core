@@ -64,6 +64,7 @@ func TestConfigJSON(t *testing.T) {
 		TSDBExportInterval:   0,
 		TSDBEnabled:          false,
 		CurriculumLocal:      false,
+		CurriculumVersion:    "latest",
 		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
 		CurriculumRepoBranch: "master",
 		AllowEgress:          false,

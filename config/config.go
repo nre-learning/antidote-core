@@ -28,6 +28,7 @@ type SyringeConfig struct {
 	TSDBEnabled        bool
 
 	CurriculumLocal      bool
+	CurriculumVersion    string
 	CurriculumRepoRemote string
 	CurriculumRepoBranch string
 
@@ -105,6 +106,15 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.CurriculumLocal = false
 	} else {
 		config.CurriculumLocal = true
+	}
+
+	// +syringeconfig SYRINGE_CURRICULUM_VERSION is the version of the curriculum to use.
+	version := os.Getenv("SYRINGE_CURRICULUM_VERSION")
+	if version == "" {
+		// This is used to form docker image refs, so we're specifying "latest" here by default.
+		config.CurriculumVersion = "latest"
+	} else {
+		config.CurriculumVersion = version
 	}
 
 	// +syringeconfig SYRINGE_CURRICULUM_REPO_REMOTE is the git repo from which pull lesson content
