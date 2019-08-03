@@ -190,6 +190,7 @@ func LoadConfigVars() (*SyringeConfig, error) {
 			"antidotelabs/container-vqfx",
 			"antidotelabs/vqfx",
 			"antidotelabs/vqfx-full",
+			"antidotelabs/cvx",
 		}
 	} else {
 		config.PrivilegedImages = strings.Split(privImages, ",")
