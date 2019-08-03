@@ -67,7 +67,12 @@ func TestConfigJSON(t *testing.T) {
 		CurriculumVersion:    "latest",
 		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
 		CurriculumRepoBranch: "master",
-		AllowEgress:          false,
+		PrivilegedImages: []string{
+			"antidotelabs/container-vqfx",
+			"antidotelabs/vqfx",
+			"antidotelabs/vqfx-full",
+		},
+		AllowEgress: false,
 	}
 
 	t.Log(syringeConfig.JSON())

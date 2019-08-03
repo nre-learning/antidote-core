@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -31,6 +32,8 @@ type SyringeConfig struct {
 	CurriculumVersion    string
 	CurriculumRepoRemote string
 	CurriculumRepoBranch string
+
+	PrivilegedImages []string
 
 	AllowEgress bool
 }
@@ -174,6 +177,22 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.AllowEgress = false
 	} else {
 		config.AllowEgress = true
+	}
+
+	// +syringeconfig SYRINGE_PRIVILEGED_IMAGES is a string slice that specifies which images need privileged
+	// access granted to them. This option will eventually be deprecated in favor of a more secure option, but
+	// for now, this allows us to at least be selective about what images are granted these privileges - ideally
+	// only images which only allow user access from within a VM.
+	// Images should be separated by commas, no spaces. Image tags should NOT be included.
+	privImages := os.Getenv("SYRINGE_PRIVILEGED_IMAGES")
+	if privImages == "" {
+		config.PrivilegedImages = []string{
+			"antidotelabs/container-vqfx",
+			"antidotelabs/vqfx",
+			"antidotelabs/vqfx-full",
+		}
+	} else {
+		config.PrivilegedImages = strings.Split(privImages, ",")
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())

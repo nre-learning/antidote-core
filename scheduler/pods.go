@@ -82,24 +82,13 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 					Name:            ep.GetName(),
 					Image:           fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion),
 					ImagePullPolicy: "Always",
-
-					// ImagePullPolicy: "IfNotPresent",
-
 					Env: []corev1.EnvVar{
-
 						// Passing in full ref as an env var in case the pod needs to configure a base URL for ingress purposes.
 						{Name: "SYRINGE_FULL_REF", Value: fmt.Sprintf("%s-%s", nsName, ep.GetName())},
 					},
 
 					Ports:        []corev1.ContainerPort{}, // Will set below
 					VolumeMounts: volumeMounts,
-					SecurityContext: &corev1.SecurityContext{
-						Capabilities: &corev1.Capabilities{
-							Add: []corev1.Capability{
-								"NET_ADMIN",
-							},
-						},
-					},
 				},
 			},
 
@@ -107,25 +96,21 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	// TODO(mierdin): Obviously, this isn't ideal. We were previously granting privileged status to
-	// all containers, so this is technically an improvement, but not much of one. Preferably very soon
-	// we should come up with a more suitable short-term solution. The correct long-term solution
-	// might be something like labtainers, or kubevirt.
-	// Privileged status is currently required by both the lite and full vqfx versions.
-	// It may also be required by other images we bring on board.
-	privilegedImages := map[string]string{
-
-		"antidotelabs/container-vqfx":     "",
-		"antidotelabs/vqfx:snap1":         "",
-		"antidotelabs/vqfx:snap2":         "",
-		"antidotelabs/vqfx:snap3":         "",
-		"antidotelabs/vqfx-full:18.1R1.9": "",
-	}
-	if _, ok := privilegedImages[ep.Image]; ok {
-		b := true
-		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-			Privileged:               &b,
-			AllowPrivilegeEscalation: &b,
+	// TODO(mierdin): See Antidote mini-project 6 (MP6) for details on how we're planning to obviate
+	// the need for privileged mode entirely. For now, this mechanism allows us to only grant this to
+	// images that contain a virtualization layer (i.e. network devices).
+	for i := range ls.SyringeConfig.PrivilegedImages {
+		if ep.Image == ls.SyringeConfig.PrivilegedImages[i] {
+			b := true
+			pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+				Privileged:               &b,
+				AllowPrivilegeEscalation: &b,
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{
+						"NET_ADMIN",
+					},
+				},
+			}
 		}
 	}
 
