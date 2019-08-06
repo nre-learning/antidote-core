@@ -62,7 +62,7 @@ type LessonScheduler struct {
 	GcWhiteListMu *sync.Mutex
 	KubeLabs      map[string]*KubeLab
 	KubeLabsMu    *sync.Mutex
-	HealthChecker LessonHealthCheck
+	HealthChecker LessonHealthChecker
 
 	// Allows us to disable GC for testing. Production code should leave this at
 	// false
@@ -158,6 +158,7 @@ func (ls *LessonScheduler) deleteKubelab(uuid string) {
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
+
 	ls.killAllJobs(nsName, "config")
 
 	wg := new(sync.WaitGroup)
