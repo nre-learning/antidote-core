@@ -69,8 +69,11 @@ func TestConfigJSON(t *testing.T) {
 		CurriculumRepoBranch: "master",
 		PrivilegedImages: []string{
 			"antidotelabs/container-vqfx",
-			"antidotelabs/vqfx",
+			"antidotelabs/vqfx-snap1",
+			"antidotelabs/vqfx-snap2",
+			"antidotelabs/vqfx-snap3",
 			"antidotelabs/vqfx-full",
+			"antidotelabs/cvx",
 		},
 		AllowEgress: false,
 	}
