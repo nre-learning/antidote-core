@@ -44,8 +44,6 @@ type SyringeAPIServer struct {
 	VerificationTasksMu *sync.Mutex
 
 	Scheduler *scheduler.LessonScheduler
-
-	BuildInfo map[string]string
 }
 
 func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {

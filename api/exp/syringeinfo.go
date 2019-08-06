@@ -10,17 +10,17 @@ import (
 
 func (s *SyringeAPIServer) GetSyringeInfo(ctx context.Context, _ *empty.Empty) (*pb.SyringeInfo, error) {
 
-	if _, ok := s.BuildInfo["buildSha"]; !ok {
+	if _, ok := s.Scheduler.BuildInfo["buildSha"]; !ok {
 		return &pb.SyringeInfo{}, errors.New("Build SHA not found")
 	}
 
-	if _, ok := s.BuildInfo["antidoteSha"]; !ok {
+	if _, ok := s.Scheduler.BuildInfo["antidoteSha"]; !ok {
 		return &pb.SyringeInfo{}, errors.New("Antidote SHA not found")
 	}
 
 	si := pb.SyringeInfo{
-		BuildSha:    s.BuildInfo["buildSha"],
-		AntidoteSha: s.BuildInfo["antidoteSha"],
+		BuildSha:    s.Scheduler.BuildInfo["buildSha"],
+		AntidoteSha: s.Scheduler.BuildInfo["antidoteSha"],
 	}
 
 	return &si, nil

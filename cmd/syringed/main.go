@@ -58,6 +58,7 @@ func main() {
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
 		HealthChecker: scheduler.LessonHealthCheck{},
+		BuildInfo:     buildInfo,
 	}
 
 	// CREATION OF CLIENTS
@@ -108,7 +109,6 @@ func main() {
 		VerificationTasks:   make(map[string]*pb.VerificationTask),
 		VerificationTasksMu: &sync.Mutex{},
 		Scheduler:           &lessonScheduler,
-		BuildInfo:           buildInfo,
 	}
 	go func() {
 		err = apiServer.StartAPI(&lessonScheduler, buildInfo)
