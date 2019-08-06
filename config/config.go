@@ -188,7 +188,9 @@ func LoadConfigVars() (*SyringeConfig, error) {
 	if privImages == "" {
 		config.PrivilegedImages = []string{
 			"antidotelabs/container-vqfx",
-			"antidotelabs/vqfx",
+			"antidotelabs/vqfx-snap1",
+			"antidotelabs/vqfx-snap2",
+			"antidotelabs/vqfx-snap3",
 			"antidotelabs/vqfx-full",
 			"antidotelabs/cvx",
 		}
