@@ -100,9 +100,11 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 					To: []netv1.NetworkPolicyPeer{
 
 						// Have only been able to get this working with this CIDR.
-						// Tried a /32 directly to the svc IP, but that didn't seem to work.
-						// Should revisit this later.
+						// Tried a /32 directly to the svc IP for DNS, but that didn't seem to work.
+						// Should revisit this later. Open to all RFC1918 for now.
 						{IPBlock: &netv1.IPBlock{CIDR: "10.0.0.0/8"}},
+						{IPBlock: &netv1.IPBlock{CIDR: "192.168.0.0/16"}},
+						{IPBlock: &netv1.IPBlock{CIDR: "171.16.0.0/12"}},
 					},
 					Ports: []netv1.NetworkPolicyPort{
 						{Protocol: &tcp, Port: &fivethree},
