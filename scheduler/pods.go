@@ -42,7 +42,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
 	var imageRef string
-	if strings.Contains(ep.Image, "jupyterlabguide") {
+	if strings.Contains(ep.Image, "jupyter") {
 		imageRef = ep.GetImage()
 	} else {
 		imageRef = fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion)
