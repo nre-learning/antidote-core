@@ -172,7 +172,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 					Containers: []corev1.Container{
 						{
 							Name:    "configurator",
-							Image:   "antidotelabs/configurator",
+							Image:   fmt.Sprintf("antidotelabs/configurator:%s", ls.BuildInfo["imageVersion"]),
 							Command: configCommand,
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod

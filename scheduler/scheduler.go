@@ -76,6 +76,8 @@ type LessonScheduler struct {
 
 	// Client for creating instances of our network CRD
 	ClientCrd kubernetesCrd.Interface
+
+	BuildInfo map[string]string
 }
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
@@ -294,7 +296,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 
 		initContainers = append(initContainers, corev1.Container{
 			Name:  "git-clone",
-			Image: "antidotelabs/githelper",
+			Image: fmt.Sprintf("antidotelabs/githelper:%s", ls.BuildInfo["imageVersion"]),
 			Args: []string{
 				ls.SyringeConfig.CurriculumRepoRemote,
 				ls.SyringeConfig.CurriculumRepoBranch,

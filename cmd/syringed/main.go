@@ -57,6 +57,7 @@ func main() {
 		GcWhiteListMu: &sync.Mutex{},
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
+		BuildInfo:     buildInfo,
 		HealthChecker: &scheduler.LessonHealthCheck{},
 	}
 
@@ -108,7 +109,6 @@ func main() {
 		VerificationTasks:   make(map[string]*pb.VerificationTask),
 		VerificationTasksMu: &sync.Mutex{},
 		Scheduler:           &lessonScheduler,
-		BuildInfo:           buildInfo,
 	}
 	go func() {
 		err = apiServer.StartAPI(&lessonScheduler, buildInfo)
