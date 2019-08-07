@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 GITHUB_TOKEN=$1
 RELEASE_VERSION=$2
 
@@ -23,7 +25,24 @@ upload() {
 
 mkdir -p $GOPATH/src/github.com/nre-learning
 git clone --branch $RELEASE_VERSION https://github.com/nre-learning/syringe $GOPATH/src/github.com/nre-learning/syringe
-cd $GOPATH/src/github.com/nre-learning/syringe && make && cd -
+
+# Make sure things compile and pass tests
+cd $GOPATH/src/github.com/nre-learning/syringe
+make
+
+if [ $? -ne 0 ]; then
+    echo "failed to compile"
+    exit 1
+fi
+
+make test
+
+if [ $? -ne 0 ]; then
+    echo "failed to pass tests"
+    exit 1
+fi
+
+cd -
 
 packages=("github.com/nre-learning/syringe/cmd/syringed" "github.com/nre-learning/syringe/cmd/syrctl")
 
