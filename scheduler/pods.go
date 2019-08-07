@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
@@ -37,6 +38,15 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	}
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
+
+	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
+	// because that's part of the platform. For all others, we will append the version of the curriculum.
+	var imageRef string
+	if strings.Contains(ep.Image, "jupyterlabguide") {
+		imageRef = ep.GetImage()
+	} else {
+		imageRef = fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion)
+	}
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -80,7 +90,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Containers: []corev1.Container{
 				{
 					Name:            ep.GetName(),
-					Image:           fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion),
+					Image:           imageRef,
 					ImagePullPolicy: "Always",
 					Env: []corev1.EnvVar{
 						// Passing in full ref as an env var in case the pod needs to configure a base URL for ingress purposes.
