@@ -3,7 +3,6 @@ package scheduler
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -139,16 +138,10 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 
 	// Append endpoint and create ingress for jupyter lab guide if necessary
 	if usesJupyterLabGuide(req.Lesson) {
-		var configImageVer string
-		if strings.Contains(ls.BuildInfo["buildVersion"], "dev") {
-			configImageVer = "latest"
-		} else {
-			configImageVer = ls.BuildInfo["buildVersion"]
-		}
 
 		jupyterEp := &pb.Endpoint{
 			Name:            "jupyterlabguide",
-			Image:           fmt.Sprintf("antidotelabs/jupyter:%s", configImageVer),
+			Image:           fmt.Sprintf("antidotelabs/jupyter:%s", ls.BuildInfo["imageVersion"]),
 			AdditionalPorts: []int32{8888},
 		}
 		req.Lesson.Endpoints = append(req.Lesson.Endpoints, jupyterEp)

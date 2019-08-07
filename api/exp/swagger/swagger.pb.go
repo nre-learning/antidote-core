@@ -1146,6 +1146,9 @@ Syringeinfo = `{
         },
         "antidoteSha": {
           "type": "string"
+        },
+        "imageVersion": {
+          "type": "string"
         }
       }
     }

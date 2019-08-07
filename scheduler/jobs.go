@@ -141,13 +141,6 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 		return nil, errors.New("Unknown config type")
 	}
 
-	var configImageVer string
-	if strings.Contains(ls.BuildInfo["buildVersion"], "dev") {
-		configImageVer = "latest"
-	} else {
-		configImageVer = ls.BuildInfo["buildVersion"]
-	}
-
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -179,7 +172,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 					Containers: []corev1.Container{
 						{
 							Name:    "configurator",
-							Image:   fmt.Sprintf("antidotelabs/configurator:%s", configImageVer),
+							Image:   fmt.Sprintf("antidotelabs/configurator:%s", ls.BuildInfo["imageVersion"]),
 							Command: configCommand,
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod

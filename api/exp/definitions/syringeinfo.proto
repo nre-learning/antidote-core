@@ -16,6 +16,7 @@ service SyringeInfoService {
 message SyringeInfo {
   string buildSha = 1;
   string antidoteSha = 2;
+  string imageVersion = 3;
 }
 
 

@@ -19,8 +19,9 @@ func (s *SyringeAPIServer) GetSyringeInfo(ctx context.Context, _ *empty.Empty) (
 	}
 
 	si := pb.SyringeInfo{
-		BuildSha:    s.Scheduler.BuildInfo["buildSha"],
-		AntidoteSha: s.Scheduler.BuildInfo["antidoteSha"],
+		BuildSha:     s.Scheduler.BuildInfo["buildSha"],
+		AntidoteSha:  s.Scheduler.BuildInfo["antidoteSha"],
+		ImageVersion: s.Scheduler.BuildInfo["imageVersion"],
 	}
 
 	return &si, nil

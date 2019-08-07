@@ -294,16 +294,9 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 			SubPath:   lessonDir,
 		})
 
-		var configImageVer string
-		if strings.Contains(ls.BuildInfo["buildVersion"], "dev") {
-			configImageVer = "latest"
-		} else {
-			configImageVer = ls.BuildInfo["buildVersion"]
-		}
-
 		initContainers = append(initContainers, corev1.Container{
 			Name:  "git-clone",
-			Image: fmt.Sprintf("antidotelabs/githelper:%s", configImageVer),
+			Image: fmt.Sprintf("antidotelabs/githelper:%s", ls.BuildInfo["imageVersion"]),
 			Args: []string{
 				ls.SyringeConfig.CurriculumRepoRemote,
 				ls.SyringeConfig.CurriculumRepoBranch,
