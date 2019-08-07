@@ -13,6 +13,7 @@
 - Fixed bug with 'allow egress' variable and added tests [#125](https://github.com/nre-learning/syringe/pull/125)
 - Specify version for all platform-related docker images [#126](https://github.com/nre-learning/syringe/pull/126)
 - Opened networkpolicy to all RFC1918 for the time being [#127](https://github.com/nre-learning/syringe/pull/127)
+- Fix bug in jupyter version tagging [#128](https://github.com/nre-learning/syringe/pull/128)
 
 ## v0.3.2 - April 19, 2019
 
