@@ -54,6 +54,11 @@ func equals(tb testing.TB, exp, act interface{}) {
 	}
 }
 
+type fakeHealthChecker struct{}
+
+func (lhc *fakeHealthChecker) sshTest(host string, port int) bool { return true }
+func (lhc *fakeHealthChecker) tcpTest(host string, port int) bool { return true }
+
 func createFakeScheduler() *LessonScheduler {
 	os.Setenv("SYRINGE_CURRICULUM", "foo")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
@@ -162,7 +167,10 @@ func createFakeScheduler() *LessonScheduler {
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
+
+		HealthChecker: &fakeHealthChecker{},
 	}
+
 	return &lessonScheduler
 }
 
@@ -204,7 +212,7 @@ func TestSchedulerSetup(t *testing.T) {
 		lessonScheduler.Requests <- req
 	}
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 10)
 
 	for k := range lessonScheduler.KubeLabs {
 		kl := lessonScheduler.KubeLabs[k]
@@ -215,6 +223,9 @@ func TestSchedulerSetup(t *testing.T) {
 			fmt.Sprintf("Services count mismatch: %d", len(kl.Services)))
 		assert(t, (len(kl.Ingresses) == 1),
 			fmt.Sprintf("Ingress count mismatch: %d", len(kl.Ingresses)))
+		netps, _ := lessonScheduler.Client.NetworkingV1().NetworkPolicies(fmt.Sprintf("%s-ns", kl.CreateRequest.Uuid)).List(metav1.ListOptions{})
+		assert(t, (len(netps.Items) == 1),
+			fmt.Sprintf("Must have a single networkpolicy - %s", fmt.Sprintf("%s-ns", kl.CreateRequest.Uuid)))
 	}
 
 	if len(lessonScheduler.KubeLabs) != numberKubeLabs {

@@ -10,6 +10,7 @@
 - Add configuration options to influxdb export [#108](https://github.com/nre-learning/syringe/pull/108)
 - Add config flag to permit egress traffic [#119](https://github.com/nre-learning/syringe/pull/119)
 - Enhanced granularity for image privileges and versions [#123](https://github.com/nre-learning/syringe/pull/123)
+- Fixed bug with 'allow egress' variable and added tests [#125](https://github.com/nre-learning/syringe/pull/125)
 - Specify version for all platform-related docker images [#126](https://github.com/nre-learning/syringe/pull/126)
 
 ## v0.3.2 - April 19, 2019

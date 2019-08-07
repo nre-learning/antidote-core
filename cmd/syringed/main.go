@@ -57,8 +57,8 @@ func main() {
 		GcWhiteListMu: &sync.Mutex{},
 		KubeLabs:      make(map[string]*scheduler.KubeLab),
 		KubeLabsMu:    &sync.Mutex{},
-		HealthChecker: scheduler.LessonHealthCheck{},
 		BuildInfo:     buildInfo,
+		HealthChecker: &scheduler.LessonHealthCheck{},
 	}
 
 	// CREATION OF CLIENTS
