@@ -192,7 +192,8 @@ func LoadConfigVars() (*SyringeConfig, error) {
 			"antidotelabs/vqfx-snap2",
 			"antidotelabs/vqfx-snap3",
 			"antidotelabs/vqfx-full",
-			"antidotelabs/cvx",
+			"antidotelabs/cvx-3.7.6",
+			"antidotelabs/frr-0.7.1",
 		}
 	} else {
 		config.PrivilegedImages = strings.Split(privImages, ",")
