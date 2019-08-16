@@ -2,6 +2,7 @@
 
 ## In development
 
+- Disable TSDB by default (configurable) [#130](https://github.com/nre-learning/syringe/pull/130)
 
 ## v0.4.0 - August 07, 2019
 
