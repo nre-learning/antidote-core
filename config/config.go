@@ -21,12 +21,12 @@ type SyringeConfig struct {
 	HealthCheckInterval int
 	LiveLessonTTL       int
 
-	InfluxURL      string
-	InfluxUsername string
-	InfluxPassword string
+	InfluxdbEnabled bool
+	InfluxURL       string
+	InfluxUsername  string
+	InfluxPassword  string
 
 	TSDBExportInterval int
-	TSDBEnabled        bool
 
 	CurriculumLocal      bool
 	CurriculumVersion    string
@@ -143,6 +143,15 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.LiveLessonTTL = 30
 	} else {
 		config.LiveLessonTTL = gc
+	}
+
+	// +syringeconfig SYRINGE_INFLUXDB_ENABLED controls whether or not influxdb exports take place.
+	// Defaults to false.
+	influxdbEnabled, err := strconv.ParseBool(os.Getenv("SYRINGE_INFLUXDB_ENABLED"))
+	if influxdbEnabled == false || err != nil {
+		config.InfluxdbEnabled = false
+	} else {
+		config.InfluxdbEnabled = true
 	}
 
 	// +syringeconfig SYRINGE_INFLUXDB_URL is the URL for the influxdb-based metrics server.
