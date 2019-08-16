@@ -74,6 +74,7 @@ func TestConfigJSON(t *testing.T) {
 			"antidotelabs/vqfx-snap3",
 			"antidotelabs/vqfx-full",
 			"antidotelabs/cvx",
+			"antidotelabs/frr",
 		},
 		AllowEgress: false,
 	}

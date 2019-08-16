@@ -2,6 +2,7 @@
 
 ## In development
 
+- Added cvx and frr image names to privileged container list in config.go [#129](https://github.com/nre-learning/syringe/pull/129)
 
 ## v0.4.0 - August 07, 2019
 
