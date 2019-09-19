@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	cli "github.com/codegangsta/cli"
 	"github.com/fatih/color"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/nre-learning/syringe/config"
+	cli "github.com/urfave/cli"
 	grpc "google.golang.org/grpc"
 
 	api "github.com/nre-learning/syringe/api/exp"

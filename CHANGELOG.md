@@ -3,6 +3,7 @@
 ## In development
 
 - Added cvx and frr image names to privileged container list in config.go [#129](https://github.com/nre-learning/syringe/pull/129)
+- Cleaned up and updated deps - installing grpc tooling from source [#135](https://github.com/nre-learning/syringe/pull/135)
 
 ## v0.4.0 - August 07, 2019
 
