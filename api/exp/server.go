@@ -130,7 +130,9 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	}).Info("Syringe API started.")
 
 	// Begin periodically exporting metrics to TSDB
-	go apiServer.startTSDBExport()
+	if apiServer.Scheduler.SyringeConfig.InfluxdbEnabled {
+		go apiServer.startTSDBExport()
+	}
 
 	// Periodic clean-up of verification tasks
 	go func() {
