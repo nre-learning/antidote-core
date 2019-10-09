@@ -10,11 +10,8 @@ import (
 // LESSON
 
 func (s *MockAPIServer) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
-
-	defs := []*pb.Lesson{}
-
 	return &pb.Lessons{
-		Lessons: defs,
+		Lessons: s.Lessons,
 	}, nil
 }
 
@@ -25,7 +22,7 @@ func (s *MockAPIServer) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonI
 }
 
 func (s *MockAPIServer) GetLesson(ctx context.Context, lid *pb.LessonID) (*pb.Lesson, error) {
-	return &pb.Lesson{}, nil
+	return s.Lessons[0], nil
 }
 
 // LIVELESSON
@@ -43,7 +40,26 @@ func (s *MockAPIServer) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.He
 }
 
 func (s *MockAPIServer) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.LiveLesson, error) {
-	return &pb.LiveLesson{}, nil
+
+	return &pb.LiveLesson{
+		LessonUUID: "1-abcdef",
+		LessonId:   1,
+		LiveEndpoints: map[string]*pb.Endpoint{
+			"linux1": {
+				Name: "linux1",
+				Presentations: []*pb.Presentation{
+					{Name: "cli", Port: 22, Type: "ssh"},
+				},
+				Host: "linux1",
+			},
+		},
+		LessonStage:      1,
+		LabGuide:         "foobar",
+		LiveLessonStatus: 3,
+		HealthyTests:     1,
+		TotalTests:       1,
+	}, nil
+
 }
 
 func (s *MockAPIServer) AddSessiontoGCWhitelist(ctx context.Context, session *pb.Session) (*pb.HealthCheckMessage, error) {
@@ -72,4 +88,16 @@ func (s *MockAPIServer) RequestVerification(ctx context.Context, uuid *pb.Lesson
 
 func (s *MockAPIServer) GetVerification(ctx context.Context, vtUUID *pb.VerificationTaskUUID) (*pb.VerificationTask, error) {
 	return &pb.VerificationTask{}, nil
+}
+
+// COLLECTION
+
+func (s *MockAPIServer) ListCollections(ctx context.Context, filter *pb.CollectionFilter) (*pb.Collections, error) {
+	return &pb.Collections{
+		Collections: s.Collections,
+	}, nil
+}
+
+func (s *MockAPIServer) GetCollection(ctx context.Context, filter *pb.CollectionID) (*pb.Collection, error) {
+	return s.Collections[0], nil
 }

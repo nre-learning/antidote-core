@@ -1,35 +1,49 @@
 package main
 
 import (
-
-	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 func init() {
-	// log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.DebugLevel)
 }
 
 func main() {
 
-	syringeConfig, err := config.LoadConfigVars()
-	if err != nil {
-		log.Error(err)
-		log.Fatalf("Invalid configuration. Please re-run Syringe with appropriate env variables")
+	syringeConfig := &config.SyringeConfig{
+		Domain:   "localhost",
+		GRPCPort: 50099,
+		HTTPPort: 8086,
 	}
 
-	// curriculum, err := api.ImportCurriculum(syringeConfig)
-	// if err != nil {
-	// 	log.Warn(err)
-	// }
+	var lesson *pb.Lesson
+	err := yaml.Unmarshal([]byte(lessonRaw), &lesson)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	apiServer := &MockAPIServer{}
+	var collection *pb.Collection
+	err = yaml.Unmarshal([]byte(collectionRaw), &collection)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	apiServer := &MockAPIServer{
+		Lessons: []*pb.Lesson{
+			lesson,
+		},
+		Collections: []*pb.Collection{
+			collection,
+		},
+	}
 	err = apiServer.StartAPI(syringeConfig)
 	if err != nil {
 		log.Fatalf("Problem starting API: %s", err)
 	}
+
+	ch := make(chan struct{})
+	<-ch
 }

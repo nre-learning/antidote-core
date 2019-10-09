@@ -26,7 +26,10 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-type MockAPIServer struct{}
+type MockAPIServer struct {
+	Lessons     []*pb.Lesson
+	Collections []*pb.Collection
+}
 
 func (apiServer *MockAPIServer) StartAPI(config *config.SyringeConfig) error {
 
@@ -41,7 +44,7 @@ func (apiServer *MockAPIServer) StartAPI(config *config.SyringeConfig) error {
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
 	// pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
-	// pb.RegisterCollectionServiceServer(grpcServer, apiServer)
+	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
 	// pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
 	// pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
@@ -71,10 +74,10 @@ func (apiServer *MockAPIServer) StartAPI(config *config.SyringeConfig) error {
 	// if err != nil {
 	// 	return err
 	// }
-	// err = gw.RegisterCollectionServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
-	// if err != nil {
-	// 	return err
-	// }
+	err = gw.RegisterCollectionServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
 	// err = gw.RegisterCurriculumServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	// if err != nil {
 	// 	return err
@@ -92,9 +95,9 @@ func (apiServer *MockAPIServer) StartAPI(config *config.SyringeConfig) error {
 	// mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
 	// 	io.Copy(w, strings.NewReader(swag.Syringeinfo))
 	// })
-	// mux.HandleFunc("/collection.json", func(w http.ResponseWriter, req *http.Request) {
-	// 	io.Copy(w, strings.NewReader(swag.Collection))
-	// })
+	mux.HandleFunc("/collection.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Collection))
+	})
 	// mux.HandleFunc("/curriculum.json", func(w http.ResponseWriter, req *http.Request) {
 	// 	io.Copy(w, strings.NewReader(swag.Curriculum))
 	// })
