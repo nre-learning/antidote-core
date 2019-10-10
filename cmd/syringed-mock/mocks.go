@@ -33,6 +33,13 @@ endpoints:
     port: 22
     type: ssh
 
+- name: webserver1
+  image: antidotelabs/webserver
+  presentations:
+  - name: web
+    port: 80
+    type: http
+
 stages:
 - id: 0
   description: This is a code smell you really should fix this
