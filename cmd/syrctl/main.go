@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -14,6 +15,8 @@ import (
 
 	api "github.com/nre-learning/syringe/api/exp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+
+	clientgoversion "k8s.io/client-go/pkg/version"
 )
 
 func main() {
@@ -305,6 +308,42 @@ func main() {
 						fmt.Println(jpbm.MarshalToString(kubeLab))
 					},
 				},
+			},
+		},
+		{
+			Name:        "kubeinfo",
+			Usage:       "syrctl kubeinfo",
+			Description: "Output information about Syringe's Kubernetes integrations.",
+			Action: func(c *cli.Context) {
+
+				// // Kubernetes types
+				// batchv1 "k8s.io/api/batch/v1"
+				// corev1 "k8s.io/api/core/v1"
+				// apierrors "k8s.io/apimachinery/pkg/api/errors"
+				// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+				// // Custom Network CRD Types
+				// networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+
+				// // Kubernetes Types
+				// corev1 "k8s.io/api/core/v1"corev1 "k8s.io/api/core/v1"
+				// netv1 "k8s.io/api/networking/v1"
+				// apierrors "k8s.io/apimachinery/pkg/api/errors"
+				// meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+				// intstr "k8s.io/apimachinery/pkg/util/intstr"
+
+				// k8sinfo := clientgoversion.Get()
+
+				allInfo := map[string]interface{}{
+					"client-go": clientgoversion.Get(),
+				}
+
+				allInfoByte, err := json.Marshal(allInfo)
+				if err != nil {
+					fmt.Println("Unable to produce kubeinfo: %s", err)
+				}
+
+				fmt.Println(string(allInfoByte))
 			},
 		},
 	}
