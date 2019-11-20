@@ -16,7 +16,7 @@ do
     protoc -I api/exp/definitions/ -I./api/exp/definitions \
         -I api/exp/definitions/ \
         api/exp/definitions/"$i" \
-            -I$GOPATH/src/github.com/nre-learning/syringe/vendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+            -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
             -I$GOPATH/src/github.com/envoyproxy/protoc-gen-validate \
         --go_out=plugins=grpc:api/exp/generated/ \
         --grpc-gateway_out=logtostderr=true,allow_delete_body=true:api/exp/generated/ \

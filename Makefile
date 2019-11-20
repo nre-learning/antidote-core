@@ -35,6 +35,7 @@ compile:
 
 	@echo "Compiling syringe binaries..."
 
+	# @go install -mod=vendor -ldflags "-linkmode external -extldflags -static" ./cmd/...
 	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
 
 docker:
