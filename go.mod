@@ -68,6 +68,7 @@ require (
 	// k8s.io/code-generator kubernetes-1.15.1
 
 	k8s.io/client-go v0.0.0-20191115215802-0a8a1d7b7fae
+
 	k8s.io/gengo v0.0.0-20191120174120-e74f70b9b27e // indirect
 	sigs.k8s.io/structured-merge-diff v1.0.1 // indirect
 )

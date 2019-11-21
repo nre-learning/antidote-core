@@ -56,13 +56,12 @@ gengo:
 	# You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.
 	# https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
 
-	# rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
-	rm -rf pkg/client/
-	rm -rf pkg/apis/
+	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
 
 	rm -rf vendor/k8s.io/
 	mkdir -p vendor/k8s.io/
 	git clone https://github.com/kubernetes/code-generator vendor/k8s.io/code-generator
+	cd vendor/k8s.io/code-generator && git checkout kubernetes-1.15.1
 	go install vendor/k8s.io/code-generator/...
 
 	vendor/k8s.io/code-generator/generate-groups.sh \
@@ -71,10 +70,12 @@ gengo:
 		github.com/nre-learning/syringe/pkg/apis \
 		k8s.cni.cncf.io:v1
 
-	# The above generates code within the GOPATH so we need to move the generated code into this directory
-	mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/client pkg/
-	mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/apis pkg/
-	rm $$GOPATH/src/github.com/nre-learning/syringe
+	@# The above generates code within the old GOPATH location (prior to moving to modules) and I'm not quite
+	@# sure how to tell it otherwise - so for now we need to move the generated code into this directory
+	@mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/client/clientset pkg/client/
+	@mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/client/informers pkg/client/
+	@mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/client/listers pkg/client/
+	@rm -rf $$GOPATH/src/github.com/nre-learning/syringe
 
 	@# We need to play doctor on some of these files. Haven't figured out yet how to ensure hyphens are preserved in the
 	@# fully qualified resource name, so we're just generating as normal, and then renaming files and replacing text
