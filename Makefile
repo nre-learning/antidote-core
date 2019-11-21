@@ -34,9 +34,10 @@ compile:
 	@hack/gen-build-info.sh
 
 	@echo "Compiling syringe binaries..."
+	@go mod vendor
 
-	# @go install -mod=vendor -ldflags "-linkmode external -extldflags -static" ./cmd/...
-	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+	@go install -mod=vendor -ldflags "-linkmode external -extldflags -static" ./cmd/...
+	# @go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
 
 docker:
 	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
@@ -55,12 +56,25 @@ gengo:
 	# You should only need to run this if the CRD API definitions change. Make sure you re-commit the changes once done.
 	# https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
 
-	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
-	
-	vendor/k8s.io/code-generator/generate-groups.sh all \
-	github.com/nre-learning/syringe/pkg/client \
-	github.com/nre-learning/syringe/pkg/apis \
-	k8s.cni.cncf.io:v1
+	# rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
+	rm -rf pkg/client/
+	rm -rf pkg/apis/
+
+	rm -rf vendor/k8s.io/
+	mkdir -p vendor/k8s.io/
+	git clone https://github.com/kubernetes/code-generator vendor/k8s.io/code-generator
+	go install vendor/k8s.io/code-generator/...
+
+	vendor/k8s.io/code-generator/generate-groups.sh \
+		all \
+		github.com/nre-learning/syringe/pkg/client \
+		github.com/nre-learning/syringe/pkg/apis \
+		k8s.cni.cncf.io:v1
+
+	# The above generates code within the GOPATH so we need to move the generated code into this directory
+	mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/client pkg/
+	mv $$GOPATH/src/github.com/nre-learning/syringe/pkg/apis pkg/
+	rm $$GOPATH/src/github.com/nre-learning/syringe
 
 	@# We need to play doctor on some of these files. Haven't figured out yet how to ensure hyphens are preserved in the
 	@# fully qualified resource name, so we're just generating as normal, and then renaming files and replacing text
