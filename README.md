@@ -6,4 +6,4 @@
 
 Syringe is part of the [Antidote](https://github.com/nre-learning/antidote) project, which provides an in-browser infrastructure automation learning platform. Syringe's role is to provide all of the back-end orchestration to make this possible. It provides a layer of middleware between the `antidote-web` front-end, and the Kubernetes cluster where all of Antidote's lesson entities are running.
 
-The [Syringe documentation](https://antidoteproject.readthedocs.io/en/latest/syringe/syringe.html) is your one-stop shop for more details, so go check it out!
+The [Antidote documentation](https://antidoteproject.readthedocs.io/) contains architectural information as well as steps to get started working on the code.
