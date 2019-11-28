@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:dcb7cadd45a5ce5f7a8a344358e25d92c66298759a1cb52cc0c8645cfc31bfd2"
+  name = "github.com/alecthomas/jsonschema"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4bb6e3fae4f22dac4e1ecbeb001cfcf46ebbfba0"
+
+[[projects]]
   digest = "1:d856fd4ca70fd10ce09eaea2bac3e8b55adbcbf62433d3a75e5ea1660d2a013f"
   name = "github.com/cpuguy83/go-md2man"
   packages = [
@@ -295,6 +303,30 @@
   pruneopts = "UT"
   revision = "bfe2e925cfb6d44b40ad3a779165ea7e8aff9212"
   version = "v1.22.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:87fe9bca786484cef53d52adeec7d1c52bc2bfbee75734eddeb75fc5c7023871"
+  name = "github.com/xeipuuv/gojsonpointer"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "02993c407bfbf5f6dae44c4f4b1cf6a39b5fc5bb"
+
+[[projects]]
+  branch = "master"
+  digest = "1:dc6a6c28ca45d38cfce9f7cb61681ee38c5b99ec1425339bfc1e1a7ba769c807"
+  name = "github.com/xeipuuv/gojsonreference"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bd5ef7bd5415a7ac448318e64f11a24cd21e594b"
+
+[[projects]]
+  digest = "1:a8a0ed98532819a3b0dc5cf3264a14e30aba5284b793ba2850d6f381ada5f987"
+  name = "github.com/xeipuuv/gojsonschema"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "82fcdeb203eb6ab2a67d0a623d9c19e5e5a64927"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -760,6 +792,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/alecthomas/jsonschema",
     "github.com/cpuguy83/go-md2man",
     "github.com/envoyproxy/protoc-gen-validate/validate",
     "github.com/fatih/color",
@@ -781,6 +814,7 @@
     "github.com/russross/blackfriday",
     "github.com/sirupsen/logrus",
     "github.com/urfave/cli",
+    "github.com/xeipuuv/gojsonschema",
     "golang.org/x/crypto/ssh",
     "google.golang.org/genproto/googleapis/api/annotations",
     "google.golang.org/grpc",
