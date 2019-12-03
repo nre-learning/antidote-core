@@ -17,8 +17,6 @@ import (
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
-	stats "github.com/nre-learning/syringe/stats"
-
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -49,7 +47,6 @@ type SyringeAPIServer struct {
 }
 
 func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
-	stats.StartTSDBExport()
 
 	grpcPort := apiServer.Scheduler.SyringeConfig.GRPCPort
 	httpPort := apiServer.Scheduler.SyringeConfig.HTTPPort
