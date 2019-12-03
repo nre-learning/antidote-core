@@ -60,18 +60,18 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.CurriculumDir = curriculumDir
 	}
 
+        /*
+                OPTIONAL
+        */
+
 	// +syringeconfig SYRINGE_DOMAIN is used when directing iframe resources to the appropriate place.
 	// Specify the full domain you're using to access the environment.
 	domain := os.Getenv("SYRINGE_DOMAIN")
 	if domain == "" {
-		return nil, errors.New("SYRINGE_DOMAIN is a required variable.")
+		config.Domain = "localhost"
 	} else {
 		config.Domain = domain
 	}
-
-	/*
-		OPTIONAL
-	*/
 
 	// +syringeconfig SYRINGE_GRPC_PORT specifies the port on which the GRPC server should listen
 	grpcPort, err := strconv.Atoi(os.Getenv("SYRINGE_GRPC_PORT"))
