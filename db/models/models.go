@@ -3,9 +3,8 @@ package db
 import (
 	"encoding/json"
 
-	log "github.com/sirupsen/logrus"
-
 	jsonschema "github.com/alecthomas/jsonschema"
+	log "github.com/sirupsen/logrus"
 	gjs "github.com/xeipuuv/gojsonschema"
 )
 

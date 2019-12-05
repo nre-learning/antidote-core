@@ -17,24 +17,6 @@ func main() {
 	// app.Version = buildInfo["buildVersion"]
 	app.Usage = "Command-line tool to interact with Antidote"
 
-	var host, port string
-
-	// global level flags
-	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:        "H, host",
-			Usage:       "syringed hostname",
-			Value:       "127.0.0.1",
-			Destination: &host,
-		},
-		cli.StringFlag{
-			Name:        "P, port",
-			Usage:       "syringed port",
-			Value:       "50099",
-			Destination: &port,
-		},
-	}
-
 	app.Commands = []cli.Command{
 		{
 			Name:    "import",
@@ -42,7 +24,25 @@ func main() {
 			Usage:   "antidote import <CURRICULUM DIRECTORY>",
 			Action: func(c *cli.Context) {
 
-				_, err := db.ImportCurriculum(&config.SyringeConfig{
+				type AntidoteDB struct {
+					User     string
+					Password string
+					Database string
+				}
+
+				adb := db.AntidoteDB{
+					User:     "postgres",
+					Password: "docker",
+					Database: "antidote",
+				}
+
+				// TODO(mierdin): Add confirmation, as this will drop all tables and recreate
+
+				// TODO(mierdin): Add collections, curriculum, meta
+				// Collections should be first, so we can check that the collection exists in lesson import
+
+				// TODO(mierdin) Use a real syringeconfig
+				err := adb.ImportLessons(&config.SyringeConfig{
 					Tier:          "local",
 					CurriculumDir: c.Args().First(),
 				})

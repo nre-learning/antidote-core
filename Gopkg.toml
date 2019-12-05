@@ -14,7 +14,10 @@ required = [
 
   # Fixing dumb issue with codegangsta/cli
   "github.com/cpuguy83/go-md2man",
-  "github.com/russross/blackfriday"
+  "github.com/russross/blackfriday",
+
+	"github.com/go-pg/pg",
+	"github.com/go-pg/pg/orm"
 ]
 
 [[constraint]]
