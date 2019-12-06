@@ -9,15 +9,20 @@ import (
 	influx "github.com/influxdata/influxdb/client/v2"
 	scheduler "github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
+
+var mockSyringeConfig = GetmockSyringeConfig()
+var curriculum = GetCurriculum(mockSyringeConfig)
+
+func RecordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     MockScheduler.SyringeConfig.InfluxURL,
-		Username: MockScheduler.SyringeConfig.InfluxUsername,
-		Password: MockScheduler.SyringeConfig.InfluxPassword,
+		Addr:     mockSyringeConfig.InfluxURL,
+		Username: mockSyringeConfig.InfluxUsername,
+		Password: mockSyringeConfig.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -48,7 +53,7 @@ func recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) e
 	tags := map[string]string{
 		"lessonId":    strconv.Itoa(int(res.Lesson.LessonId)),
 		"lessonName":  res.Lesson.LessonName,
-		"syringeTier": MockScheduler.SyringeConfig.Tier,
+		"syringeTier": mockSyringeConfig.Tier,
 	}
 
 	fields := map[string]interface{}{
@@ -76,14 +81,13 @@ func recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) e
 	return nil
 }
 
-func startTSDBExport() error {
-
+func StartTSDBExport() error {
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: MockScheduler.SyringeConfig.InfluxURL,
+		Addr: mockSyringeConfig.InfluxURL,
 
-		Username: MockScheduler.SyringeConfig.InfluxUsername,
-		Password: MockScheduler.SyringeConfig.InfluxPassword,
+		Username: mockSyringeConfig.InfluxUsername,
+		Password: mockSyringeConfig.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -115,17 +119,18 @@ func startTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range MockScheduler.Curriculum.Lessons {
+		for lessonId, _ := range curriculum.Lessons {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = MockScheduler.Curriculum.Lessons[lessonId].LessonName
-			tags["syringeTier"] = MockScheduler.SyringeConfig.Tier
+			tags["lessonName"] = curriculum.Lessons[lessonId].LessonName
+			tags["syringeTier"] = mockSyringeConfig.Tier
 
-			count, duration := s.getCountAndDuration(lessonId)
-			fields["lessonName"] = MockScheduler.Curriculum.Lessons[lessonId].LessonName
+			count, duration := getCountAndDuration(lessonId)
+//			count, duration := 0, 0
+			fields["lessonName"] = curriculum.Lessons[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
 
 			if duration != 0 {
@@ -160,11 +165,11 @@ func startTSDBExport() error {
 }
 
 func getCountAndDuration(lessonId int32) (int64, int64) {
-
+	liveLessonState :=  make(map[string]*pb.LiveLesson)
 	count := 0
 
 	durations := []int64{}
-	for _, liveLesson := range s.LiveLessonState {
+	for _, liveLesson := range liveLessonState {
 		if liveLesson.LessonId != lessonId {
 			continue
 		}

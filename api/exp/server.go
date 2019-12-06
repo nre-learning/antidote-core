@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/glog"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
+	stats "github.com/nre-learning/syringe/stats"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
@@ -131,7 +132,7 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 
 	// Begin periodically exporting metrics to TSDB
 	if apiServer.Scheduler.SyringeConfig.InfluxdbEnabled {
-		go apiServer.startTSDBExport()
+		go stats.StartTSDBExport()
 	}
 
 	// Periodic clean-up of verification tasks
