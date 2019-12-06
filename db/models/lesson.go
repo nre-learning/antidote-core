@@ -2,7 +2,36 @@ package db
 
 import (
 	"encoding/json"
+
+	jsonschema "github.com/alecthomas/jsonschema"
+	log "github.com/sirupsen/logrus"
+	gjs "github.com/xeipuuv/gojsonschema"
 )
+
+type Lesson struct {
+	Id int32 `json:"Id" sql:",pk"`
+
+	// While Id will be used as a true unique identifier, the Slug is now what we'll use
+	// to look up this lesson.
+	Slug string `json:"Slug" yaml:"slug" pg:",unique"`
+
+	Stages        []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
+	LessonName    string              `json:"LessonName" yaml:"lessonName" jsonschema:"required"`
+	Endpoints     []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"required,minItems=1"`
+	Connections   []*LessonConnection `json:"Connections" yaml:"connections"`
+	Category      string              `json:"Category" yaml:"category" jsonschema:"required"`
+	LessonDiagram string              `json:"LessonDiagram" yaml:"lessonDiagram"`
+	LessonVideo   string              `json:"LessonVideo" yaml:"lessonVideo"`
+	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required"`
+	Prereqs       []string            `json:"Prereqs" yaml:"prereqs"`
+	Tags          []string            `json:"Tags" yaml:"tags"`
+	Collection    int32               `json:"Collection" yaml:"collection"`
+	Description   string              `json:"Description" yaml:"description" jsonschema:"required"`
+
+	// TODO(mierdin): Figure out if these are needed anymore.
+	LessonFile string `json:"LessonFile,omitempty" jsonschema:"-"`
+	LessonDir  string `json:"LessonDir,omitempty" jsonschema:"-"`
+}
 
 func (l *Lesson) JSON() string {
 	b, err := json.Marshal(l)
@@ -13,64 +42,67 @@ func (l *Lesson) JSON() string {
 	return string(b)
 }
 
-type Lesson struct {
+// JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema
+// document, and then validates that instance's values against that schema.
+func (l Lesson) JSValidate() bool {
 
-	Id int32 `json:"Id sql:",pk"`
+	// Load JSON Schema document for Lesson type
+	schemaReflect := jsonschema.Reflect(l)
+	b, _ := json.Marshal(schemaReflect)
+	schemaLoader := gjs.NewStringLoader(string(b))
+	schema, _ := gjs.NewSchema(schemaLoader)
 
-	// While Id will be used as a true unique identifier, the Slug is now what we'll use
-	// to look up this lesson.
-	Slug          string              `json:"Slug" yaml:"slug" pg:",unique"`
+	// Load lesson instance JSON document
+	b, err := json.Marshal(l)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+	documentLoader := gjs.NewStringLoader(string(b))
 
-	Stages        []*LessonStage      `json:"Stages,omitempty" yaml:"stages,omitempty" jsonschema:"required"`
-	LessonName    string              `json:"LessonName,omitempty" yaml:"lessonName,omitempty" jsonschema:"required"`
-	Endpoints     []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"required"`
-	Connections   []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty"`
-	Category      string              `json:"Category,omitempty" yaml:"category,omitempty" jsonschema:"required"`
-	LessonDiagram string              `json:"LessonDiagram,omitempty" yaml:"lessonDiagram,omitempty"`
-	LessonVideo   string              `json:"LessonVideo,omitempty" yaml:"lessonVideo,omitempty"`
-	Tier          string              `json:"Tier,omitempty" yaml:"tier,omitempty" jsonschema:"required"`
-	Prereqs       []int32             `json:"Prereqs,omitempty" yaml:"prereqs,omitempty"`
-	Tags          []string            `json:"Tags,omitempty" yaml:"tags,omitempty"`
-	Collection    int32               `json:"Collection,omitempty" yaml:"collection,omitempty"`
-	Description   string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"required"`
+	// Perform validation
+	result, err := schema.Validate(documentLoader)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
 
-	// TODO(mierdin): Figure out if these are needed anymore.
-	LessonFile string `json:"LessonFile,omitempty" yaml:"lessonFile,omitempty"`
-	LessonDir  string `json:"LessonDir,omitempty" yaml:"lessonDir,omitempty"`
+	validationErrors := result.Errors()
+	for i := range validationErrors {
+		log.Errorf("Validation error - %s", validationErrors[i].String())
+	}
+
+	return result.Valid()
 }
 
 type LessonStage struct {
+	Id int32 `json:"Id" sql:",pk"`
 
-	Id int32 `json:"Id sql:",pk"`
+	Description string `json:"Description" yaml:"description"`
+	GuideType   string `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
+	LabGuide    string `json:"LabGuide,omitempty" jsonschema:"-"`
 
-	Description        string `json:"Description,omitempty" yaml:"description,omitempty"`
-	LabGuide           string `json:"LabGuide,omitempty" yaml:"labGuide,omitempty"`
-	JupyterLabGuide    bool   `json:"JupyterLabGuide,omitempty" yaml:"jupyterLabGuide,omitempty"`
-	VerifyCompleteness bool   `json:"VerifyCompleteness,omitempty" yaml:"verifyCompleteness,omitempty"`
-	VerifyObjective    string `json:"VerifyObjective,omitempty" yaml:"verifyObjective,omitempty"`
+	// TODO(mierdin): Rethink objectives
 }
 
 type LessonEndpoint struct {
-	Name  string `json:"Name,omitempty" yaml:"name,omitempty"`
-	Image string `json:"Image,omitempty" yaml:"image,omitempty"`
+	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
+	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/]*$"`
 
-	// Validation for this field will be done post-validation
-	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty"`
+	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType" jsonschema:"pattern=napalm-.*|python|ansible"`
 
-	// Handles any ports not explicitly mentioned in a presentation
-	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts,omitempty"`
+	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
 
-	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations,omitempty"`
-	Host          string                `json:"Host,omitempty" yaml:"host,omitempty"`
+	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations"`
 }
 
 type LessonPresentation struct {
-	Name string `json:"Name,omitempty" yaml:"name,omitempty"`
-	Port int32  `json:"Port,omitempty" yaml:"port,omitempty"`
-	Type string `json:"Type,omitempty" yaml:"type,omitempty"`
+	Name string `json:"Name" yaml:"name" jsonschema:"required"`
+	Port int32  `json:"Port" yaml:"port" jsonschema:"required"`
+	Type string `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
 }
 
 type LessonConnection struct {
-	A string `json:"A,omitempty" yaml:"a,omitempty"`
-	B string `json:"B,omitempty" yaml:"b,omitempty"`
+	A string `json:"A" yaml:"a" jsonschema:"required"`
+	B string `json:"B" yaml:"b" jsonschema:"required"`
 }

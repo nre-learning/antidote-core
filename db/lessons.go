@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -81,7 +80,7 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 
 		err = db.Insert(&lesson)
 		if err != nil {
-			log.Errorf("Failed to insert lesson '%s' into the database: %v", lesson.Id, err)
+			log.Errorf("Failed to insert lesson '%s' into the database: %v", lesson.Slug, err)
 			continue
 		}
 
@@ -89,6 +88,9 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 
 		retLds[lesson.Id] = &lesson
 	}
+
+	// TODO(mierdin): need to load into memory first so you can do inter-lesson references (like prereqs) first,
+	// and THEN insert into DB.
 
 	if len(fileList) == len(retLds) {
 		log.Infof("Imported %d lesson definitions.", len(retLds))
@@ -100,30 +102,32 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 
 }
 
+// TODO(mierdin): These need to be named more appropriately to be more consistent, and namespaced to lessons,
+// as other resources will have their own.
 var (
-	BasicValidationError          error
-	TierMismatchError             error
-	InsufficientPresentationError error
-	ProhibitedImageTagError       error
-	InvalidConfigurationType      error
-	MissingConfigurationFile      error
-	DuplicatePresentationError    error
-	MissingPresentationPort       error
+	BasicValidationError          error = errors.New("a")
+	TierMismatchError             error = errors.New("a")
+	InsufficientPresentationError error = errors.New("a")
+	ProhibitedImageTagError       error = errors.New("a")
+	InvalidConfigurationType      error = errors.New("a")
+	MissingConfigurationFile      error = errors.New("a")
+	DuplicatePresentationError    error = errors.New("a")
+	MissingPresentationPort       error = errors.New("a")
+	BadConnectionError            error = errors.New("a")
+	UnsupportedGuideTypeError     error = errors.New("a")
+	MissingLessonGuide            error = errors.New("a")
 )
 
 // validateLesson validates a single lesson, returning a simple error if the lesson fails
 // to validate.
 func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) error {
 
-	// TODO(mierdin): In the future, you should consider putting unique error messages for
-	// each violation. This will make this function more testable.
-	// fail := errors.New("failed to validate lesson definition")
 	file := lesson.LessonFile
 
-	if !models.JSValidate(lesson) {
-		// TODO(mierdin) fix err
-		// log.Errorf("Basic validation failed on %s: %s", file, err)
-		log.Errorf("Basic schema validation failed on %s: %s", file)
+	// TODO(mierdin) Work to move as much validation as possible out of validateLesson and into
+	// jsonschema.
+	if !lesson.JSValidate() {
+		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
 		return BasicValidationError
 	}
 
@@ -150,58 +154,26 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 			return InsufficientPresentationError
 		}
 
-		if strings.Contains(ep.Image, ":") {
-			log.Error("Tags are not allowed in endpoint image refs")
-			return ProhibitedImageTagError
-		}
+		// Perform configuration-related checks, if relevant
+		if ep.ConfigurationType != "" {
 
-		// If this endpoint has no configurationtype, there's nothing else to check, and we can
-		// continue. NOTE that ONLY configuration validation logic is to follow this.
-		if ep.ConfigurationType == "" {
-			continue
-		}
-
-		// List of supported configuration options. Note tht this is a list of regex match statements,
-		// not literal string matches, so we can get include the NAPALM driver in the string.
-		supportedConfigurationOptions := []string{
-			"python",
-			"ansible",
-			"napalm-.*$",
-		}
-
-		matchedOne := false
-		for o := range supportedConfigurationOptions {
-			matched, err := regexp.Match(supportedConfigurationOptions[o], []byte(ep.ConfigurationType))
-			if err != nil {
-				log.Error("Unable to determine configurationType")
-				return InvalidConfigurationType
+			fileMap := map[string]string{
+				"python":  ".py",
+				"ansible": ".yml",
+				"napalm":  ".txt",
 			}
-			if matched {
-				matchedOne = true
-				break
-			}
-		}
-		if !matchedOne {
-			log.Error("Unsupported configurationType")
-			return InvalidConfigurationType
-		}
+			// All NAPALM drivers will use the same file extension so we only need everything before the hyphen to
+			// make this work
+			fileExt := fileMap[strings.Split(ep.ConfigurationType, "-")[0]]
 
-		fileMap := map[string]string{
-			"python":  ".py",
-			"ansible": ".yml",
-			"napalm":  ".txt",
-		}
-		// All NAPALM drivers will use the same file extension so we only need everything before the hyphen to
-		// make this work
-		fileExt := fileMap[strings.Split(ep.ConfigurationType, "-")[0]]
-
-		// Ensure the necessary config file is present for all stages
-		for s := range lesson.Stages {
-			fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileExt)
-			_, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				log.Errorf("Configuration script %s was not found.", fileName)
-				return MissingConfigurationFile
+			// Ensure the necessary config file is present for all stages
+			for s := range lesson.Stages {
+				fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileExt)
+				_, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Errorf("Configuration script %s was not found.", fileName)
+					return MissingConfigurationFile
+				}
 			}
 		}
 
@@ -209,7 +181,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 		seenPresentations := map[string]*models.LessonPresentation{}
 		for n := range ep.Presentations {
 			if _, ok := seenPresentations[ep.Presentations[n].Name]; ok {
-				log.Errorf("Failed to import %s: - Presentation %s appears more than once for an endpoint", file, ep.Presentations[n].Name)))
+				log.Errorf("Failed to import %s: - Presentation %s appears more than once for an endpoint", file, ep.Presentations[n].Name)
 				return DuplicatePresentationError
 			}
 
@@ -227,20 +199,20 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 		connection := lesson.Connections[c]
 
 		if !entityInLabDef(connection.A, lesson) {
-			log.Errorf("Failed to import %s: - Connection %s refers to nonexistent entity", file, connection.A)))
-			return fail
+			log.Errorf("Failed to import %s: - Connection %s refers to nonexistent entity", file, connection.A)
+			return BadConnectionError
 		}
 
 		if !entityInLabDef(connection.B, lesson) {
-			log.Errorf("Failed to import %s: %s - Connection %s refers to nonexistent entity", file, connection.B)))
-			return fail
+			log.Errorf("Failed to import %s: - Connection %s refers to nonexistent entity", file, connection.B)
+			return BadConnectionError
 		}
 	}
 
 	// TODO(mierdin): Check to make sure referenced collection exists
 
-	// TODO(mierdin): Make sure lesson ID, lesson name, stage ID and stage name are unique.
-	// If you try to read a value in, make sure it doesn't exist. If it does, error out
+	// TODO(mierdin): Make sure lesson ID, lesson name, stage ID, stage name, and endpoint name are all unique.
+	// I don't believe this is possible to do in JSONSchema, so we'll need to add a check for it here.
 
 	// TODO(mierdin): Need to validate that each name is unique across endpoints
 
@@ -251,38 +223,23 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 	for l := range lesson.Stages {
 		s := lesson.Stages[l]
 
-		if s.VerifyCompleteness == true {
-			fileName := fmt.Sprintf("%s/stage%d/verify.py", filepath.Dir(file), s.Id)
-			_, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				log.Errorf("Stage specified VerifyCompleteness but no verify.py script was found: %s", err)
-				return fail
-			}
+		guideFileMap := map[string]string{
+			"markdown": ".md",
+			"jupyter":  ".ipynb",
 		}
 
-		// Validate presence of jupyter notebook in expected location
-		if s.JupyterLabGuide == true {
-			fileName := fmt.Sprintf("%s/stage%d/notebook.ipynb", filepath.Dir(file), s.Id)
-			_, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				log.Errorf("Stage specified a jupyter notebook lesson guide, but the file was not found: %s", err)
-				return fail
-			}
-		} else {
-			fileName := fmt.Sprintf("%s/stage%d/guide.md", filepath.Dir(file), s.Id)
-			contents, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				log.Errorf("Encountered problem reading lesson guide: %s", err)
-				return fail
-			}
-			lesson.Stages[l].LabGuide = string(contents)
+		if _, ok := guideFileMap[s.GuideType]; !ok {
+			log.Errorf("Failed to import %s: - stage references an unsupported guide type", file)
+			return UnsupportedGuideTypeError
 		}
 
-		if s.VerifyCompleteness == true && s.VerifyObjective == "" {
-			log.Error("Must provide a VerifyObjective for stages with VerifyCompleteness set to true")
-			return fail
+		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), s.Id, guideFileMap[s.GuideType])
+		contents, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			log.Errorf("Encountered problem reading lesson guide: %s", err)
+			return MissingLessonGuide
 		}
-
+		lesson.Stages[l].LabGuide = string(contents)
 	}
 
 	return nil
