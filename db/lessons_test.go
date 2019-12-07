@@ -18,6 +18,11 @@ func getValidLesson() models.Lesson {
 				Id:          1,
 				Description: "Test Stage",
 				GuideType:   "markdown",
+				Objectives: []*models.LessonStageObjective{
+					{
+						Description: "foobar",
+					},
+				},
 			},
 		},
 		LessonName: "Example Lesson",
@@ -112,6 +117,17 @@ func TestImageName(t *testing.T) {
 	l := getValidLesson()
 	// colons not allowed
 	l.Endpoints[0].Image = "antidotelabs/utility:latest"
+	err := validateLesson(&config.SyringeConfig{
+		Tier: "local",
+	}, &l)
+
+	assert(t, (err == BasicValidationError), "Expected a BasicValidationError")
+}
+
+// All Presentations must specify a nonzero TCP port
+func TestMissingPresentationPort(t *testing.T) {
+	l := getValidLesson()
+	l.Endpoints[0].Presentations[0].Port = 0
 	err := validateLesson(&config.SyringeConfig{
 		Tier: "local",
 	}, &l)

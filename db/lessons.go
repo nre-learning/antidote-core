@@ -8,20 +8,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	pg "github.com/go-pg/pg"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-
-	pg "github.com/go-pg/pg"
 
 	config "github.com/nre-learning/syringe/config"
 	models "github.com/nre-learning/syringe/db/models"
 )
 
-// ImportLessons is responsible for the entire workflow of importing lesson content, from
-// the filesystem into the database.
-func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
+// InsertLessons takes a slides of lesson definitions, and inserts them into the database.
+// It is a really good idea to only use slices returned from ReadLessons() as input for this function.
+func (a *AntidoteDB) InsertLessons(lessons []*models.Lesson) error {
 
-	// Connect to Postgres
 	db := pg.Connect(&pg.Options{
 		User:     a.User,
 		Password: a.Password,
@@ -29,9 +27,31 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 	})
 	defer db.Close()
 
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	// Rollback tx on error.
+	defer tx.Rollback()
+
+	for i := range lessons {
+		err := tx.Insert(lessons[i])
+		if err != nil {
+			log.Errorf("Failed to insert lesson '%s' into the database: %v", lessons[i].Slug, err)
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// ReadLessons reads lesson definitions from the filesystem, validates them, and returns them
+// in a slice.
+func (a *AntidoteDB) ReadLessons() ([]*models.Lesson, error) {
+
 	// Get lesson definitions
 	fileList := []string{}
-	lessonDir := fmt.Sprintf("%s/lessons", syringeConfig.CurriculumDir)
+	lessonDir := fmt.Sprintf("%s/lessons", a.SyringeConfig.CurriculumDir)
 	log.Debugf("Searching %s for lesson definitions", lessonDir)
 	err := filepath.Walk(lessonDir, func(path string, f os.FileInfo, err error) error {
 		syringeFileLocation := fmt.Sprintf("%s/lesson.meta.yaml", path)
@@ -42,10 +62,10 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	retLds := map[int32]*models.Lesson{}
+	retLds := []*models.Lesson{}
 
 	for f := range fileList {
 
@@ -67,7 +87,7 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 		lesson.LessonFile = file
 		lesson.LessonDir = filepath.Dir(file)
 
-		err = validateLesson(syringeConfig, &lesson)
+		err = validateLesson(a.SyringeConfig, &lesson)
 		if err != nil {
 			log.Errorf("Lesson %d failed to validate", lesson.Id)
 			continue
@@ -78,15 +98,9 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 		// TODO(mierdin): Giant code smell. Kill it.
 		lesson.Stages = append([]*models.LessonStage{{Id: 0}}, lesson.Stages...)
 
-		err = db.Insert(&lesson)
-		if err != nil {
-			log.Errorf("Failed to insert lesson '%s' into the database: %v", lesson.Slug, err)
-			continue
-		}
-
 		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
 
-		retLds[lesson.Id] = &lesson
+		retLds = append(retLds, &lesson)
 	}
 
 	// TODO(mierdin): need to load into memory first so you can do inter-lesson references (like prereqs) first,
@@ -94,10 +108,10 @@ func (a *AntidoteDB) ImportLessons(syringeConfig *config.SyringeConfig) error {
 
 	if len(fileList) == len(retLds) {
 		log.Infof("Imported %d lesson definitions.", len(retLds))
-		return nil
+		return retLds, nil
 	} else {
 		log.Warnf("Imported %d lesson definitions with errors.", len(retLds))
-		return errors.New("Not all lesson definitions were imported")
+		return retLds, errors.New("Not all lesson definitions were imported")
 	}
 
 }
@@ -116,39 +130,34 @@ var (
 	BadConnectionError            error = errors.New("a")
 	UnsupportedGuideTypeError     error = errors.New("a")
 	MissingLessonGuide            error = errors.New("a")
+	MissingCheckerScript          error = errors.New("a")
 )
 
 // validateLesson validates a single lesson, returning a simple error if the lesson fails
 // to validate.
 func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) error {
 
+	/* TODO(mierdin): Need to add these checks:
+
+	- Make sure referenced collection exists
+	- Make sure lesson ID, lesson name, stage ID, stage name, and endpoint name are all unique.
+	  I don't believe this is possible to do in JSONSchema, so we'll need to add a check for it here.
+	*/
+
 	file := lesson.LessonFile
 
-	// TODO(mierdin) Work to move as much validation as possible out of validateLesson and into
-	// jsonschema.
+	// Most of the validation heavy lifting should be done via JSON schema as much as possible.
+	// This should be run first, and then only checks that can't be done with JSONschema will follow.
 	if !lesson.JSValidate() {
 		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
 		return BasicValidationError
 	}
 
-	// More advanced validation
-	if syringeConfig.Tier == "prod" {
-		if lesson.Tier != "prod" {
-			log.Errorf("Skipping %s: lower tier than configured", file)
-			return TierMismatchError
-		}
-	} else if syringeConfig.Tier == "ptr" {
-		if lesson.Tier != "prod" && lesson.Tier != "ptr" {
-			log.Errorf("Skipping %s: lower tier than configured", file)
-			return TierMismatchError
-		}
-	}
-
-	// Ensure each device in the definition has a corresponding config for each stage
+	// Endpoint-specific checks
 	for i := range lesson.Endpoints {
-
 		ep := lesson.Endpoints[i]
 
+		// Must EITHER provide additionalPorts, or Presentations. Endpoints without either are invalid.
 		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) == 0 {
 			log.Error("No presentations configured, and no additionalPorts specified")
 			return InsufficientPresentationError
@@ -156,7 +165,6 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 
 		// Perform configuration-related checks, if relevant
 		if ep.ConfigurationType != "" {
-
 			fileMap := map[string]string{
 				"python":  ".py",
 				"ansible": ".yml",
@@ -184,12 +192,6 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 				log.Errorf("Failed to import %s: - Presentation %s appears more than once for an endpoint", file, ep.Presentations[n].Name)
 				return DuplicatePresentationError
 			}
-
-			if ep.Presentations[n].Port == 0 {
-				log.Error("All presentations must specify a port")
-				return MissingPresentationPort
-			}
-
 			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n]
 		}
 	}
@@ -208,16 +210,6 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 			return BadConnectionError
 		}
 	}
-
-	// TODO(mierdin): Check to make sure referenced collection exists
-
-	// TODO(mierdin): Make sure lesson ID, lesson name, stage ID, stage name, and endpoint name are all unique.
-	// I don't believe this is possible to do in JSONSchema, so we'll need to add a check for it here.
-
-	// TODO(mierdin): Need to validate that each name is unique across endpoints
-
-	// TODO(mierdin): Need to run checks to see that files are located where they need to be. Things like
-	// configs, and lesson guides
 
 	// Iterate over stages, and retrieve lesson guide content
 	for l := range lesson.Stages {
@@ -240,6 +232,19 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 			return MissingLessonGuide
 		}
 		lesson.Stages[l].LabGuide = string(contents)
+
+		// Ensure the necessary checker script is present for all stages
+		for s := range lesson.Stages {
+			for i := range lesson.Stages[s].Objectives {
+				fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), lesson.Stages[s].Id, lesson.Stages[s].Objectives[i].Id)
+				_, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Errorf("Checker script %s was not found.", fileName)
+					return MissingCheckerScript
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -254,4 +259,23 @@ func entityInLabDef(entityName string, ld *models.Lesson) bool {
 		}
 	}
 	return false
+}
+
+// ListLessons retrieves lessons present in the database
+func (a *AntidoteDB) ListLessons() ([]*models.Lesson, error) {
+
+	db := pg.Connect(&pg.Options{
+		User:     a.User,
+		Password: a.Password,
+		Database: a.Database,
+	})
+	defer db.Close()
+
+	var lessons []*models.Lesson
+	err := db.Model(&lessons).Select()
+	if err != nil {
+		return nil, err
+	}
+
+	return lessons, nil
 }

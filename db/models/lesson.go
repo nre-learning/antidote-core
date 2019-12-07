@@ -22,15 +22,15 @@ type Lesson struct {
 	Category      string              `json:"Category" yaml:"category" jsonschema:"required"`
 	LessonDiagram string              `json:"LessonDiagram" yaml:"lessonDiagram"`
 	LessonVideo   string              `json:"LessonVideo" yaml:"lessonVideo"`
-	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required"`
-	Prereqs       []string            `json:"Prereqs" yaml:"prereqs"`
+	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required" jsonschema:"required,pattern=local|ptr|prod"`
+	Prereqs       []string            `json:"Prereqs,omitempty" yaml:"prereqs"`
 	Tags          []string            `json:"Tags" yaml:"tags"`
 	Collection    int32               `json:"Collection" yaml:"collection"`
 	Description   string              `json:"Description" yaml:"description" jsonschema:"required"`
 
 	// TODO(mierdin): Figure out if these are needed anymore.
-	LessonFile string `json:"LessonFile,omitempty" jsonschema:"-"`
-	LessonDir  string `json:"LessonDir,omitempty" jsonschema:"-"`
+	LessonFile string `json:"-" jsonschema:"-"`
+	LessonDir  string `json:"-" jsonschema:"-"`
 }
 
 func (l *Lesson) JSON() string {
@@ -78,16 +78,20 @@ func (l Lesson) JSValidate() bool {
 type LessonStage struct {
 	Id int32 `json:"Id" sql:",pk"`
 
-	Description string `json:"Description" yaml:"description"`
-	GuideType   string `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
-	LabGuide    string `json:"LabGuide,omitempty" jsonschema:"-"`
+	Description string                  `json:"Description" yaml:"description"`
+	GuideType   string                  `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
+	LabGuide    string                  `json:"LabGuide,omitempty" jsonschema:"-"`
+	Objectives  []*LessonStageObjective `json:"Objectives,omitempty" yaml:"objectives"`
+}
 
-	// TODO(mierdin): Rethink objectives
+type LessonStageObjective struct {
+	Id          int32  `json:"Id" sql:",pk"`
+	Description string `json:"Description" yaml:"description" jsonschema:"required"`
 }
 
 type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
-	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/]*$"`
+	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/\-]*$"`
 
 	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType" jsonschema:"pattern=napalm-.*|python|ansible"`
 
@@ -98,7 +102,7 @@ type LessonEndpoint struct {
 
 type LessonPresentation struct {
 	Name string `json:"Name" yaml:"name" jsonschema:"required"`
-	Port int32  `json:"Port" yaml:"port" jsonschema:"required"`
+	Port int32  `json:"Port" yaml:"port" jsonschema:"required,minimum=1"`
 	Type string `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
 }
 
