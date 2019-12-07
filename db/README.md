@@ -32,6 +32,11 @@ Show tables:
 
 \dt
 
+Show schema for a specific table:
+
+\d+ lessons
+
+
 
 # TODO
 

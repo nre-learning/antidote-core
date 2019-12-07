@@ -8,12 +8,11 @@ import (
 	gjs "github.com/xeipuuv/gojsonschema"
 )
 
+// Lesson represents the fields and sub-types for defining a lesson resource in Antidote
+// Only this struct should be loaded as a table. All sub-values can be stored as binary JSON
+// and deserialized quickly upon retrieval.
 type Lesson struct {
-	Id int32 `json:"Id" sql:",pk"`
-
-	// While Id will be used as a true unique identifier, the Slug is now what we'll use
-	// to look up this lesson.
-	Slug string `json:"Slug" yaml:"slug" pg:",unique"`
+	Slug string `json:"Slug" yaml:"slug" sql:",pk" pg:",unique"`
 
 	Stages        []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
 	LessonName    string              `json:"LessonName" yaml:"lessonName" jsonschema:"required"`
@@ -76,8 +75,6 @@ func (l Lesson) JSValidate() bool {
 }
 
 type LessonStage struct {
-	Id int32 `json:"Id" sql:",pk"`
-
 	Description string                  `json:"Description" yaml:"description"`
 	GuideType   string                  `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
 	LabGuide    string                  `json:"LabGuide,omitempty" jsonschema:"-"`
@@ -85,7 +82,6 @@ type LessonStage struct {
 }
 
 type LessonStageObjective struct {
-	Id          int32  `json:"Id" sql:",pk"`
 	Description string `json:"Description" yaml:"description" jsonschema:"required"`
 }
 

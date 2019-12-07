@@ -32,7 +32,6 @@ type Databaser interface {
 	InsertLesson([]*models.Lesson) error
 	ListLessons() ([]*models.Lesson, error)
 	// GetLesson(string) (*models.Lesson, error)
-	// UpdateLesson(*models.Lesson) error  //TODO(mierdin): Probably not needed
 	// DeleteLesson(string) error
 
 	// // Collections
@@ -40,7 +39,6 @@ type Databaser interface {
 	// InsertCollection([]*models.Collection) error
 	// ListCollections() ([]*models.Collection, error)
 	// GetCollection(string) (*models.Collection, error)
-	// UpdateCollection(*models.Collection) error  //TODO(mierdin): Probably not needed
 	// DeleteCollection(string) error
 
 	// // Curriculum
@@ -52,6 +50,10 @@ type Databaser interface {
 	// GetLiveLesson(string) (*models.LiveLesson, error)
 	// UpdateLiveLesson(*models.LiveLesson) error
 	// DeleteLiveLesson(string) error
+
+	// GCWhiteList
+
+	// Sessions
 }
 
 // EnforceDBInterfaceCompliance forces AntidoteDB to conform to Databaser interface
@@ -107,7 +109,7 @@ func (a *AntidoteDB) Initialize() error {
 	for _, model := range []interface{}{
 		(*models.Meta)(nil),
 		(*models.Lesson)(nil),
-		(*models.LessonEndpoint)(nil),
+		// (*models.LessonEndpoint)(nil),
 	} {
 		err := db.DropTable(model, &orm.DropTableOptions{
 			// Temp: true,
@@ -123,7 +125,7 @@ func (a *AntidoteDB) Initialize() error {
 	for _, model := range []interface{}{
 		(*models.Meta)(nil),
 		(*models.Lesson)(nil),
-		(*models.LessonEndpoint)(nil),
+		// (*models.LessonEndpoint)(nil),
 	} {
 		err := db.CreateTable(model, &orm.CreateTableOptions{
 			// Temp: true,

@@ -89,14 +89,14 @@ func (a *AntidoteDB) ReadLessons() ([]*models.Lesson, error) {
 
 		err = validateLesson(a.SyringeConfig, &lesson)
 		if err != nil {
-			log.Errorf("Lesson %d failed to validate", lesson.Id)
+			log.Errorf("Lesson '%s' failed to validate", lesson.Slug)
 			continue
 		}
 
 		// Insert stage at zero-index so we can use slice indexes to refer to each stage without jumping through hoops
 		// or making the user use 0 as a stage ID
 		// TODO(mierdin): Giant code smell. Kill it.
-		lesson.Stages = append([]*models.LessonStage{{Id: 0}}, lesson.Stages...)
+		// lesson.Stages = append([]*models.LessonStage{{Id: 0}}, lesson.Stages...)
 
 		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
 
@@ -186,13 +186,13 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 		}
 
 		// Ensure each presentation name is unique for each endpoint
-		seenPresentations := map[string]*models.LessonPresentation{}
+		seenPresentations := map[string]string{}
 		for n := range ep.Presentations {
 			if _, ok := seenPresentations[ep.Presentations[n].Name]; ok {
 				log.Errorf("Failed to import %s: - Presentation %s appears more than once for an endpoint", file, ep.Presentations[n].Name)
 				return DuplicatePresentationError
 			}
-			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n]
+			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n].Name
 		}
 	}
 
@@ -278,4 +278,23 @@ func (a *AntidoteDB) ListLessons() ([]*models.Lesson, error) {
 	}
 
 	return lessons, nil
+}
+
+// GetLesson retrieves a specific lesson via slug from the database
+func (a *AntidoteDB) GetLesson(slug string) (*models.Lesson, error) {
+
+	db := pg.Connect(&pg.Options{
+		User:     a.User,
+		Password: a.Password,
+		Database: a.Database,
+	})
+	defer db.Close()
+
+	var lesson models.Lesson
+	_, err := db.QueryOne(&lesson, `SELECT * FROM lessons WHERE slug = ?`, slug)
+	if err != nil {
+		return nil, err
+	}
+
+	return &lesson, nil
 }

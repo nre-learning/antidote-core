@@ -26,6 +26,13 @@ func main() {
 			Usage:   "antidote import <CURRICULUM DIRECTORY>",
 			Action: func(c *cli.Context) {
 
+				color.Red("WARNING - This will DROP ALL DATA in the Antidote database.")
+				fmt.Println("Are you sure you want to re-import a curriculum? (yes/no)")
+
+				if !askForConfirmation() {
+					os.Exit(0)
+				}
+
 				adb := db.AntidoteDB{
 					User:     "postgres",
 					Password: "docker",
@@ -103,6 +110,27 @@ func main() {
 						fmt.Fprintln(w)
 
 						w.Flush()
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "Get a single lesson by slug reference",
+					Action: func(c *cli.Context) {
+
+						adb := db.AntidoteDB{
+							User:          "postgres",
+							Password:      "docker",
+							Database:      "antidote",
+							SyringeConfig: &config.SyringeConfig{},
+						}
+
+						lesson, err := adb.GetLesson(c.Args().First())
+						if err != nil {
+							color.Red("Problem retrieving lesson: %v", err)
+							os.Exit(1)
+						}
+
+						fmt.Println(lesson.JSON())
 					},
 				},
 			},
