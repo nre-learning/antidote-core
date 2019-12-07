@@ -32,15 +32,6 @@ type Lesson struct {
 	LessonDir  string `json:"-" jsonschema:"-"`
 }
 
-func (l *Lesson) JSON() string {
-	b, err := json.Marshal(l)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(b)
-}
-
 // JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema
 // document, and then validates that instance's values against that schema.
 func (l Lesson) JSValidate() bool {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -130,7 +131,12 @@ func main() {
 							os.Exit(1)
 						}
 
-						fmt.Println(lesson.JSON())
+						b, err := json.Marshal(lesson)
+						if err != nil {
+							color.Red("Unable to print lesson details.")
+							fmt.Println(err)
+						}
+						fmt.Println(string(b))
 					},
 				},
 			},

@@ -176,7 +176,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 
 			// Ensure the necessary config file is present for all stages
 			for s := range lesson.Stages {
-				fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), lesson.Stages[s].Id, ep.Name, fileExt)
+				fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), s, ep.Name, fileExt)
 				_, err := ioutil.ReadFile(fileName)
 				if err != nil {
 					log.Errorf("Configuration script %s was not found.", fileName)
@@ -225,7 +225,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 			return UnsupportedGuideTypeError
 		}
 
-		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), s.Id, guideFileMap[s.GuideType])
+		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), l, guideFileMap[s.GuideType])
 		contents, err := ioutil.ReadFile(fileName)
 		if err != nil {
 			log.Errorf("Encountered problem reading lesson guide: %s", err)
@@ -236,7 +236,7 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 		// Ensure the necessary checker script is present for all stages
 		for s := range lesson.Stages {
 			for i := range lesson.Stages[s].Objectives {
-				fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), lesson.Stages[s].Id, lesson.Stages[s].Objectives[i].Id)
+				fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), s, i)
 				_, err := ioutil.ReadFile(fileName)
 				if err != nil {
 					log.Errorf("Checker script %s was not found.", fileName)
