@@ -1,4 +1,4 @@
-package stats
+package main
 
 import (
 	"fmt"
@@ -196,3 +196,6 @@ func getCountAndDuration(lessonId int32) (int64, int64) {
 	return int64(count), total / int64(len(durations))
 }
 
+func main() {
+	go StartTSDBExport()
+}
