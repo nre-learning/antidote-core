@@ -15,7 +15,6 @@ func getValidLesson() models.Lesson {
 		Slug: "example-lesson",
 		Stages: []*models.LessonStage{
 			{
-				Id:          1,
 				Description: "Test Stage",
 				GuideType:   "markdown",
 				Objectives: []*models.LessonStageObjective{
@@ -101,6 +100,9 @@ func getValidLesson() models.Lesson {
 		Tags:          []string{"a", "b", "c"},
 		Collection:    1,
 		Description:   "",
+
+		// Path to mock lesson in the codebase (this is way better than mocking ioutil, IMO)
+		LessonFile: "test/mocklessons/validlesson1/lesson.meta.yaml",
 	}
 }
 
