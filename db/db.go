@@ -1,10 +1,13 @@
 package db
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	pg "github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
+	log "github.com/sirupsen/logrus"
 
 	config "github.com/nre-learning/syringe/config"
 	models "github.com/nre-learning/syringe/db/models"
@@ -23,6 +26,11 @@ type DbDriver interface {
 // TODO(mierdin): Enforce this somewhere
 type Databaser interface {
 
+	// NOTE
+	// Delete and Update functions were intentionally not implemented for resource types, like lessons and collections.
+	// The idea is that these should be coming from a git repo, so if you don't want them in the curriculum, don't have them in
+	// the repo when you import.
+
 	// Misc
 	Preflight() error
 	Initialize() error
@@ -31,8 +39,7 @@ type Databaser interface {
 	ReadLessons() error
 	InsertLesson([]*models.Lesson) error
 	ListLessons() ([]*models.Lesson, error)
-	// GetLesson(string) (*models.Lesson, error)
-	// DeleteLesson(string) error
+	GetLesson(string) (*models.Lesson, error)
 
 	// // Collections
 	// ReadCollections() error
@@ -62,10 +69,11 @@ type Databaser interface {
 // }
 
 type AntidoteDB struct {
-	User          string
-	Password      string
-	Database      string
-	SyringeConfig *config.SyringeConfig
+	User            string
+	Password        string
+	Database        string
+	AntidoteVersion string
+	SyringeConfig   *config.SyringeConfig
 }
 
 // Check that the database exists, tables are in place, and that the version matches us
@@ -78,14 +86,23 @@ func (a *AntidoteDB) Preflight() error {
 	defer db.Close()
 
 	var metaRaw []models.Meta
-	_, err := db.Query(&metaRaw, `SELECT * FROM antidote_meta`)
+	_, err := db.Query(&metaRaw, `SELECT * FROM meta`)
 	if err != nil {
 		return err
 	}
 
 	meta := map[string]string{}
 	for i := range metaRaw {
-		meta[metaRaw[i].Key] = metaRaw[i].Key
+		meta[metaRaw[i].Key] = metaRaw[i].Value
+	}
+
+	// Ensure the database was initialized with this version of Antidote
+	if _, ok := meta["AntidoteVersion"]; ok {
+		if meta["AntidoteVersion"] != a.AntidoteVersion {
+			return errors.New(fmt.Sprintf("Database provisioned with different version of Antidote (expected %s, got %s). Re-run 'antidote import'", a.AntidoteVersion, meta["AntidoteVersion"]))
+		}
+	} else {
+		return errors.New("Unable to retrieve version of database. Re-run 'antidote import'")
 	}
 
 	return nil
@@ -109,7 +126,6 @@ func (a *AntidoteDB) Initialize() error {
 	for _, model := range []interface{}{
 		(*models.Meta)(nil),
 		(*models.Lesson)(nil),
-		// (*models.LessonEndpoint)(nil),
 	} {
 		err := db.DropTable(model, &orm.DropTableOptions{
 			// Temp: true,
@@ -125,7 +141,6 @@ func (a *AntidoteDB) Initialize() error {
 	for _, model := range []interface{}{
 		(*models.Meta)(nil),
 		(*models.Lesson)(nil),
-		// (*models.LessonEndpoint)(nil),
 	} {
 		err := db.CreateTable(model, &orm.CreateTableOptions{
 			// Temp: true,
@@ -134,6 +149,29 @@ func (a *AntidoteDB) Initialize() error {
 			return err
 		}
 	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	metaMap := map[string]string{
+		"AntidoteVersion": a.AntidoteVersion,
+	}
+	for k, v := range metaMap {
+		meta := &models.Meta{
+			Key:   k,
+			Value: v,
+		}
+		// log.Info("Inserting into meta: %v", meta)
+		err := tx.Insert(meta)
+		if err != nil {
+			log.Errorf("Failed to insert meta information '%s' into the database: %v", meta.Key, err)
+			return err
+		}
+	}
+	tx.Commit()
 
 	return nil
 

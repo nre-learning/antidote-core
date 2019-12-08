@@ -17,8 +17,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "antidote"
-	// app.Version = buildInfo["buildVersion"]
-	app.Version = "0.5.0"
+	app.Version = buildInfo["buildVersion"]
 	app.Usage = "Command-line tool to interact with the Antidote platform and database"
 
 	// Consider build your own template that groups commands neatly
@@ -40,9 +39,10 @@ func main() {
 				}
 
 				adb := db.AntidoteDB{
-					User:     "postgres",
-					Password: "docker",
-					Database: "antidote",
+					User:            "postgres",
+					Password:        "docker",
+					Database:        "antidote",
+					AntidoteVersion: buildInfo["buildVersion"],
 					SyringeConfig: &config.SyringeConfig{
 						// TODO(mierdin) Use a real syringeconfig
 						Tier:          "local",
@@ -51,7 +51,6 @@ func main() {
 				}
 
 				// Initialize database
-				// TODO(mierdin): Add confirmation, as this will drop all tables and recreate
 				err := adb.Initialize()
 				if err != nil {
 					color.Red("Failed to initialize Antidote database.")
@@ -89,10 +88,18 @@ func main() {
 					Action: func(c *cli.Context) {
 
 						adb := db.AntidoteDB{
-							User:          "postgres",
-							Password:      "docker",
-							Database:      "antidote",
-							SyringeConfig: &config.SyringeConfig{},
+							User:            "postgres",
+							Password:        "docker",
+							Database:        "antidote",
+							AntidoteVersion: buildInfo["buildVersion"],
+							SyringeConfig:   &config.SyringeConfig{},
+						}
+
+						err := adb.Preflight()
+						if err != nil {
+							color.Red("Failed pre-flight.")
+							fmt.Println(err)
+							os.Exit(1)
 						}
 
 						lessons, err := adb.ListLessons()
@@ -124,10 +131,18 @@ func main() {
 					Action: func(c *cli.Context) {
 
 						adb := db.AntidoteDB{
-							User:          "postgres",
-							Password:      "docker",
-							Database:      "antidote",
-							SyringeConfig: &config.SyringeConfig{},
+							User:            "postgres",
+							Password:        "docker",
+							Database:        "antidote",
+							AntidoteVersion: buildInfo["buildVersion"],
+							SyringeConfig:   &config.SyringeConfig{},
+						}
+
+						err := adb.Preflight()
+						if err != nil {
+							color.Red("Failed pre-flight.")
+							fmt.Println(err)
+							os.Exit(1)
 						}
 
 						lesson, err := adb.GetLesson(c.Args().First())
