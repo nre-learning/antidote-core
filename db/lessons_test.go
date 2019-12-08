@@ -114,10 +114,8 @@ func TestValidLesson(t *testing.T) {
 	assert(t, (err == nil), "Expected validation to pass, but encountered validation errors")
 }
 
-// test invalid image name
-func TestImageName(t *testing.T) {
+func TestInvalidCharInImageName(t *testing.T) {
 	l := getValidLesson()
-	// colons not allowed
 	l.Endpoints[0].Image = "antidotelabs/utility:latest"
 	err := validateLesson(&config.SyringeConfig{
 		Tier: "local",

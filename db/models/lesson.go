@@ -78,7 +78,7 @@ type LessonStageObjective struct {
 
 type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
-	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/\-]*$"`
+	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/-]*$"`
 
 	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType" jsonschema:"pattern=napalm-.*|python|ansible"`
 
