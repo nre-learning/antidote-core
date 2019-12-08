@@ -16,9 +16,14 @@ import (
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "Antidote"
+	app.Name = "antidote"
 	// app.Version = buildInfo["buildVersion"]
-	app.Usage = "Command-line tool to interact with Antidote"
+	app.Version = "0.5.0"
+	app.Usage = "Command-line tool to interact with the Antidote platform and database"
+
+	// Consider build your own template that groups commands neatly
+	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
+	// cli.AppHelpTemplate is where you do this, and cli.Command.Category can be used to organize
 
 	app.Commands = []cli.Command{
 		{
