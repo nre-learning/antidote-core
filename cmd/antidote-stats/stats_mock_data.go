@@ -8,12 +8,13 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"time"
 	config "github.com/nre-learning/syringe/config"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	yaml "gopkg.in/yaml.v2"
 	log "github.com/sirupsen/logrus"
 )
-
 // mock functions on importing lessons from api/exp/curricula & api/exp/lessons
 func GetCurriculum (mockConfig *config.SyringeConfig) *pb.Curriculum {
 	curriculum := &pb.Curriculum{}
@@ -25,6 +26,44 @@ func GetCurriculum (mockConfig *config.SyringeConfig) *pb.Curriculum {
 	curriculum.Lessons = lessons
 
 	return curriculum
+}
+
+func GetMockLiveLessonState() map[string]*pb.LiveLesson {
+	lesson := pb.LiveLesson{}
+
+	lesson.LessonUUID = "14-4kfl6n3terlzxa3s"
+	lesson.LessonId = 14
+
+	presentations := pb.Presentation{}
+	presentations.Name = "cli"
+	presentations.Port = 22
+	presentations.Type = "ssh"
+
+	endpoint := pb.Endpoint{}
+	endpoint.Name = "linux1"
+	endpoint.Host = "0.0.0.0"
+	endpoint.Presentations = []*pb.Presentation{&presentations}
+
+	lesson.LiveEndpoints = map[string]*pb.Endpoint {
+		"linux1": &endpoint,
+	}
+
+	lesson.LabGuide = "# Introduction to YAML\n## Part 1 - Lists\n\nWelcome to this introduction to YAML! From the very first moment you started looking into network automation, chances are you keep\nhearing about YAML. The reason for this is that YAML is a simple way to describe common data structures in a format that's both\neasily understood by humans, as well as easily parseable by machines. As a result, it powers a large number of automation tools,\nboth inside and outside of networking.\n\nTo prepare you for more advanced lessons that might use YAML, we want to spend some time covering the basics, so you're able to\nlook at an existing YAML document and understand it, or even create your own. This will allow you to do things like write Ansible playbooks,\nJSNAPy tests, and much more.\n\nAs mentioned, YAML lets us represent simple data structures in a text format. One such data structure is the `list`. Most of YAML's capabilities\nclosely mirror Python's data structures, and the `list` is a prime example. Let's take a look at a sample YAML list:\n\n```\ncd /antidote/stage1/\ncat list.yaml\n```\n<button type=\"button\" class=\"btn btn-primary btn-sm\" onclick=\"runSnippetInTab('linux1', this)\">Run this snippet</button>\n\nIn this lesson, we'll work with this YAML data using the interactive Python shell. Run the below snippet to load up our YAML file in Python:\n\n```\npython\nimport yaml\nimport sys\nyamlFile = open('list.yaml', 'r')\nyamlList = yaml.load(yamlFile)\n```\n<button type=\"button\" class=\"btn btn-primary btn-sm\" onclick=\"runSnippetInTab('linux1', this)\">Run this snippet</button>\n\nAt this point, `yamlList` is a Python list that contains values (in this case, strings) that were in our YAML file. We can start by checking this list's length:\n\n```\nprint(\"There are %d values in this YAML file\" % len(yamlList))\n```\n<button type=\"button\" class=\"btn btn-primary btn-sm\" onclick=\"runSnippetInTab('linux1', this)\">Run this snippet</button>\n"
+	lesson.LiveLessonStatus = pb.Status_READY
+
+	createdTime, _ := time.Parse(time.RFC3339, "2019-12-08T01:34:58Z")
+	lesson.CreatedTime = &timestamp.Timestamp{
+		Seconds: createdTime.Unix(),
+	}
+
+	lesson.LessonStage = 1
+	lesson.LessonStage = 1
+	lesson.HealthyTests = 1
+	lesson.TotalTests = 1
+
+	return map[string]*pb.LiveLesson{
+		"14-4kfl6n3terlzxa3s": &lesson,
+	}
 }
 
 func GetmockSyringeConfig() *config.SyringeConfig {

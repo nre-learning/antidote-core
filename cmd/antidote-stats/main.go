@@ -9,7 +9,6 @@ import (
 	influx "github.com/influxdata/influxdb/client/v2"
 	scheduler "github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
 
@@ -165,11 +164,11 @@ func StartTSDBExport() error {
 }
 
 func getCountAndDuration(lessonId int32) (int64, int64) {
-	liveLessonState :=  make(map[string]*pb.LiveLesson)
+	var mockLiveLessonState = GetMockLiveLessonState()
 	count := 0
 
 	durations := []int64{}
-	for _, liveLesson := range liveLessonState {
+	for _, liveLesson := range mockLiveLessonState {
 		if liveLesson.LessonId != lessonId {
 			continue
 		}
