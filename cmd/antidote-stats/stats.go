@@ -7,21 +7,27 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	influx "github.com/influxdata/influxdb/client/v2"
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
 )
 
+type AntidoteStats struct {
+	InfluxURL       string
+	InfluxUsername  string
+	InfluxPassword  string
+	Curriculum      *pb.Curriculum
+	LiveLessonState map[string]*pb.LiveLesson
+	Tier            string
+}
 
-var mockSyringeConfig = GetmockSyringeConfig()
-var curriculum = GetCurriculum(mockSyringeConfig)
-
-func RecordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
+func (s *AntidoteStats) RecordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     mockSyringeConfig.InfluxURL,
-		Username: mockSyringeConfig.InfluxUsername,
-		Password: mockSyringeConfig.InfluxPassword,
+		Addr:     s.InfluxURL,
+		Username: s.InfluxUsername,
+		Password: s.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -52,7 +58,7 @@ func RecordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) e
 	tags := map[string]string{
 		"lessonId":    strconv.Itoa(int(res.Lesson.LessonId)),
 		"lessonName":  res.Lesson.LessonName,
-		"syringeTier": mockSyringeConfig.Tier,
+		"syringeTier": s.Tier,
 	}
 
 	fields := map[string]interface{}{
@@ -80,13 +86,13 @@ func RecordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) e
 	return nil
 }
 
-func StartTSDBExport() error {
+func (s *AntidoteStats) StartTSDBExport() error {
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: mockSyringeConfig.InfluxURL,
+		Addr: s.InfluxURL,
 
-		Username: mockSyringeConfig.InfluxUsername,
-		Password: mockSyringeConfig.InfluxPassword,
+		Username: s.InfluxUsername,
+		Password: s.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -118,18 +124,17 @@ func StartTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range curriculum.Lessons {
+		for lessonId, _ := range s.Curriculum.Lessons {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = curriculum.Lessons[lessonId].LessonName
-			tags["syringeTier"] = mockSyringeConfig.Tier
+			tags["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
+			tags["syringeTier"] = s.Tier
 
-			count, duration := getCountAndDuration(lessonId)
-//			count, duration := 0, 0
-			fields["lessonName"] = curriculum.Lessons[lessonId].LessonName
+			count, duration := s.getCountAndDuration(lessonId)
+			fields["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
 
 			if duration != 0 {
@@ -163,12 +168,11 @@ func StartTSDBExport() error {
 	return nil
 }
 
-func getCountAndDuration(lessonId int32) (int64, int64) {
-	var mockLiveLessonState = GetMockLiveLessonState()
+func (s *AntidoteStats) getCountAndDuration(lessonId int32) (int64, int64) {
 	count := 0
-
 	durations := []int64{}
-	for _, liveLesson := range mockLiveLessonState {
+
+	for _, liveLesson := range s.LiveLessonState {
 		if liveLesson.LessonId != lessonId {
 			continue
 		}
