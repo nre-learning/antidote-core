@@ -32,4 +32,5 @@ FROM scratch
 COPY --from=build-env /go/bin/syringed /usr/bin/syringed
 COPY --from=build-env /go/bin/syringed-mock /usr/bin/syringed-mock
 COPY --from=build-env /go/bin/syrctl /usr/bin/syrctl
+COPY --from=build-env /go/bin/antidote-stats /usr/bin/antidote-stats
 CMD ["/usr/bin/syringed"]

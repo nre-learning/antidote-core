@@ -133,19 +133,24 @@ func (s *AntidoteStats) StartTSDBExport() error {
 			tags["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
 			tags["syringeTier"] = s.Tier
 
-			count, duration := s.getCountAndDuration(lessonId)
+			// count, duration := s.getCountAndDuration(lessonId)
 			fields["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(lessonId))
+			fields["error"] = s.LiveLessonState[lessonId].Error
+			fields["healthyTests"] = s.LiveLessonState[lessonId].HealthyTests
+			fields["totalTests"] = s.LiveLessonState[lessonId].TotalTests
+			fields["lessonStage"] = s.LiveLessonState[lessonId].LessonStage
+			fields["createdTime"] = s.LiveLessonState[lessonId].CreatedTime
 
-			if duration != 0 {
-				fields["avgDuration"] = duration
-			}
-			fields["activeNow"] = count
+			// if duration != 0 {
+			// 	fields["avgDuration"] = duration
+			// }
+			// fields["activeNow"] = count
 
-			// This is just for debugging, so only show active lessons
-			if count > 0 {
-				log.Debugf("Creating influxdb point: ID: %s | NAME: %s | ACTIVE: %d", fields["lessonId"], fields["lessonName"], count)
-			}
+			// // This is just for debugging, so only show active lessons
+			// if count > 0 {
+			// 	log.Debugf("Creating influxdb point: ID: %s | NAME: %s | ACTIVE: %d", fields["lessonId"], fields["lessonName"], count)
+			// }
 
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
 			if err != nil {
