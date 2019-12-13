@@ -124,23 +124,24 @@ func (s *AntidoteStats) StartTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range s.Curriculum.Lessons {
+		for _, liveLesson := range s.LiveLessonState {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
-			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
+			tags["liveLessonUUID"] = liveLesson.LessonUUID
+			tags["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
+			tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
 			tags["syringeTier"] = s.Tier
 
 			// count, duration := s.getCountAndDuration(lessonId)
-			fields["lessonName"] = s.Curriculum.Lessons[lessonId].LessonName
-			fields["lessonId"] = strconv.Itoa(int(lessonId))
-			fields["error"] = s.LiveLessonState[lessonId].Error
-			fields["healthyTests"] = s.LiveLessonState[lessonId].HealthyTests
-			fields["totalTests"] = s.LiveLessonState[lessonId].TotalTests
-			fields["lessonStage"] = s.LiveLessonState[lessonId].LessonStage
-			fields["createdTime"] = s.LiveLessonState[lessonId].CreatedTime
+			fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
+			fields["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
+			fields["error"] = liveLesson.Error
+			fields["healthyTests"] = liveLesson.HealthyTests
+			fields["totalTests"] = liveLesson.TotalTests
+			fields["lessonStage"] = liveLesson.LessonStage
+			fields["createdTime"] = liveLesson.CreatedTime.Seconds
 
 			// if duration != 0 {
 			// 	fields["avgDuration"] = duration
