@@ -18,10 +18,6 @@ func (s *SyringeAPIServer) handleResultCREATE(result *scheduler.LessonScheduleRe
 		return
 	}
 
-	if s.Scheduler.SyringeConfig.InfluxdbEnabled {
-		//stats.RecordProvisioningTime(result.ProvisioningTime, result)
-	}
-
 	s.SetLiveLesson(result.Uuid, s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 

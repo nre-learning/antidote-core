@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
-	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli"
 )
 
@@ -34,24 +32,6 @@ func main() {
 				err := aStats.StartTSDBExport()
 
 				return err
-			},
-		},
-		{
-			Name:  "config",
-			Usage: "antidote-stats config <SUBCOMMAND>",
-			Subcommands: []cli.Command{
-				{
-					Name:  "show",
-					Usage: "show influxDB config",
-					Action: func(c *cli.Context) error {
-						var mockSyringeConfig = GetmockSyringeConfig()
-
-						log.Info(fmt.Sprintf("InfluxDB URL:\t%s", mockSyringeConfig.InfluxURL))
-						log.Info(fmt.Sprintf("InfluxDB Username:   %s", mockSyringeConfig.InfluxPassword))
-
-						return nil
-					},
-				},
 			},
 		},
 	}

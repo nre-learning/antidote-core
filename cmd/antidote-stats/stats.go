@@ -134,7 +134,6 @@ func (s *AntidoteStats) StartTSDBExport() error {
 			tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
 			tags["syringeTier"] = s.Tier
 
-			// count, duration := s.getCountAndDuration(lessonId)
 			fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
 			fields["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
 			fields["error"] = liveLesson.Error
@@ -142,16 +141,6 @@ func (s *AntidoteStats) StartTSDBExport() error {
 			fields["totalTests"] = liveLesson.TotalTests
 			fields["lessonStage"] = liveLesson.LessonStage
 			fields["createdTime"] = liveLesson.CreatedTime.Seconds
-
-			// if duration != 0 {
-			// 	fields["avgDuration"] = duration
-			// }
-			// fields["activeNow"] = count
-
-			// // This is just for debugging, so only show active lessons
-			// if count > 0 {
-			// 	log.Debugf("Creating influxdb point: ID: %s | NAME: %s | ACTIVE: %d", fields["lessonId"], fields["lessonName"], count)
-			// }
 
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
 			if err != nil {
