@@ -78,9 +78,9 @@ func GetmockSyringeConfig() *config.SyringeConfig {
 	mockSyringeConfig.HealthCheckInterval = 0
 	mockSyringeConfig.LiveLessonTTL = 30
 	mockSyringeConfig.InfluxdbEnabled = true
-	mockSyringeConfig.InfluxURL = "http://localhost:8087"
-	mockSyringeConfig.InfluxUsername = "syringe_username"
-	mockSyringeConfig.InfluxPassword = "syringe_password"
+	mockSyringeConfig.InfluxURL = "https://clocktower-49894c42.influxcloud.net:8086"
+	mockSyringeConfig.InfluxUsername = "admin"
+	mockSyringeConfig.InfluxPassword = "antidote-stats"
 	mockSyringeConfig.TSDBExportInterval = 0
 	mockSyringeConfig.CurriculumLocal = true
 	mockSyringeConfig.CurriculumVersion = "latest"
