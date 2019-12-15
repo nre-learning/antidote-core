@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"testing"
 	influx "github.com/influxdata/influxdb/client/v2"
+	log "github.com/sirupsen/logrus"
 )
 
 func assert(tb testing.TB, condition bool, msg string, v ...interface{}) {
@@ -34,19 +35,22 @@ func equals(tb testing.TB, exp, act interface{}) {
 }
 
 func initAntidoteStats() AntidoteStats {
-	mockSyringeConfig := GetmockSyringeConfig()
+        var mockSyringeConfig = GetmockSyringeConfig()
+        var curriculum = GetCurriculum(mockSyringeConfig)
+        var mockLiveLessonState = GetMockLiveLessonState()
+
 	return AntidoteStats{
 		InfluxURL: mockSyringeConfig.InfluxURL,
 		InfluxUsername: mockSyringeConfig.InfluxUsername,
 		InfluxPassword: mockSyringeConfig.InfluxPassword,
-		Curriculum: GetCurriculum(GetmockSyringeConfig()),
-		LiveLessonState: GetMockLiveLessonState()
+		Curriculum: curriculum,
+		LiveLessonState: mockLiveLessonState,
 	}
 }
 
-func createInfluxClient() influx.Client {
+func createInfluxClient() (influx.Client, error) {
 	mockSyringeConfig := GetmockSyringeConfig()
-	client, _ := influx.NewHTTPClient(influx.HTTPConfig{
+	client, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr:               mockSyringeConfig.InfluxURL,
 		Username:           mockSyringeConfig.InfluxUsername,
 		Password:           mockSyringeConfig.InfluxPassword,
@@ -55,10 +59,10 @@ func createInfluxClient() influx.Client {
 
 	if err != nil {
 		log.Error("Error creating InfluxDB Client: ", err.Error())
-		return err
+		return nil, err
 	}
 
-	return client;
+	return client, nil;
 }
 
 func getRowCount(client influx.Client, table string) int {
@@ -88,16 +92,14 @@ func dropTable(client influx.Client, table string) {
 	}
 }
 
-func TestStartTSDBExport(t testing.T) {
+func TestStartTSDBExport(t *testing.T) {
 	stats := initAntidoteStats()
-	err := stats.StartTSDBExport()
+	influxClient, err := stats.CreateClient()
+	defer influxClient.Close()
 	ok(t, err)
 
-	influxClient := createInfluxClient()
-	defer influxClient.Close()
-
 	dropTable(influxClient, "sessionStatus")
-	time.Sleep(2 * time.Minute)
+	stats.WriteBatchPoints(influxClient)
 	rowCount := getRowCount(influxClient, "sessionStatus")
 
 	assert(t, rowCount > 0, "")

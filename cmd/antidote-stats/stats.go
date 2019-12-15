@@ -86,7 +86,25 @@ func (s *AntidoteStats) RecordProvisioningTime(timeSecs int, res *scheduler.Less
 	return nil
 }
 
+
 func (s *AntidoteStats) StartTSDBExport() error {
+	c, err := s.CreateClient()
+
+	if err != nil {
+		return err
+	}
+
+	defer c.Close()
+
+	for {
+		time.Sleep(1 * time.Minute)
+		s.WriteBatchPoints(c)
+	}
+
+	return nil
+}
+
+func (s *AntidoteStats) CreateClient() (influx.Client, error) {
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr: s.InfluxURL,
@@ -100,67 +118,64 @@ func (s *AntidoteStats) StartTSDBExport() error {
 	})
 	if err != nil {
 		log.Error("Error creating InfluxDB Client: ", err.Error())
-		return err
+		return nil, err
 	}
-	defer c.Close()
 
 	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
 	if response, err := c.Query(q); err == nil && response.Error() == nil {
 		//
 	}
 
-	for {
-		time.Sleep(1 * time.Minute)
+	return c, nil
+}
 
-		log.Debug("Recording periodic influxdb metrics")
+func (s *AntidoteStats) WriteBatchPoints(c influx.Client) {
+	log.Debug("Recording periodic influxdb metrics")
 
-		// Create a new point batch
-		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
-			Database:  "syringe_metrics",
-			Precision: "s",
-		})
-		if err != nil {
-			log.Error("Unable to create metrics batch point: ", err)
-			continue
-		}
-
-		for _, liveLesson := range s.LiveLessonState {
-
-			tags := map[string]string{}
-			fields := map[string]interface{}{}
-
-			tags["liveLessonUUID"] = liveLesson.LessonUUID
-			tags["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
-			tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
-			tags["syringeTier"] = s.Tier
-
-			fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
-			fields["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
-			fields["error"] = liveLesson.Error
-			fields["healthyTests"] = liveLesson.HealthyTests
-			fields["totalTests"] = liveLesson.TotalTests
-			fields["lessonStage"] = liveLesson.LessonStage
-			fields["createdTime"] = liveLesson.CreatedTime.Seconds
-
-			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
-			if err != nil {
-				log.Error("Error creating InfluxDB Point: ", err)
-				continue
-			}
-
-			bp.AddPoint(pt)
-
-		}
-
-		// Write the batch
-		err = c.Write(bp)
-		if err != nil {
-			log.Warn("Unable to push periodic metrics to Influx: ", err)
-			continue
-		}
+	// Create a new point batch
+	bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+		Database:  "syringe_metrics",
+		Precision: "s",
+	})
+	if err != nil {
+		log.Error("Unable to create metrics batch point: ", err)
+		return
 	}
 
-	return nil
+	for _, liveLesson := range s.LiveLessonState {
+
+		tags := map[string]string{}
+		fields := map[string]interface{}{}
+
+		tags["liveLessonUUID"] = liveLesson.LessonUUID
+		tags["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
+		//tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
+		tags["syringeTier"] = s.Tier
+
+		// fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
+		fields["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
+		fields["error"] = liveLesson.Error
+		fields["healthyTests"] = liveLesson.HealthyTests
+		fields["totalTests"] = liveLesson.TotalTests
+		fields["lessonStage"] = liveLesson.LessonStage
+		fields["createdTime"] = liveLesson.CreatedTime.Seconds
+
+		pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
+		if err != nil {
+			log.Error("Error creating InfluxDB Point: ", err)
+			return
+		}
+
+		bp.AddPoint(pt)
+
+	}
+
+	// Write the batch
+	err = c.Write(bp)
+	if err != nil {
+		log.Warn("Unable to push periodic metrics to Influx: ", err)
+		return
+	}
 }
 
 func (s *AntidoteStats) getCountAndDuration(lessonId int32) (int64, int64) {
@@ -193,3 +208,4 @@ func (s *AntidoteStats) getCountAndDuration(lessonId int32) (int64, int64) {
 
 	return int64(count), total / int64(len(durations))
 }
+
