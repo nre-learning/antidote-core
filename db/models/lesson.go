@@ -12,24 +12,33 @@ import (
 // Only this struct should be loaded as a table. All sub-values can be stored as binary JSON
 // and deserialized quickly upon retrieval.
 type Lesson struct {
-	Slug string `json:"Slug" yaml:"slug" sql:",pk" pg:",unique"`
+	Slug string `json:"Slug" yaml:"slug" sql:",pk" pg:",unique" jsonschema:"description=Unique slug to identify this lesson"`
 
 	Stages        []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
-	LessonName    string              `json:"LessonName" yaml:"lessonName" jsonschema:"required"`
+	LessonName    string              `json:"LessonName" yaml:"lessonName" jsonschema:"required,description=Name of the lesson"`
 	Endpoints     []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"required,minItems=1"`
 	Connections   []*LessonConnection `json:"Connections" yaml:"connections"`
-	Category      string              `json:"Category" yaml:"category" jsonschema:"required"`
-	LessonDiagram string              `json:"LessonDiagram" yaml:"lessonDiagram"`
-	LessonVideo   string              `json:"LessonVideo" yaml:"lessonVideo"`
-	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required" jsonschema:"required,pattern=local|ptr|prod"`
+	Category      string              `json:"Category" yaml:"category" jsonschema:"required,description=Category for the lesson"`
+	LessonDiagram string              `json:"LessonDiagram" yaml:"lessonDiagram" jsonschema:"description=URL to lesson diagram"`
+	LessonVideo   string              `json:"LessonVideo" yaml:"lessonVideo" jsonschema:"description=URL to lesson video"`
+	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
 	Prereqs       []string            `json:"Prereqs,omitempty" yaml:"prereqs"`
 	Tags          []string            `json:"Tags" yaml:"tags"`
-	Collection    int32               `json:"Collection" yaml:"collection"`
-	Description   string              `json:"Description" yaml:"description" jsonschema:"required"`
+	// Collection    int32               `json:"Collection" yaml:"collection"`
+	Description string `json:"Description" yaml:"description" jsonschema:"required,description=Description of this lesson"`
 
 	// TODO(mierdin): Figure out if these are needed anymore.
 	LessonFile string `json:"-" jsonschema:"-"`
 	LessonDir  string `json:"-" jsonschema:"-"`
+}
+
+// GetSchema returns a Schema to be used in creation wizards
+func (l Lesson) GetSchema() *jsonschema.Schema {
+	return jsonschema.Reflect(l)
+}
+
+func sortSchema(js *jsonschema.Schema) *jsonschema.Schema {
+	return js
 }
 
 // JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema

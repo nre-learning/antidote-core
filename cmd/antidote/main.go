@@ -159,6 +159,23 @@ func main() {
 						fmt.Println(string(b))
 					},
 				},
+				{
+					Name:  "create",
+					Usage: "Create a lesson using an interactive wizard",
+					Action: func(c *cli.Context) {
+
+						curriculumDir := fmt.Sprintf("%s/lessons", c.Args().First())
+						fmt.Printf("Using %s to store created lesson definitions\n", curriculumDir)
+
+						newLesson := newLessonWizard()
+						b, err := json.Marshal(newLesson)
+						if err != nil {
+							color.Red("Unable to print lesson details.")
+							fmt.Println(err)
+						}
+						fmt.Println(string(b))
+					},
+				},
 			},
 		},
 	}
