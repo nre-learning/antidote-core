@@ -12,6 +12,7 @@ import (
 	// Kubernetes Types
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,6 +47,11 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		imageRef = ep.GetImage()
 	} else {
 		imageRef = fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion)
+	}
+
+	pullPolicy := v1.PullAlways
+	if !ls.SyringeConfig.AlwaysPull {
+		pullPolicy = v1.PullIfNotPresent
 	}
 
 	pod := &corev1.Pod{
@@ -91,7 +97,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 				{
 					Name:            ep.GetName(),
 					Image:           imageRef,
-					ImagePullPolicy: "Always",
+					ImagePullPolicy: pullPolicy,
 					Env: []corev1.EnvVar{
 						// Passing in full ref as an env var in case the pod needs to configure a base URL for ingress purposes.
 						{Name: "SYRINGE_FULL_REF", Value: fmt.Sprintf("%s-%s", nsName, ep.GetName())},
