@@ -7,6 +7,7 @@
 - Disable TSDB by default (configurable) [#130](https://github.com/nre-learning/syringe/pull/130)
 - Cleaned up and updated deps - installing grpc tooling from source [#135](https://github.com/nre-learning/syringe/pull/135)
 - Change SYRINGE_DOMAIN to optional variable, and provide default [#142](https://github.com/nre-learning/syringe/pull/142)
+- Add config option to control imagepullpolicy [#145](https://github.com/nre-learning/syringe/pull/145)
 
 ## v0.4.0 - August 07, 2019
 
