@@ -88,12 +88,11 @@ func (s *AntidoteStats) RecordProvisioningTime(timeSecs int, res *scheduler.Less
 
 
 func (s *AntidoteStats) StartTSDBExport() error {
-	c, err := s.CreateClient()
+	c, err := s.CreateInfluxClient()
 
 	if err != nil {
 		return err
 	}
-
 	defer c.Close()
 
 	for {
@@ -104,7 +103,7 @@ func (s *AntidoteStats) StartTSDBExport() error {
 	return nil
 }
 
-func (s *AntidoteStats) CreateClient() (influx.Client, error) {
+func (s *AntidoteStats) CreateInfluxClient() (influx.Client, error) {
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr: s.InfluxURL,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
         "path/filepath"
         "reflect"
@@ -66,22 +67,23 @@ func createTestInfluxClient() (influx.Client, error) {
 	return client, nil
 }
 
-func getRowCount(client influx.Client, table string) int {
-	query := influx.NewQuery(fmt.Sprintf("SELECT * FROM %s", table), "syringe_metrics", "")
+func getData(client influx.Client, columns string, table string) ([][]interface{}, error) {
+	query := influx.NewQuery(fmt.Sprintf("SELECT %s FROM %s", columns, table), "syringe_metrics", "")
 	res, err := client.Query(query)
 
 	if err != nil {
 		fmt.Println(err.Error())
+		return nil, err
 	}
 
 	if len(res.Results) > 0 {
 		if len(res.Results[0].Series) > 0 {
 			series := res.Results[0].Series[0]
-			return len(series.Values)
+			return series.Values, nil
 		}
 	}
 
-	return 0
+	return make([][]interface{}, 0), nil
 }
 
 func dropTable(client influx.Client, table string) {
@@ -95,16 +97,24 @@ func dropTable(client influx.Client, table string) {
 
 func TestStartTSDBExport(t *testing.T) {
 	stats := initAntidoteStats()
-	influxClient, err := stats.CreateClient()
+	influxClient, err := stats.CreateInfluxClient()
 	defer influxClient.Close()
 	ok(t, err)
 
 	dropTable(influxClient, "sessionStatus")
 	stats.WriteBatchPoints(influxClient)
-	rowCount := getRowCount(influxClient, "sessionStatus")
+	data, err := getData(influxClient, "lessonId, liveLessonUUID", "sessionStatus")
 
-	assert(t, rowCount > 0, "")
+	if err != nil {
+		log.Error("Error querying data: ", err.Error())
+		return
+	}
+
+	assert(t, len(data) > 0, "")
+	assert(t, data[0][1] == "14", "")
+	assert(t, data[0][2] == "14-4kfl6n3terlzxa3s", "")
 }
+
 
 func TestRecordProvisioningTime(t *testing.T) {
 	var lessonId int32 = 14
@@ -135,6 +145,16 @@ func TestRecordProvisioningTime(t *testing.T) {
 	err := stats.RecordProvisioningTime(provisioningTime, res)
 	ok(t, err)
 
-	rowCount := getRowCount(influxClient, "provisioningTime")
-	assert(t, rowCount > 0, "")
+	data, err := getData(influxClient, "lessonId, provisioningTime",  "provisioningTime")
+
+        if err != nil {
+                log.Error("Error querying data: ", err.Error())
+                return
+        }
+
+	assert(t, len(data) > 0, "")
+	assert(t, data[0][1] == "14", "")
+
+	time, _ := json.Marshal(data[0][2])
+	assert(t, string(time) == "60", "")
 }
