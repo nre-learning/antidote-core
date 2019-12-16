@@ -149,10 +149,10 @@ func (s *AntidoteStats) WriteBatchPoints(c influx.Client) {
 
 		tags["liveLessonUUID"] = liveLesson.LessonUUID
 		tags["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
-		//tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
+		tags["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
 		tags["syringeTier"] = s.Tier
 
-		// fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
+		fields["lessonName"] = s.Curriculum.Lessons[liveLesson.LessonId].LessonName
 		fields["lessonId"] = strconv.Itoa(int(liveLesson.LessonId))
 		fields["error"] = liveLesson.Error
 		fields["healthyTests"] = liveLesson.HealthyTests

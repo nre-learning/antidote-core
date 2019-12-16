@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-
 	cli "github.com/urfave/cli"
 )
 
@@ -16,7 +15,7 @@ func main() {
 			Name:  "start",
 			Usage: "start exporting data to influx TSDB",
 			Action: func(c *cli.Context) error {
-				var mockSyringeConfig = GetmockSyringeConfig()
+				var mockSyringeConfig = GetmockSyringeConfig(false)
 				var curriculum = GetCurriculum(mockSyringeConfig)
 				var mockLiveLessonState = GetMockLiveLessonState()
 

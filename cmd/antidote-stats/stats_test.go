@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
-	"reflect"
+        "path/filepath"
+        "reflect"
 	"runtime"
 	"testing"
 	influx "github.com/influxdata/influxdb/client/v2"
 	log "github.com/sirupsen/logrus"
+	scheduler "github.com/nre-learning/syringe/scheduler"
 )
 
 func assert(tb testing.TB, condition bool, msg string, v ...interface{}) {
@@ -35,21 +36,21 @@ func equals(tb testing.TB, exp, act interface{}) {
 }
 
 func initAntidoteStats() AntidoteStats {
-        var mockSyringeConfig = GetmockSyringeConfig()
-        var curriculum = GetCurriculum(mockSyringeConfig)
-        var mockLiveLessonState = GetMockLiveLessonState()
+	var mockSyringeConfig = GetmockSyringeConfig(true)
+	var curriculum = GetCurriculum(mockSyringeConfig)
+	var mockLiveLessonState = GetMockLiveLessonState()
 
 	return AntidoteStats{
-		InfluxURL: mockSyringeConfig.InfluxURL,
-		InfluxUsername: mockSyringeConfig.InfluxUsername,
-		InfluxPassword: mockSyringeConfig.InfluxPassword,
-		Curriculum: curriculum,
+		InfluxURL:       mockSyringeConfig.InfluxURL,
+		InfluxUsername:  mockSyringeConfig.InfluxUsername,
+		InfluxPassword:  mockSyringeConfig.InfluxPassword,
+		Curriculum:      curriculum,
 		LiveLessonState: mockLiveLessonState,
 	}
 }
 
-func createInfluxClient() (influx.Client, error) {
-	mockSyringeConfig := GetmockSyringeConfig()
+func createTestInfluxClient() (influx.Client, error) {
+	mockSyringeConfig := GetmockSyringeConfig(true)
 	client, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr:               mockSyringeConfig.InfluxURL,
 		Username:           mockSyringeConfig.InfluxUsername,
@@ -62,7 +63,7 @@ func createInfluxClient() (influx.Client, error) {
 		return nil, err
 	}
 
-	return client, nil;
+	return client, nil
 }
 
 func getRowCount(client influx.Client, table string) int {
@@ -102,5 +103,38 @@ func TestStartTSDBExport(t *testing.T) {
 	stats.WriteBatchPoints(influxClient)
 	rowCount := getRowCount(influxClient, "sessionStatus")
 
+	assert(t, rowCount > 0, "")
+}
+
+func TestRecordProvisioningTime(t *testing.T) {
+	var lessonId int32 = 14
+	uuid := "14-4kfl6n3terlzxa3s"
+	curriculum := GetCurriculum(GetmockSyringeConfig(true))
+	lesson := curriculum.Lessons[lessonId]
+	var provisioningTime int = 60
+	res := &scheduler.LessonScheduleResult{
+		Success: true,
+		Stage:   1,
+		Lesson:  lesson,
+		Operation: scheduler.OperationType_CREATE,
+		ProvisioningTime: provisioningTime,
+		Uuid: uuid,
+	}
+
+	stats := initAntidoteStats()
+
+	influxClient, testClientErr := createTestInfluxClient()
+	if testClientErr != nil {
+		log.Error("Error creating influxdb test client: ", testClientErr.Error())
+		return
+	}
+	influxClient.Close();
+
+	dropTable(influxClient, "provisioningTime")
+
+	err := stats.RecordProvisioningTime(provisioningTime, res)
+	ok(t, err)
+
+	rowCount := getRowCount(influxClient, "provisioningTime")
 	assert(t, rowCount > 0, "")
 }

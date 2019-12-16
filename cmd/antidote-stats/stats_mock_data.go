@@ -16,7 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 // mock functions on importing lessons from api/exp/curricula & api/exp/lessons
-func GetCurriculum (mockConfig *config.SyringeConfig) *pb.Curriculum {
+func GetCurriculum(mockConfig *config.SyringeConfig) *pb.Curriculum {
 	curriculum := &pb.Curriculum{}
 
 	lessons, err := ImportLessons(mockConfig)
@@ -66,9 +66,15 @@ func GetMockLiveLessonState() map[string]*pb.LiveLesson {
 	}
 }
 
-func GetmockSyringeConfig() *config.SyringeConfig {
-	mockSyringeConfig := config.SyringeConfig{}
-	mockSyringeConfig.CurriculumDir = "/antidote"
+func GetmockSyringeConfig(isTest bool) *config.SyringeConfig {
+        mockSyringeConfig := config.SyringeConfig{}
+
+	if isTest {
+		mockSyringeConfig.CurriculumDir = "./testdata/antidote"
+	} else {
+		mockSyringeConfig.CurriculumDir = "/antidote"
+	}
+
 	mockSyringeConfig.Tier = "local"
 	mockSyringeConfig.Domain = "antidote-local"
 	mockSyringeConfig.GRPCPort = 50099
@@ -359,3 +365,4 @@ func entityInLabDef(entityName string, ld *pb.Lesson) bool {
 	}
 	return false
 }
+
