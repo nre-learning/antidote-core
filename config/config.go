@@ -33,6 +33,8 @@ type SyringeConfig struct {
 	CurriculumRepoRemote string
 	CurriculumRepoBranch string
 
+	AlwaysPull bool
+
 	PrivilegedImages []string
 
 	AllowEgress bool
@@ -60,9 +62,9 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.CurriculumDir = curriculumDir
 	}
 
-        /*
-                OPTIONAL
-        */
+	/*
+	   OPTIONAL
+	*/
 
 	// +syringeconfig SYRINGE_DOMAIN is used when directing iframe resources to the appropriate place.
 	// Specify the full domain you're using to access the environment.
@@ -186,6 +188,16 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.AllowEgress = false
 	} else {
 		config.AllowEgress = true
+	}
+
+	// +syringeconfig SYRINGE_IMAGE_PULL_POLICY is a boolean variable that controls the ImagePullPolicy of all
+	// pods within a lesson. Defaults to true, which results in an "Always" ImagePullPolicy. Setting to false
+	// will result in an "IfNotPresent" policy.
+	val := os.Getenv("SYRINGE_ALWAYS_PULL")
+	if alwaysPull, err := strconv.ParseBool(val); err == nil {
+		config.AlwaysPull = alwaysPull
+	} else {
+		config.AlwaysPull = true
 	}
 
 	// +syringeconfig SYRINGE_PRIVILEGED_IMAGES is a string slice that specifies which images need privileged

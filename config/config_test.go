@@ -67,6 +67,7 @@ func TestConfigJSON(t *testing.T) {
 		CurriculumVersion:    "latest",
 		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
 		CurriculumRepoBranch: "master",
+		AlwaysPull:           true,
 		PrivilegedImages: []string{
 			"antidotelabs/container-vqfx",
 			"antidotelabs/vqfx-snap1",
