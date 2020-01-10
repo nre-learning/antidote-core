@@ -9,10 +9,22 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
 )
 
 func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
+
+	// Initialize span and populate with tags
+	// tracer := opentracing.GlobalTracer()
+	span := opentracing.GlobalTracer().StartSpan("livelesson_api_request", ext.SpanKindRPCClient)
+	defer span.Finish()
+	span.SetTag("antidote_lesson_id", lp.LessonId)
+	span.SetTag("antidote_stage", lp.LessonStage)
+	span.SetTag("antidote_session_id", lp.SessionId)
+
+	span.LogEvent("Received LiveLesson Request")
 
 	// TODO(mierdin): need to perform some basic security checks here. Need to check incoming IP address
 	// and do some rate-limiting if possible. Alternatively you could perform this on the Ingress
@@ -75,11 +87,14 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 			s.UpdateLiveLessonStage(lessonUuid, lp.LessonStage)
 
 			// Request the schedule move forward with stage change activities
+			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
 			req := &scheduler.LessonScheduleRequest{
 				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
 				Operation: scheduler.OperationType_MODIFY,
 				Stage:     lp.LessonStage,
 				Uuid:      lessonUuid,
+				Session:   lp.SessionId,
+				APISpan:   span,
 			}
 
 			s.Scheduler.Requests <- req
@@ -87,10 +102,13 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 		} else {
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
+			span.LogEvent("Sending LiveLesson BOOP request to scheduler")
 			req := &scheduler.LessonScheduleRequest{
 				Operation: scheduler.OperationType_BOOP,
 				Uuid:      lessonUuid,
+				Session:   lp.SessionId,
 				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
+				APISpan:   span,
 			}
 
 			s.Scheduler.Requests <- req
@@ -100,11 +118,14 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 	}
 
 	// 3 - if doesn't already exist, put together schedule request and send to channel
+	span.LogEvent("Sending LiveLesson CREATE request to scheduler")
 	req := &scheduler.LessonScheduleRequest{
 		Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
 		Operation: scheduler.OperationType_CREATE,
 		Stage:     lp.LessonStage,
+		Session:   lp.SessionId,
 		Uuid:      lessonUuid,
+		APISpan:   span,
 		Created:   time.Now(),
 	}
 	s.Scheduler.Requests <- req

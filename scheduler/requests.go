@@ -5,15 +5,17 @@ import (
 	"time"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
-	log "github.com/sirupsen/logrus"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 type LessonScheduleRequest struct {
 	Lesson    *pb.Lesson
 	Operation OperationType
+	Session   string // This was added to keep tracing similar between API server and Scheduler
 	Uuid      string
 	Stage     int32
 	Created   time.Time
+	APISpan   opentracing.Span
 }
 
 type LessonScheduleResult struct {
@@ -24,44 +26,54 @@ type LessonScheduleResult struct {
 	Message          string
 	ProvisioningTime int
 	Uuid             string
+	SchedulerSpan    opentracing.Span
 }
 
 func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
+
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_request_create",
+		opentracing.ChildOf(newRequest.APISpan.Context()))
+	defer span.Finish()
 
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 	// TODO(mierdin): This function returns a pointer, and as a result, we're able to
 	// set properties of newKubeLab and the map that stores these is immediately updated.
-	// This isn't technically goroutine-safe, even though it's more or lesson guaranteed
+	// This isn't technically goroutine-safe, even though it's more or less guaranteed
 	// that only one goroutine will access THIS pointer (since they're separated by
 	// session ID). Not currently encountering issues here, but might want to think about it
 	// longer-term.
 	newKubeLab, err := ls.createKubeLab(newRequest)
 	if err != nil {
-		log.Errorf("Error creating lesson: %s", err)
+		span.LogEvent(fmt.Sprintf("Error creating kubelab: %s", err))
+		span.SetTag("error", true)
 		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
+			Success:       false,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     newRequest.Operation,
+			SchedulerSpan: span,
 		}
 		return
 	}
 
+	span.LogEvent("Kubelab creation complete. Moving into INITIAL_BOOT status")
+
 	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
 	// populate the entry in the API server with data about endpoints that it doesn't have yet.
-	log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
 	newKubeLab.Status = pb.Status_INITIAL_BOOT
 	newKubeLab.CurrentStage = newRequest.Stage
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
 
 	// Trigger a status update in the API server
 	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: OperationType_MODIFY,
-		Stage:     newRequest.Stage,
+		Success:       true,
+		Lesson:        newRequest.Lesson,
+		Uuid:          newRequest.Uuid,
+		Operation:     OperationType_MODIFY,
+		Stage:         newRequest.Stage,
+		SchedulerSpan: span,
 	}
 
 	liveLesson := newKubeLab.ToLiveLesson()
@@ -70,11 +82,8 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", liveLesson.LessonUUID, liveLesson.LiveEndpoints)
-
 		reachability := ls.testEndpointReachability(liveLesson)
-
-		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, reachability)
+		span.LogEventWithPayload("Health check results", reachability)
 
 		// Update reachability status
 		failed := false
@@ -92,11 +101,12 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
+			Success:       true,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     OperationType_MODIFY,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 
 		// Begin again if one of the endpoints isn't reachable
@@ -110,42 +120,48 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	}
 
 	if !success {
-		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.Lesson.LessonId)
+		span.LogEvent("Timeout waiting for LiveLesson to become reachable")
+		span.SetTag("error", true)
 		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+			Success:       false,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     newRequest.Operation,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 		return
 	} else {
 
-		log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
+		span.LogEvent("Setting status to CONFIGURATION")
 		newKubeLab.Status = pb.Status_CONFIGURATION
 
 		// Trigger a status update in the API server
 		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
+			Success:       true,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     OperationType_MODIFY,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 	}
 
-	log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
+	span.LogEvent("Configuring livelesson endpoints")
 	err = ls.configureStuff(nsName, liveLesson, newRequest)
 	if err != nil {
+		span.LogEvent("Encountered an unrecoverable error configuring lesson")
+		span.SetTag("error", true)
 		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+			Success:       false,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     newRequest.Operation,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 	} else {
-		log.Debugf("Setting %s to READY", newRequest.Uuid)
+		span.LogEvent("Setting status to READY")
 		newKubeLab.Status = pb.Status_READY
 
 		ls.Results <- &LessonScheduleResult{
@@ -155,6 +171,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
 			Operation:        newRequest.Operation,
 			Stage:            newRequest.Stage,
+			SchedulerSpan:    span,
 		}
 	}
 
@@ -166,10 +183,13 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	}
 
 	ls.setKubelab(newRequest.Uuid, newKubeLab)
-
 }
 
 func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_request_modify",
+		opentracing.ChildOf(newRequest.APISpan.Context()))
+	defer span.Finish()
 
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
@@ -180,47 +200,57 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 
 	liveLesson := kl.ToLiveLesson()
 
-	log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
+	span.LogEvent("Configuring livelesson endpoints")
 	err := ls.configureStuff(nsName, liveLesson, newRequest)
 	if err != nil {
+		span.LogEvent("Encountered an unrecoverable error configuring lesson")
+		span.SetTag("error", true)
 		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+			Success:       false,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     newRequest.Operation,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 		return
 	}
 
 	err = ls.boopNamespace(nsName)
 	if err != nil {
-		log.Errorf("Problem modify-booping %s: %v", nsName, err)
+		span.LogEvent(fmt.Sprintf("Problem modify-booping %s: %v", nsName, err))
+		// Not currently doing anything to handle this, just noting it
 	}
 
 	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
+		Success:       true,
+		Lesson:        newRequest.Lesson,
+		Uuid:          newRequest.Uuid,
+		Operation:     newRequest.Operation,
+		Stage:         newRequest.Stage,
+		SchedulerSpan: span,
 	}
+
 }
 
 func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest) {
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_request_verify",
+		opentracing.ChildOf(newRequest.APISpan.Context()))
+	defer span.Finish()
+
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 	ls.killAllJobs(nsName, "verify")
 	verifyJob, err := ls.verifyLiveLesson(newRequest)
 	if err != nil {
-		log.Debugf("Unable to verify: %s", err)
-
 		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+			Success:       false,
+			Lesson:        newRequest.Lesson,
+			Uuid:          newRequest.Uuid,
+			Operation:     newRequest.Operation,
+			Stage:         newRequest.Stage,
+			SchedulerSpan: span,
 		}
 	}
 
@@ -231,11 +261,12 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 		// Return immediately if there was a problem
 		if err != nil {
 			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
+				Success:       false,
+				Lesson:        newRequest.Lesson,
+				Uuid:          newRequest.Uuid,
+				Operation:     newRequest.Operation,
+				Stage:         newRequest.Stage,
+				SchedulerSpan: span,
 			}
 			return
 		}
@@ -243,11 +274,12 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 		// Return immediately if successful and finished
 		if finished == true {
 			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
+				Success:       true,
+				Lesson:        newRequest.Lesson,
+				Uuid:          newRequest.Uuid,
+				Operation:     newRequest.Operation,
+				Stage:         newRequest.Stage,
+				SchedulerSpan: span,
 			}
 			return
 		}
@@ -258,24 +290,34 @@ func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest
 
 	// Return failure, there's clearly a problem.
 	ls.Results <- &LessonScheduleResult{
-		Success:   false,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
+		Success:       false,
+		Lesson:        newRequest.Lesson,
+		Uuid:          newRequest.Uuid,
+		Operation:     newRequest.Operation,
+		Stage:         newRequest.Stage,
+		SchedulerSpan: span,
 	}
 }
 
 func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_request_boop",
+		opentracing.ChildOf(newRequest.APISpan.Context()))
+	defer span.Finish()
+
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 
 	err := ls.boopNamespace(nsName)
 	if err != nil {
-		log.Errorf("Problem booping %s: %v", nsName, err)
+		span.LogEvent(fmt.Sprintf("Problem booping %s: %v", nsName, err))
 	}
 }
 
 func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_request_delete",
+		opentracing.ChildOf(newRequest.APISpan.Context()))
+	defer span.Finish()
 
 	// Delete the namespace object and then clean up our local state
 	// TODO(mierdin): This is an unlikely operation to fail, but maybe add some kind logic here just in case?
@@ -283,8 +325,10 @@ func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest
 	ls.deleteKubelab(newRequest.Uuid)
 
 	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
+		Success:       true,
+		Uuid:          newRequest.Uuid,
+		Operation:     newRequest.Operation,
+		SchedulerSpan: span,
 	}
+
 }

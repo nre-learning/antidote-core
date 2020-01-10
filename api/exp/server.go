@@ -17,6 +17,9 @@ import (
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
+	tracing "github.com/nre-learning/syringe/tracing"
+	opentracing "github.com/opentracing/opentracing-go"
+
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
@@ -55,6 +58,10 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	if err != nil {
 		log.Errorf("failed to listen: %v", err)
 	}
+
+	tracer, closer := tracing.InitTracing()
+	opentracing.SetGlobalTracer(tracer)
+	defer closer.Close()
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)

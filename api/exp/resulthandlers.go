@@ -8,26 +8,39 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	scheduler "github.com/nre-learning/syringe/scheduler"
-	log "github.com/sirupsen/logrus"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 func (s *SyringeAPIServer) handleResultCREATE(result *scheduler.LessonScheduleResult) {
-	if !result.Success {
-		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
-		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
-		return
-	}
+
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_response_create",
+		opentracing.ChildOf(result.SchedulerSpan.Context()))
+	defer span.Finish()
 
 	if s.Scheduler.SyringeConfig.InfluxdbEnabled {
 		s.recordProvisioningTime(result.ProvisioningTime, result)
 	}
 
+	if !result.Success {
+		span.LogEvent(fmt.Sprintf("API server received error in scheduler response: %s", result.Message))
+		span.SetTag("error", true)
+		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
+		return
+	}
 	s.SetLiveLesson(result.Uuid, s.Scheduler.KubeLabs[result.Uuid].ToLiveLesson())
 }
 
 func (s *SyringeAPIServer) handleResultMODIFY(result *scheduler.LessonScheduleResult) {
+
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_response_modify",
+		opentracing.ChildOf(result.SchedulerSpan.Context()))
+	defer span.Finish()
+
 	if !result.Success {
-		log.Errorf("Problem encountered in request %s: %s", result.Uuid, result.Message)
+		span.LogEvent(fmt.Sprintf("API server received error in scheduler response: %s", result.Message))
+		span.SetTag("error", true)
 		s.SetLiveLesson(result.Uuid, &pb.LiveLesson{Error: true})
 		return
 	}
@@ -36,6 +49,12 @@ func (s *SyringeAPIServer) handleResultMODIFY(result *scheduler.LessonScheduleRe
 }
 
 func (s *SyringeAPIServer) handleResultVERIFY(result *scheduler.LessonScheduleResult) {
+
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_response_verify",
+		opentracing.ChildOf(result.SchedulerSpan.Context()))
+	defer span.Finish()
+
 	vtUUID := fmt.Sprintf("%s-%d", result.Uuid, result.Stage)
 
 	vt := s.VerificationTasks[vtUUID]
@@ -58,6 +77,12 @@ func (s *SyringeAPIServer) handleResultVERIFY(result *scheduler.LessonScheduleRe
 
 // handleResultDELETE runs in response to a scheduler deletion event by removing any tracked state at the API layer.
 func (s *SyringeAPIServer) handleResultDELETE(result *scheduler.LessonScheduleResult) {
+
+	span := opentracing.StartSpan(
+		"livelesson_scheduler_response_delete",
+		opentracing.ChildOf(result.SchedulerSpan.Context()))
+	defer span.Finish()
+
 	uuid := strings.TrimSuffix(result.Uuid, "-ns")
 	s.DeleteLiveLesson(uuid)
 }
