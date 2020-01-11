@@ -11,6 +11,7 @@ import (
 
 	config "github.com/nre-learning/syringe/config"
 	db "github.com/nre-learning/syringe/db"
+	models "github.com/nre-learning/syringe/db/models"
 )
 
 func main() {
@@ -164,16 +165,29 @@ func main() {
 					Usage: "Create a lesson using an interactive wizard",
 					Action: func(c *cli.Context) {
 
-						curriculumDir := fmt.Sprintf("%s/lessons", c.Args().First())
-						fmt.Printf("Using %s to store created lesson definitions\n", curriculumDir)
+						// TODO(mierdin): maybe get rid of this, and instead use a default
+						// value, like maybe the local directory? and then the rendering function can ask
+						// if this is okay, and prompt for a new location
+						// May also consider having a client config where this is set
+						// curriculumDir := fmt.Sprintf("%s/lessons", c.Args().First())
+						curriculumDir := "./"
 
-						newLesson := newLessonWizard()
-						b, err := json.Marshal(newLesson)
+						// We're creating a lesson, so we need to create an empty Lesson instance
+						// to populate, and pass its schema to the wizard
+						newLesson := models.Lesson{}
+						lessonSchema := newLesson.GetSchema()
+						lessonData, err := schemaWizard(lessonSchema, "Lesson", "")
+
+						// Marshal map to JSON and then unmarshal JSON to Lesson type
+						stmJSON, err := json.Marshal(lessonData)
 						if err != nil {
-							color.Red("Unable to print lesson details.")
-							fmt.Println(err)
+							panic(err)
 						}
-						fmt.Println(string(b))
+						json.Unmarshal([]byte(stmJSON), &newLesson)
+
+						// Pass populated lesson definition to the rendering function
+						renderLessonFiles(curriculumDir, &newLesson)
+
 					},
 				},
 			},

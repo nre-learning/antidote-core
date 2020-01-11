@@ -21,7 +21,7 @@ type Lesson struct {
 	Category      string              `json:"Category" yaml:"category" jsonschema:"required,description=Category for the lesson"`
 	LessonDiagram string              `json:"LessonDiagram" yaml:"lessonDiagram" jsonschema:"description=URL to lesson diagram"`
 	LessonVideo   string              `json:"LessonVideo" yaml:"lessonVideo" jsonschema:"description=URL to lesson video"`
-	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
+	Tier          string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
 	Prereqs       []string            `json:"Prereqs,omitempty" yaml:"prereqs"`
 	Tags          []string            `json:"Tags" yaml:"tags"`
 	// Collection    int32               `json:"Collection" yaml:"collection"`
@@ -37,6 +37,7 @@ func (l Lesson) GetSchema() *jsonschema.Schema {
 	return jsonschema.Reflect(l)
 }
 
+// TODO(mierdin): Implement this
 func sortSchema(js *jsonschema.Schema) *jsonschema.Schema {
 	return js
 }

@@ -4,24 +4,23 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
+	jsonschema "github.com/alecthomas/jsonschema"
 	"github.com/fatih/color"
-
-	models "github.com/nre-learning/syringe/db/models"
+	log "github.com/sirupsen/logrus"
 )
 
-func promptForValue(fieldType, fieldPattern, fieldName string) string {
-	// Provide type hints and description
-	color.White("Please input value for %s", fieldName)
+func promptForValue(name string, value *jsonschema.Type) string {
 	pattern := ""
-	if fieldPattern != "" {
-		pattern = fmt.Sprintf(" (Pattern: %s)", fieldPattern)
+	if value.Pattern != "" {
+		pattern = fmt.Sprintf(", pattern: %s", value.Pattern)
 	}
-	fmt.Printf("(Type: %s%s)\n", fieldType, pattern)
+	valueType := value.Type
+	if valueType == "array" {
+		valueType = "comma-separated array"
+	}
+	fmt.Printf("%s (%s%s): ", name, value.Type, pattern)
 
 	// Read input from user
 	reader := bufio.NewReader(os.Stdin)
@@ -35,70 +34,62 @@ func promptForValue(fieldType, fieldPattern, fieldName string) string {
 	return response
 }
 
-// iterateType
-func newLessonWizard() *models.Lesson {
-	// jsType jsonschema.Type
+// schemaWizard takes a jsonschema object, and returns a fully populated map ready to be exported to JSON (and then
+// presumably unmarshaled into a type)
+//
+// rootType specifies the type within this json schema object that we should iterate from (the highest supertype)
+// typePrefix is meant to provide nested types with a prefix (only used when this function is called recursively)
+func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[string]interface{}, error) {
 
-	newLesson := models.Lesson{}
+	rootType := schema.Definitions[root]
+	retMap := make(map[string]interface{})
 
-	lessonSchema := newLesson.GetSchema()
+	// TODO(mierdin): Need to figure out a way to sort these so that the simple ones are always first, and then
+	// within that, sort alphabetically.
+	for k, v := range rootType.Properties {
 
-	lessonType := lessonSchema.Definitions["Lesson"]
+		typeName := fmt.Sprintf("%s%s", typePrefix, k)
 
-	for k, v := range lessonType.Properties {
-
-		// Go through simple properties first
+		// Simple type. Just prompt for value.
 		if v.Type != "array" {
 
-			// TODO I **think** all fields are currently strings right now but we should consider casting here
-			userValue := promptForValue(v.Type, v.Pattern, k)
+			retMap[typeName] = promptForValue(typeName, v)
 
-			switch v.Type {
-			case "int":
-				// reflect.ValueOf(&newLesson).Elem().FieldByName(k).SetInt(userValue)
-			default:
-				reflect.ValueOf(&newLesson).Elem().FieldByName(k).SetString(userValue)
+			// Simple array type. Prompt for value with delimiter guidance.
+		} else if v.Type == "array" && v.Items.Ref == "" {
+
+			// TODO(mierdin) Provide delimiter guidance
+			retMap[typeName] = promptForValue(typeName, v)
+
+			// Complex type. Recurse into this function with the new root type
+		} else if v.Type == "array" && v.Items.Ref != "" {
+
+			splitSlice := strings.Split(v.Items.Ref, "/")
+			subTypeName := splitSlice[len(splitSlice)-1]
+
+			color.HiBlack("Entering subwizard for nested type %s\n", subTypeName)
+
+			var members []interface{}
+
+			i := 0
+			for {
+				innerMap, _ := schemaWizard(schema, subTypeName, fmt.Sprintf("%s[%d].", typeName, i))
+				members = append(members, innerMap)
+
+				if !addMoreToArray(typeName) {
+					break
+				}
+
+				i++
 			}
 
-			// log.Infof("Provided '%s' for field %s", response, k)
+			retMap[k] = members
+		} else {
+			// TODO - obviously fix this
+			panic("FOOBAR - this should never happen")
 		}
+
 	}
-
-	// for k, v := range lessonType.Properties {
-
-	// 	// Next, go through simple arrays that don't have a ref to
-	// 	// another type
-	// 	if v.Type == "array" && v.Items.Ref == "" {
-
-	// 		// Provide type hints and description
-	// 		color.White("Please input value for %s as an array separated by commas", k)
-	// 		pattern := ""
-	// 		if v.Pattern != "" {
-	// 			pattern = fmt.Sprintf(" (Pattern: %s)", v.Pattern)
-	// 		}
-	// 		fmt.Printf("(Type: %s%s)\n", v.Type, pattern)
-
-	// 		reader := bufio.NewReader(os.Stdin)
-	// 		response, err := reader.ReadString('\n')
-	// 		if err != nil {
-	// 			log.Fatal(err)
-	// 		}
-	// 		response = strings.Trim(response, "\n")
-	// 		log.Infof("Provided '%s' for field %s", response, k)
-
-	// 		switch itemType := v.Items.Type; itemType {
-	// 		case "int":
-	// 			fmt.Println("OS X.")
-	// 		default:
-	// 			// Handle as a string
-	// 			fmt.Printf("%s.\n", itemType)
-	// 		}
-	// 	}
-	// }
-
-	// if "items" is not nil, and "schema" of "items" is not nil, then you have a subtype
-	// If "items" is not nil but there is no "schema" key off of that, then it's an array
-
-	return &newLesson
+	return retMap, nil
 
 }

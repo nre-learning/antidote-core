@@ -93,11 +93,6 @@ func (a *AntidoteDB) ReadLessons() ([]*models.Lesson, error) {
 			continue
 		}
 
-		// Insert stage at zero-index so we can use slice indexes to refer to each stage without jumping through hoops
-		// or making the user use 0 as a stage ID
-		// TODO(mierdin): Giant code smell. Kill it.
-		// lesson.Stages = append([]*models.LessonStage{{Id: 0}}, lesson.Stages...)
-
 		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
 
 		retLds = append(retLds, &lesson)
@@ -119,18 +114,18 @@ func (a *AntidoteDB) ReadLessons() ([]*models.Lesson, error) {
 // TODO(mierdin): These need to be named more appropriately to be more consistent, and namespaced to lessons,
 // as other resources will have their own.
 var (
-	BasicValidationError          error = errors.New("a")
-	TierMismatchError             error = errors.New("a")
-	InsufficientPresentationError error = errors.New("a")
-	ProhibitedImageTagError       error = errors.New("a")
-	InvalidConfigurationType      error = errors.New("a")
-	MissingConfigurationFile      error = errors.New("a")
-	DuplicatePresentationError    error = errors.New("a")
-	MissingPresentationPort       error = errors.New("a")
-	BadConnectionError            error = errors.New("a")
-	UnsupportedGuideTypeError     error = errors.New("a")
-	MissingLessonGuide            error = errors.New("a")
-	MissingCheckerScript          error = errors.New("a")
+	BasicValidationError          = errors.New("a")
+	TierMismatchError             = errors.New("a")
+	InsufficientPresentationError = errors.New("a")
+	ProhibitedImageTagError       = errors.New("a")
+	InvalidConfigurationType      = errors.New("a")
+	MissingConfigurationFile      = errors.New("a")
+	DuplicatePresentationError    = errors.New("a")
+	MissingPresentationPort       = errors.New("a")
+	BadConnectionError            = errors.New("a")
+	UnsupportedGuideTypeError     = errors.New("a")
+	MissingLessonGuide            = errors.New("a")
+	MissingCheckerScript          = errors.New("a")
 )
 
 // validateLesson validates a single lesson, returning a simple error if the lesson fails

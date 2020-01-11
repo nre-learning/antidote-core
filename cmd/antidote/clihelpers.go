@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/fatih/color"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,6 +31,28 @@ func askForConfirmation() bool {
 		fmt.Println("Please type yes or no and then press enter:")
 		return askForConfirmation()
 	}
+}
+
+func askSimpleValue(prompt, defaultValue string) string {
+	color.HiBlack("~~~ %s [%s]:", prompt, defaultValue)
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil || response == "" {
+		return defaultValue
+	} else {
+		return response
+	}
+}
+
+func addMoreToArray(name string) bool {
+	color.HiBlack("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
+	var response string
+	_, err := fmt.Scanln(&response)
+	if err != nil {
+		return false
+	}
+	okayResponses := []string{"y", "Y", "yes", "Yes", "YES"}
+	return containsString(okayResponses, response)
 }
 
 // You might want to put the following two functions in a separate utility package.
