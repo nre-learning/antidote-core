@@ -36,6 +36,11 @@ type SyringeConfig struct {
 	PrivilegedImages []string
 
 	AllowEgress bool
+
+	// Temporary configuration option to allow us to disable the scheduler if we need to
+	// I.e. to replace the concept of syringed-mock. In the future, when the scheduler is its
+	// own process, this won't be needed.
+	DisableScheduler bool
 }
 
 func (c *SyringeConfig) JSON() string {
@@ -206,6 +211,15 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		}
 	} else {
 		config.PrivilegedImages = strings.Split(privImages, ",")
+	}
+
+	// +syringeconfig SYRINGE_DISABLE_SCHEDULER is a boolean variable to specify if the scheduler should be disabled.
+	// Defaults to false.
+	disableScheduler, err := strconv.ParseBool(os.Getenv("SYRINGE_DISABLE_SCHEDULER"))
+	if disableScheduler == false || err != nil {
+		config.DisableScheduler = false
+	} else {
+		config.DisableScheduler = true
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())

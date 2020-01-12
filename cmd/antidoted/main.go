@@ -5,20 +5,16 @@ import (
 	"io/ioutil"
 	"sync"
 
-	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	log "github.com/sirupsen/logrus"
+	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kubernetes "k8s.io/client-go/kubernetes"
+	rest "k8s.io/client-go/rest"
 
 	api "github.com/nre-learning/syringe/api/exp"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/scheduler"
-	log "github.com/sirupsen/logrus"
-	rest "k8s.io/client-go/rest"
-
 	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
-
-	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	kubernetes "k8s.io/client-go/kubernetes"
+	"github.com/nre-learning/syringe/scheduler"
 )
 
 func init() {
@@ -36,9 +32,14 @@ func main() {
 		log.Fatalf("Invalid configuration. Please re-run Syringe with appropriate env variables")
 	}
 
-	kubeConfig, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatal(err)
+	var kubeConfig *rest.Config
+	if !syringeConfig.DisableScheduler {
+		kubeConfig, err = rest.InClusterConfig()
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		kubeConfig = &rest.Config{}
 	}
 
 	curriculum, err := api.ImportCurriculum(syringeConfig)
@@ -87,12 +88,16 @@ func main() {
 	}
 	lessonScheduler.ClientCrd = clientCrd
 
-	go func() {
-		err = lessonScheduler.Start()
-		if err != nil {
-			log.Fatalf("Problem starting lesson scheduler: %s", err)
-		}
-	}()
+	if !syringeConfig.DisableScheduler {
+		go func() {
+			err = lessonScheduler.Start()
+			if err != nil {
+				log.Fatalf("Problem starting lesson scheduler: %s", err)
+			}
+		}()
+	} else {
+		log.Info("Skipping scheduler start due to configuration")
+	}
 
 	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.CurriculumDir, syringeConfig.CurriculumRepoBranch))
 	if err != nil {
