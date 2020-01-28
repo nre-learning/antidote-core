@@ -44,7 +44,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
 	})
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 		return nil
 	}
 
-	log.Warn("Nuking all syringe-managed namespaces with a syringeId of %s", ls.SyringeConfig.Tier)
+	log.Warnf("Nuking all syringe-managed namespaces with a syringeId of %s", ls.SyringeConfig.SyringeID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
