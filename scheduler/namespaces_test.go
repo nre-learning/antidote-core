@@ -20,6 +20,7 @@ func TestNamespaces(t *testing.T) {
 	nsName := "100-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
 		CurriculumDir: "/antidote",
+		SyringeID:     "syringe-testing",
 		Domain:        "localhost",
 		Tier:          "prod",
 	}
@@ -42,7 +43,7 @@ func TestNamespaces(t *testing.T) {
 						"lessonId":       "100",
 						"syringeManaged": "yes",
 						"name":           nsName,
-						"syringeTier":    "prod",
+						"syringeId":      lessonScheduler.SyringeConfig.SyringeID,
 						"lastAccessed":   strconv.Itoa(int(anHourAgo.Unix())),
 						"created":        strconv.Itoa(int(anHourAgo.Unix())),
 					},
