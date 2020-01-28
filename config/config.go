@@ -11,6 +11,8 @@ import (
 )
 
 type SyringeConfig struct {
+	SyringeID string
+
 	CurriculumDir       string
 	Tier                string
 	Domain              string
@@ -60,6 +62,16 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		return nil, errors.New("SYRINGE_CURRICULUM is a required variable.")
 	} else {
 		config.CurriculumDir = curriculumDir
+	}
+
+	// +syringeconfig SYRINGE_ID is a way to uniquely identify instances of Syringe running in the same cluster.
+	// All namespaces created by this instance of Syringe will be decorated with this information as a label, to map which
+	// lesson namespaces were created by what instance of Syringe.
+	syringeID := os.Getenv("SYRINGE_ID")
+	if syringeID == "" {
+		return nil, errors.New("SYRINGE_ID is a required variable.")
+	} else {
+		config.SyringeID = syringeID
 	}
 
 	/*
