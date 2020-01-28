@@ -21,15 +21,61 @@ func main() {
 	app.Version = buildInfo["buildVersion"]
 	app.Usage = "Command-line tool to interact with the Antidote platform and database"
 
+	// global flags
+	var dbuser, dbpassword string
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:        "H, db-username",
+			Usage:       "Database username",
+			Value:       "postgres",
+			Destination: &dbuser,
+		},
+		cli.StringFlag{
+			Name:        "P, db-password",
+			Usage:       "Database password",
+			Value:       "docker",
+			Destination: &dbpassword,
+		},
+	}
+
 	// Consider build your own template that groups commands neatly
 	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
 	// cli.AppHelpTemplate is where you do this, and cli.Command.Category can be used to organize
 
+	var curriculumDir string
+
+	testLesson := models.Lesson{
+		Slug:     "test-lesson",
+		Name:     "Test Lesson",
+		Category: "Fundamentals",
+		Tier:     "prod",
+		Endpoints: []*models.LessonEndpoint{{
+			Name:  "linux1",
+			Image: "antidotelabs/utility",
+			Presentations: []*models.LessonPresentation{{
+				Name: "cli",
+				Type: "ssh",
+				Port: 22,
+			}},
+		}},
+		Stages: []*models.LessonStage{
+			{
+				Description: "stage0",
+				GuideType:   "markdown",
+			},
+			{
+				Description: "stage1",
+				GuideType:   "jupyter",
+			},
+		},
+		Connections: []*models.LessonConnection{},
+	}
+
 	app.Commands = []cli.Command{
 		{
 			Name:    "import",
-			Aliases: []string{"import"},
-			Usage:   "antidote import <CURRICULUM DIRECTORY>",
+			Aliases: []string{},
+			Usage:   "(db) Re-imports a full curriculum from disk",
 			Action: func(c *cli.Context) {
 
 				color.Red("WARNING - This will DROP ALL DATA in the Antidote database.")
@@ -40,10 +86,11 @@ func main() {
 				}
 
 				adb := db.AntidoteDB{
-					User:            "postgres",
-					Password:        "docker",
+					User:            dbuser,
+					Password:        dbpassword,
 					Database:        "antidote",
 					AntidoteVersion: buildInfo["buildVersion"],
+					// Connect:         prodConnect(),
 					SyringeConfig: &config.SyringeConfig{
 						// TODO(mierdin) Use a real syringeconfig
 						Tier:          "local",
@@ -79,18 +126,45 @@ func main() {
 			},
 		},
 		{
+			Name:    "validate",
+			Aliases: []string{},
+			Usage:   "Validates a full curriculum directory for correctness",
+			Action: func(c *cli.Context) {
+
+				adb := db.AntidoteDB{
+					User:            dbuser,
+					Password:        dbpassword,
+					Database:        "antidote",
+					AntidoteVersion: buildInfo["buildVersion"],
+					SyringeConfig: &config.SyringeConfig{
+						// TODO(mierdin) Use a real syringeconfig
+						Tier:          "local",
+						CurriculumDir: c.Args().First(),
+					},
+				}
+
+				_, err := adb.ReadLessons()
+				if err != nil {
+					color.Red("Some curriculum resources failed to validate.")
+					os.Exit(1)
+				}
+				color.Green("All detected curriculum resources imported successfully.")
+
+			},
+		},
+		{
 			Name:    "lesson",
-			Aliases: []string{"lesson"},
-			Usage:   "antidote lesson <subcommand>",
+			Aliases: []string{},
+			Usage:   "Work with Lesson resources",
 			Subcommands: []cli.Command{
 				{
 					Name:  "list",
-					Usage: "List lessons",
+					Usage: "Retrieve all lessons and display in a table",
 					Action: func(c *cli.Context) {
 
 						adb := db.AntidoteDB{
-							User:            "postgres",
-							Password:        "docker",
+							User:            dbuser,
+							Password:        dbpassword,
 							Database:        "antidote",
 							AntidoteVersion: buildInfo["buildVersion"],
 							SyringeConfig:   &config.SyringeConfig{},
@@ -119,7 +193,7 @@ func main() {
 
 						for i := range lessons {
 							l := lessons[i]
-							fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t", l.LessonName, l.Slug, l.Category, l.Tier))
+							fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t", l.Name, l.Slug, l.Category, l.Tier))
 						}
 						fmt.Fprintln(w)
 
@@ -128,12 +202,12 @@ func main() {
 				},
 				{
 					Name:  "get",
-					Usage: "Get a single lesson by slug reference",
+					Usage: "Show details of a specific lesson",
 					Action: func(c *cli.Context) {
 
 						adb := db.AntidoteDB{
-							User:            "postgres",
-							Password:        "docker",
+							User:            dbuser,
+							Password:        dbpassword,
 							Database:        "antidote",
 							AntidoteVersion: buildInfo["buildVersion"],
 							SyringeConfig:   &config.SyringeConfig{},
@@ -163,17 +237,19 @@ func main() {
 				{
 					Name:  "create",
 					Usage: "Create a lesson using an interactive wizard",
+
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:        "C, curriculum-directory",
+							Usage:       "antidote lesson create -L ./",
+							Value:       ".",
+							Destination: &curriculumDir,
+						},
+					},
+
 					Action: func(c *cli.Context) {
 
-						// TODO(mierdin): maybe get rid of this, and instead use a default
-						// value, like maybe the local directory? and then the rendering function can ask
-						// if this is okay, and prompt for a new location
-						// May also consider having a client config where this is set
-						// curriculumDir := fmt.Sprintf("%s/lessons", c.Args().First())
-						curriculumDir := "./"
-
-						// We're creating a lesson, so we need to create an empty Lesson instance
-						// to populate, and pass its schema to the wizard
+						// Interactively populate fields in Lesson
 						newLesson := models.Lesson{}
 						lessonSchema := newLesson.GetSchema()
 						lessonData, err := schemaWizard(lessonSchema, "Lesson", "")
@@ -186,8 +262,58 @@ func main() {
 						json.Unmarshal([]byte(stmJSON), &newLesson)
 
 						// Pass populated lesson definition to the rendering function
-						renderLessonFiles(curriculumDir, &newLesson)
+						// renderLessonFiles(curriculumDir, &newLesson)
+						renderLessonFiles(curriculumDir, &testLesson)
 
+					},
+				},
+			},
+		},
+		{
+			Name:    "whitelist",
+			Aliases: []string{"wl"},
+			Usage:   "Create/delete whitelist entries",
+			Subcommands: []cli.Command{
+				{
+					Name:  "create",
+					Usage: "Create a whitelist entry",
+					Action: func(c *cli.Context) {
+						return // TODO
+					},
+				},
+				{
+					Name:  "delete",
+					Usage: "Delete a whitelist entry",
+					Action: func(c *cli.Context) {
+						return // TODO
+					},
+				},
+			},
+		},
+		{
+			Name:    "livelesson",
+			Aliases: []string{"ll"},
+			Usage:   "Examine/modify running LiveLessons",
+			Subcommands: []cli.Command{
+				{
+					Name:  "kill",
+					Usage: "Kill a running livelesson",
+					Action: func(c *cli.Context) {
+						return // TODO
+					},
+				},
+				{
+					Name:  "list",
+					Usage: "List all livelessons",
+					Action: func(c *cli.Context) {
+						return // TODO
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "Get details for a specific livelessons",
+					Action: func(c *cli.Context) {
+						return // TODO
 					},
 				},
 			},

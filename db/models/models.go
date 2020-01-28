@@ -12,7 +12,6 @@ type CurriculumResource interface {
 	GetSchema() *jsonschema.Schema
 }
 
-// EnforceInterfaceCompliance uses CurriculumResource types to ensure conformance with the interface
-func EnforceInterfaceCompliance() {
-	func(cr CurriculumResource) {}(Lesson{})
-}
+var _ CurriculumResource = (*Lesson)(nil)
+
+// var _ CurriculumResource = (*Collection)(nil)

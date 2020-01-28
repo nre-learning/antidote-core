@@ -6,38 +6,25 @@ import (
 	"strings"
 
 	pg "github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
+	orm "github.com/go-pg/pg/orm"
 	log "github.com/sirupsen/logrus"
 
 	config "github.com/nre-learning/syringe/config"
 	models "github.com/nre-learning/syringe/db/models"
 )
 
-// TODO(mierdin): You probably just need a DB driver-esque interface that will be satisfied by
-// go-pg. however, it is still useful to have a summary for dev time of implemented functions and those left
-// to implement, which is kind of why you build this in the first place.
-
-type DbDriver interface {
-	Connect()
-}
-
-// Databaser defines all functions for the db layer
-// Use this to provide a mock layer for tests
-// TODO(mierdin): Enforce this somewhere
+// Databaser specifies the behavior that an Antidote database layer should have.
+// All functions needed by the rest of the Antidote codebase for databse functionality are
+// mandated here.
 type Databaser interface {
-
-	// NOTE
-	// Delete and Update functions were intentionally not implemented for resource types, like lessons and collections.
-	// The idea is that these should be coming from a git repo, so if you don't want them in the curriculum, don't have them in
-	// the repo when you import.
 
 	// Misc
 	Preflight() error
 	Initialize() error
 
 	// Lessons
-	ReadLessons() error
-	InsertLesson([]*models.Lesson) error
+	ReadLessons() ([]*models.Lesson, error)
+	InsertLessons([]*models.Lesson) error
 	ListLessons() ([]*models.Lesson, error)
 	GetLesson(string) (*models.Lesson, error)
 
@@ -63,11 +50,7 @@ type Databaser interface {
 	// Sessions
 }
 
-// EnforceDBInterfaceCompliance forces AntidoteDB to conform to Databaser interface
-// func EnforceDBInterfaceCompliance() {
-// 	func(cr Databaser) {}(AntidoteDB{})
-// }
-
+// AntidoteDB is
 type AntidoteDB struct {
 	User            string
 	Password        string
@@ -76,7 +59,11 @@ type AntidoteDB struct {
 	SyringeConfig   *config.SyringeConfig
 }
 
-// Check that the database exists, tables are in place, and that the version matches us
+var _ Databaser = &AntidoteDB{}
+
+// Preflight is a basic database health checker function for Antidote. It checks
+// that the database exists, tables are in place, and that the version that initialized
+// this databse matches the one that we're operating with now.
 func (a *AntidoteDB) Preflight() error {
 	db := pg.Connect(&pg.Options{
 		User:     a.User,
@@ -96,10 +83,9 @@ func (a *AntidoteDB) Preflight() error {
 		meta[metaRaw[i].Key] = metaRaw[i].Value
 	}
 
-	// Ensure the database was initialized with this version of Antidote
 	if _, ok := meta["AntidoteVersion"]; ok {
 		if meta["AntidoteVersion"] != a.AntidoteVersion {
-			return errors.New(fmt.Sprintf("Database provisioned with different version of Antidote (expected %s, got %s). Re-run 'antidote import'", a.AntidoteVersion, meta["AntidoteVersion"]))
+			return fmt.Errorf("Database provisioned with different version of Antidote (expected %s, got %s). Re-run 'antidote import'", a.AntidoteVersion, meta["AntidoteVersion"])
 		}
 	} else {
 		return errors.New("Unable to retrieve version of database. Re-run 'antidote import'")
@@ -109,6 +95,7 @@ func (a *AntidoteDB) Preflight() error {
 
 }
 
+// Initialize drops all Antidote tables, and re-initializes them
 func (a *AntidoteDB) Initialize() error {
 
 	// Connect to Postgres
@@ -126,6 +113,7 @@ func (a *AntidoteDB) Initialize() error {
 	for _, model := range []interface{}{
 		(*models.Meta)(nil),
 		(*models.Lesson)(nil),
+		// TODO(mierdin): Don't forget to add the rest of the models, or perhaps find a way to do this dynamically
 	} {
 		err := db.DropTable(model, &orm.DropTableOptions{
 			// Temp: true,

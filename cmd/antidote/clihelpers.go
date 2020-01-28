@@ -9,7 +9,6 @@ import (
 )
 
 // Credit to https://gist.github.com/albrow/5882501
-
 // askForConfirmation uses Scanln to parse user input. A user must type in "yes" or "no" and
 // then press enter. It has fuzzy matching, so "y", "Y", "yes", "YES", and "Yes" all count as
 // confirmations. If the input is not recognized, it will ask again. The function does not return
@@ -34,7 +33,12 @@ func askForConfirmation() bool {
 }
 
 func askSimpleValue(prompt, defaultValue string) string {
-	color.HiBlack("~~~ %s [%s]:", prompt, defaultValue)
+
+	// fatih/color functions automatically append a newline, so we're using its
+	// PrintFunc() to make our own, which doesn't do this.
+	grey := color.New(color.FgHiWhite).PrintfFunc()
+
+	grey("%s [%s]:", prompt, defaultValue)
 	var response string
 	_, err := fmt.Scanln(&response)
 	if err != nil || response == "" {
@@ -45,7 +49,11 @@ func askSimpleValue(prompt, defaultValue string) string {
 }
 
 func addMoreToArray(name string) bool {
-	color.HiBlack("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
+	// fatih/color functions automatically append a newline, so we're using its
+	// PrintFunc() to make our own, which doesn't do this.
+	grey := color.New(color.FgHiBlack).PrintfFunc()
+
+	grey("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
 	var response string
 	_, err := fmt.Scanln(&response)
 	if err != nil {
@@ -54,8 +62,6 @@ func addMoreToArray(name string) bool {
 	okayResponses := []string{"y", "Y", "yes", "Yes", "YES"}
 	return containsString(okayResponses, response)
 }
-
-// You might want to put the following two functions in a separate utility package.
 
 // posString returns the first index of element in slice.
 // If slice does not contain element, returns -1.

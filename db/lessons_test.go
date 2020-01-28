@@ -17,14 +17,14 @@ func getValidLesson() models.Lesson {
 			{
 				Description: "Test Stage",
 				GuideType:   "markdown",
-				Objectives: []*models.LessonStageObjective{
-					{
-						Description: "foobar",
-					},
-				},
+				// Objectives: []*models.LessonStageObjective{
+				// 	{
+				// 		Description: "foobar",
+				// 	},
+				// },
 			},
 		},
-		LessonName: "Example Lesson",
+		Name: "Example Lesson",
 		Endpoints: []*models.LessonEndpoint{
 			{
 				Name:              "foobar1",
@@ -92,14 +92,14 @@ func getValidLesson() models.Lesson {
 				B: "foobar1",
 			},
 		},
-		Category:      "fundamentals",
-		LessonDiagram: "https://example.com/diagram.png",
-		LessonVideo:   "https://example.com/video.png",
-		Tier:          "local",
-		Prereqs:       []string{},
-		Tags:          []string{"a", "b", "c"},
-		Collection:    1,
-		Description:   "",
+		Category: "fundamentals",
+		Diagram:  "https://example.com/diagram.png",
+		Video:    "https://example.com/video.png",
+		Tier:     "local",
+		Prereqs:  []string{},
+		Tags:     []string{"a", "b", "c"},
+		// Collection:  1,
+		Description: "",
 
 		// Path to mock lesson in the codebase (this is way better than mocking ioutil, IMO)
 		LessonFile: "test/mocklessons/validlesson1/lesson.meta.yaml",
@@ -133,4 +133,31 @@ func TestMissingPresentationPort(t *testing.T) {
 	}, &l)
 
 	assert(t, (err == BasicValidationError), "Expected a BasicValidationError")
+}
+
+func TestLessonCRUD(t *testing.T) {
+	adb := AntidoteDB{
+		User:            "postgres",
+		Password:        "docker",
+		Database:        "antidote",
+		AntidoteVersion: "test",
+	}
+
+	// Initialize database
+	err := adb.Initialize()
+	if err != nil {
+		t.Fatal("Failed to initialize Antidote database.")
+	}
+
+	lessons := []*models.Lesson{
+		{
+			Name: "foobar",
+			Slug: "foobar",
+		},
+	}
+
+	err = adb.InsertLessons(lessons)
+	if err != nil {
+		t.Fatalf("Problem inserting lessons into the database: %v", err)
+	}
 }

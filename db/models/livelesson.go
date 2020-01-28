@@ -16,9 +16,9 @@ func (l *LiveLesson) JSON() string {
 }
 
 type LiveLesson struct {
-	LiveLessonId     string                   `json:"LiveLessonId,omitempty"`
-	SessionId        string                   `json:"SessionId,omitempty"`
-	LessonId         int32                    `json:"LessonId,omitempty"`
+	ID               string                   `json:"LiveLessonId,omitempty"`
+	SessionID        string                   `json:"SessionId,omitempty"`
+	LessonID         int32                    `json:"LessonId,omitempty"`
 	LiveEndpoints    map[string]*LiveEndpoint `json:"LessonId,omitempty"`
 	LessonStage      int32                    `json:"LessonStage,omitempty"`
 	LabGuide         string                   `json:"LabGuide,omitempty"`
@@ -31,8 +31,8 @@ type LiveLesson struct {
 }
 
 type LiveEndpoint struct {
-	Id            int32               `json:"Name,omitempty"`
-	LiveLessonId  string              `json:"LiveLessonId,omitempty"`
+	ID            int32               `json:"ID,omitempty"`
+	LiveLessonID  string              `json:"LiveLessonID,omitempty"`
 	Name          string              `json:"Name,omitempty"`
 	Image         string              `json:"Image,omitempty"`
 	Presentations []*LivePresentation `json:"Presentations,omitempty"`
@@ -40,8 +40,8 @@ type LiveEndpoint struct {
 }
 
 type LivePresentation struct {
-	Id             int32            `json:"Id,omitempty"`
-	LiveEndpointId string           `json:"LiveEndpointId,omitempty"`
+	ID             int32            `json:"Id,omitempty"`
+	LiveEndpointID string           `json:"LiveEndpointID,omitempty"`
 	Name           string           `json:"Name,omitempty"`
 	Port           int32            `json:"Port,omitempty"`
 	Type           PresentationType `json:"Type,omitempty"`

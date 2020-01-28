@@ -226,19 +226,19 @@ func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) 
 			log.Errorf("Encountered problem reading lesson guide: %s", err)
 			return MissingLessonGuide
 		}
-		lesson.Stages[l].LabGuide = string(contents)
+		lesson.Stages[l].GuideContents = string(contents)
 
 		// Ensure the necessary checker script is present for all stages
-		for s := range lesson.Stages {
-			for i := range lesson.Stages[s].Objectives {
-				fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), s, i)
-				_, err := ioutil.ReadFile(fileName)
-				if err != nil {
-					log.Errorf("Checker script %s was not found.", fileName)
-					return MissingCheckerScript
-				}
-			}
-		}
+		// for s := range lesson.Stages {
+		// 	for i := range lesson.Stages[s].Objectives {
+		// 		fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), s, i)
+		// 		_, err := ioutil.ReadFile(fileName)
+		// 		if err != nil {
+		// 			log.Errorf("Checker script %s was not found.", fileName)
+		// 			return MissingCheckerScript
+		// 		}
+		// 	}
+		// }
 
 	}
 

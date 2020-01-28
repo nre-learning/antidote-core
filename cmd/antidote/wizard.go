@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	jsonschema "github.com/alecthomas/jsonschema"
@@ -34,6 +35,34 @@ func promptForValue(name string, value *jsonschema.Type) string {
 	return response
 }
 
+func sortProperties(properties map[string]*jsonschema.Type) []string {
+
+	var retProperties []string
+	var simpleTypes []string
+	var arrayTypes []string
+	var complexTypes []string
+
+	for k, v := range properties {
+		if v.Type != "array" {
+			simpleTypes = append(simpleTypes, k)
+		} else if v.Type == "array" && v.Items.Ref == "" {
+			arrayTypes = append(arrayTypes, k)
+		} else if v.Type == "array" && v.Items.Ref != "" {
+			complexTypes = append(complexTypes, k)
+		}
+	}
+
+	sort.Strings(simpleTypes)
+	sort.Strings(arrayTypes)
+	sort.Strings(complexTypes)
+
+	retProperties = append(retProperties, simpleTypes...)
+	retProperties = append(retProperties, arrayTypes...)
+	retProperties = append(retProperties, complexTypes...)
+
+	return retProperties
+}
+
 // schemaWizard takes a jsonschema object, and returns a fully populated map ready to be exported to JSON (and then
 // presumably unmarshaled into a type)
 //
@@ -46,7 +75,13 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 
 	// TODO(mierdin): Need to figure out a way to sort these so that the simple ones are always first, and then
 	// within that, sort alphabetically.
-	for k, v := range rootType.Properties {
+
+	props := sortProperties(rootType.Properties)
+	for i := range props {
+		// for k, v := range rootType.Properties {
+
+		k := props[i]
+		v := rootType.Properties[k]
 
 		typeName := fmt.Sprintf("%s%s", typePrefix, k)
 
