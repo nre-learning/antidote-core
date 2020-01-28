@@ -52,11 +52,11 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 	// No need to nuke if no syringe namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Info("No syringe-managed namespaces found. Starting normally.")
+		log.Info("No namespaces with our syringeId found. Starting normally.")
 		return nil
 	}
 
-	log.Warnf("Nuking all syringe-managed namespaces with a syringeId of %s", ls.SyringeConfig.SyringeID)
+	log.Warnf("Nuking all namespaces with a syringeId of %s", ls.SyringeConfig.SyringeID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
@@ -148,9 +148,9 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 		return nil, err
 	}
 
-	// No need to GC if no syringe namespaces exist
+	// No need to GC if no matching namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Debug("No syringe-managed namespaces found. No need to GC.")
+		log.Debug("No namespaces with our ID found. No need to GC.")
 		return []string{}, nil
 	}
 
