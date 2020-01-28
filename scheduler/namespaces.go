@@ -56,7 +56,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 		return nil
 	}
 
-	log.Warn("Nuking all syringe-managed namespaces")
+	log.Warn("Nuking all syringe-managed namespaces with a syringeId of %s", ls.SyringeConfig.Tier)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
