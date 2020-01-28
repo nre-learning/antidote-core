@@ -11,6 +11,8 @@ import (
 )
 
 type SyringeConfig struct {
+	SyringeID string
+
 	CurriculumDir       string
 	Tier                string
 	Domain              string
@@ -60,9 +62,19 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.CurriculumDir = curriculumDir
 	}
 
-        /*
-                OPTIONAL
-        */
+	// +syringeconfig SYRINGE_ID is a way to uniquely identify instances of Syringe running in the same cluster.
+	// All namespaces created by this instance of Syringe will be decorated with this information as a label, to map which
+	// lesson namespaces were created by what instance of Syringe.
+	syringeID := os.Getenv("SYRINGE_ID")
+	if syringeID == "" {
+		return nil, errors.New("SYRINGE_ID is a required variable.")
+	} else {
+		config.SyringeID = syringeID
+	}
+
+	/*
+	   OPTIONAL
+	*/
 
 	// +syringeconfig SYRINGE_DOMAIN is used when directing iframe resources to the appropriate place.
 	// Specify the full domain you're using to access the environment.

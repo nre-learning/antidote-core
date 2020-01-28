@@ -114,7 +114,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"name":           nsName,
-				"syringeTier":    ls.SyringeConfig.Tier,
+				"syringeId":      ls.SyringeConfig.SyringeID,
 				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
 				"created":        strconv.Itoa(int(req.Created.Unix())),
 			},
@@ -142,7 +142,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
 	})
 	if err != nil {
 		return nil, err
