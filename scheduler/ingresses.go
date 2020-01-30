@@ -14,33 +14,39 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func (ls *LessonScheduler) createIngress(nsName string, ep *pb.Endpoint, port int32) (*v1beta1.Ingress, error) {
+func (ls *LessonScheduler) createIngress(nsName string, ep *pb.Endpoint, p *pb.Presentation) (*v1beta1.Ingress, error) {
 
 	redir := "true"
 
 	// temporary but functional hack to disable SSL redirection for selfmedicate
 	// (doesn't currently use HTTPS)
-	if ls.SyringeConfig.Domain == "antidote-local" {
+	if ls.SyringeConfig.Domain == "antidote-local" || ls.SyringeConfig.Domain == "localhost" {
 		redir = "false"
 	}
 
+	ingressDomain := fmt.Sprintf("%s-%s-%s.heps.%s", nsName, ep.Name, p.Name, ls.SyringeConfig.Domain)
+
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ep.Name,
+			Name:      fmt.Sprintf("%s-%s", ep.Name, p.Name),
 			Namespace: nsName,
 			Labels: map[string]string{
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
-				"ingress.kubernetes.io/ingress.class":      "nginx",
-				"ingress.kubernetes.io/ssl-services":       ep.Name,
+				"ingress.kubernetes.io/ingress.class": "nginx",
+
+				// https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/ssl-services
+				// We only need this if the endpoint requires HTTPS termination.
+				"ingress.kubernetes.io/ssl-services": ep.Name,
+
 				"ingress.kubernetes.io/ssl-redirect":       redir,
 				"ingress.kubernetes.io/force-ssl-redirect": redir,
 				// "ingress.kubernetes.io/rewrite-target":          "/",
 				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
-				"nginx.ingress.kubernetes.io/limit-connections": "10",
-				"nginx.ingress.kubernetes.io/limit-rps":         "5",
-				"nginx.ingress.kubernetes.io/add-base-url":      "true",
+				// "nginx.ingress.kubernetes.io/limit-connections": "10",
+				// "nginx.ingress.kubernetes.io/limit-rps":         "5",
+				// "nginx.ingress.kubernetes.io/add-base-url":      "true",
 				// "nginx.ingress.kubernetes.io/app-root":          "/13-jjtigg867ghr3gye-ns-jupyter/",
 			},
 		},
@@ -48,23 +54,23 @@ func (ls *LessonScheduler) createIngress(nsName string, ep *pb.Endpoint, port in
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
 				{
-					Hosts:      []string{ls.SyringeConfig.Domain},
+					Hosts:      []string{ingressDomain},
 					SecretName: "tls-certificate",
 				},
 			},
 			Rules: []v1beta1.IngressRule{
 				{
-					Host: ls.SyringeConfig.Domain,
+					Host: ingressDomain,
 
 					// TODO(mierdin): need to build this based on incoming protocol from syringefile. Might need to be HTTPS
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{
 								{
-									Path: fmt.Sprintf("/%s-%s", nsName, ep.Name),
+									Path: "/",
 									Backend: v1beta1.IngressBackend{
 										ServiceName: ep.Name,
-										ServicePort: intstr.FromInt(int(port)),
+										ServicePort: intstr.FromInt(int(p.Port)),
 									},
 								},
 							},

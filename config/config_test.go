@@ -79,7 +79,8 @@ func TestConfigJSON(t *testing.T) {
 			"antidotelabs/cvx",
 			"antidotelabs/frr",
 		},
-		AllowEgress: false,
+		CertLocation: "tls-certificate",
+		AllowEgress:  false,
 	}
 
 	t.Log(syringeConfig.JSON())
