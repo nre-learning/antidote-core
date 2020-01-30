@@ -9,6 +9,7 @@
 - Change SYRINGE_DOMAIN to optional variable, and provide default [#142](https://github.com/nre-learning/syringe/pull/142)
 - Add config option to control imagepullpolicy [#145](https://github.com/nre-learning/syringe/pull/145)
 - De-couple namespaces from tier - implement syringe ID option [#150](https://github.com/nre-learning/syringe/pull/150)
+- Move to DNS-based identifiers for http presentations [#151](https://github.com/nre-learning/syringe/pull/151)
 
 ## v0.4.0 - August 07, 2019
 
