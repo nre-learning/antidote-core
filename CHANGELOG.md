@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.5.0 - February 01, 2020
+
 - Initial work on a 'mock' syringe with static sample data for integration testing [#136])https://github.com/nre-learning/syringe/pull/136)
 - Added cvx and frr image names to privileged container list in config.go [#129](https://github.com/nre-learning/syringe/pull/129)
 - Disable TSDB by default (configurable) [#130](https://github.com/nre-learning/syringe/pull/130)
