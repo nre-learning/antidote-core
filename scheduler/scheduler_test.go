@@ -61,6 +61,7 @@ func (lhc *fakeHealthChecker) tcpTest(host string, port int) bool { return true 
 
 func createFakeScheduler() *LessonScheduler {
 	os.Setenv("SYRINGE_CURRICULUM", "foo")
+	os.Setenv("SYRINGE_ID", "syringe-testing")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := config.LoadConfigVars()
 	if err != nil {

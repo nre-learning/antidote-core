@@ -91,6 +91,9 @@ func (ls *LessonScheduler) Start() error {
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
 
+	// TODO(mierdin): Maybe not an issue right now, but should consider if we should check if another Syringe is operating with
+	// our configured ID.
+
 	// Garbage collection
 	if !ls.DisableGC {
 		go func() {

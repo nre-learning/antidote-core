@@ -149,7 +149,10 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 		iframeIngress, _ := ls.createIngress(
 			ns.ObjectMeta.Name,
 			jupyterEp,
-			8888,
+			&pb.Presentation{
+				Name: "web",
+				Port: 8888,
+			},
 		)
 		kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
 	}
@@ -205,7 +208,7 @@ func (ls *LessonScheduler) createKubeLab(req *LessonScheduleRequest) (*KubeLab, 
 				iframeIngress, _ := ls.createIngress(
 					ns.ObjectMeta.Name,
 					ep,
-					p.Port,
+					p,
 				)
 				kl.Ingresses[iframeIngress.ObjectMeta.Name] = iframeIngress
 			} else if p.Type == "vnc" {

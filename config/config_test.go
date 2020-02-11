@@ -42,6 +42,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 // TestConfigJSON ensures a given config renders correctly as JSON
 func TestConfigJSON(t *testing.T) {
 	os.Setenv("SYRINGE_CURRICULUM", "foo")
+	os.Setenv("SYRINGE_ID", "syringe-testing")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := LoadConfigVars()
 	if err != nil {
@@ -50,6 +51,7 @@ func TestConfigJSON(t *testing.T) {
 
 	desired := SyringeConfig{
 		CurriculumDir:        "foo",
+		SyringeID:            "syringe-testing",
 		Tier:                 "local",
 		Domain:               "bar",
 		GRPCPort:             50099,
@@ -77,7 +79,8 @@ func TestConfigJSON(t *testing.T) {
 			"antidotelabs/cvx",
 			"antidotelabs/frr",
 		},
-		AllowEgress: false,
+		CertLocation: "tls-certificate",
+		AllowEgress:  false,
 	}
 
 	t.Log(syringeConfig.JSON())

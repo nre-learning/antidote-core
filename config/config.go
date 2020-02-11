@@ -11,6 +11,8 @@ import (
 )
 
 type SyringeConfig struct {
+	SyringeID string
+
 	CurriculumDir       string
 	Tier                string
 	Domain              string
@@ -36,6 +38,8 @@ type SyringeConfig struct {
 	AlwaysPull bool
 
 	PrivilegedImages []string
+
+	CertLocation string
 
 	AllowEgress bool
 
@@ -65,6 +69,16 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		return nil, errors.New("SYRINGE_CURRICULUM is a required variable.")
 	} else {
 		config.CurriculumDir = curriculumDir
+	}
+
+	// +syringeconfig SYRINGE_ID is a way to uniquely identify instances of Syringe running in the same cluster.
+	// All namespaces created by this instance of Syringe will be decorated with this information as a label, to map which
+	// lesson namespaces were created by what instance of Syringe.
+	syringeID := os.Getenv("SYRINGE_ID")
+	if syringeID == "" {
+		return nil, errors.New("SYRINGE_ID is a required variable.")
+	} else {
+		config.SyringeID = syringeID
 	}
 
 	/*
@@ -232,6 +246,16 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.DisableScheduler = false
 	} else {
 		config.DisableScheduler = true
+	}
+
+	// +syringeconfig SYRINGE_TLS_CERT_LOCATION is the location of the TLS certificate that should be copied into each
+	// namespace by syncSecret. Used primarily to provide HTTPS to http endpoint presentations.
+	// Format is <namespace>/<certname>. Defaults to "prod/tls-cert"
+	certLocation := os.Getenv("SYRINGE_TLS_CERT_LOCATION")
+	if certLocation == "" {
+		config.CertLocation = "tls-certificate"
+	} else {
+		config.CertLocation = certLocation
 	}
 
 	log.Debugf("Syringe config: %s", config.JSON())

@@ -44,7 +44,7 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
 	})
 	if err != nil {
 		return err
@@ -52,11 +52,11 @@ func (ls *LessonScheduler) nukeFromOrbit() error {
 
 	// No need to nuke if no syringe namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Info("No syringe-managed namespaces found. Starting normally.")
+		log.Info("No namespaces with our syringeId found. Starting normally.")
 		return nil
 	}
 
-	log.Warn("Nuking all syringe-managed namespaces")
+	log.Warnf("Nuking all namespaces with a syringeId of %s", ls.SyringeConfig.SyringeID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
@@ -114,7 +114,7 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"name":           nsName,
-				"syringeTier":    ls.SyringeConfig.Tier,
+				"syringeId":      ls.SyringeConfig.SyringeID,
 				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
 				"created":        strconv.Itoa(int(req.Created.Unix())),
 			},
@@ -142,15 +142,15 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeTier=%s", ls.SyringeConfig.Tier),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// No need to GC if no syringe namespaces exist
+	// No need to GC if no matching namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Debug("No syringe-managed namespaces found. No need to GC.")
+		log.Debug("No namespaces with our ID found. No need to GC.")
 		return []string{}, nil
 	}
 

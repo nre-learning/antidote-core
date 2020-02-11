@@ -49,6 +49,7 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 		"lessonId":    strconv.Itoa(int(res.Lesson.LessonId)),
 		"lessonName":  res.Lesson.LessonName,
 		"syringeTier": s.Scheduler.SyringeConfig.Tier,
+		"syringeId":   s.Scheduler.SyringeConfig.SyringeID,
 	}
 
 	fields := map[string]interface{}{
@@ -123,6 +124,7 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 			tags["lessonId"] = strconv.Itoa(int(lessonId))
 			tags["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
 			tags["syringeTier"] = s.Scheduler.SyringeConfig.Tier
+			tags["syringeId"] = s.Scheduler.SyringeConfig.SyringeID
 
 			count, duration := s.getCountAndDuration(lessonId)
 			fields["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
