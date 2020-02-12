@@ -18,7 +18,7 @@ import (
 
 // InsertLessons takes a slides of lesson definitions, and inserts them into the database.
 // It is a really good idea to only use slices returned from ReadLessons() as input for this function.
-func (a *AntidoteDB) InsertLessons(lessons []*models.Lesson) error {
+func (a *AntidoteData) InsertLessons(lessons []*models.Lesson) error {
 
 	db := pg.Connect(&pg.Options{
 		User:     a.User,
@@ -47,7 +47,7 @@ func (a *AntidoteDB) InsertLessons(lessons []*models.Lesson) error {
 
 // ReadLessons reads lesson definitions from the filesystem, validates them, and returns them
 // in a slice.
-func (a *AntidoteDB) ReadLessons() ([]*models.Lesson, error) {
+func (a *AntidoteData) ReadLessons() ([]*models.Lesson, error) {
 
 	// Get lesson definitions
 	fileList := []string{}
@@ -257,7 +257,7 @@ func entityInLabDef(entityName string, ld *models.Lesson) bool {
 }
 
 // ListLessons retrieves lessons present in the database
-func (a *AntidoteDB) ListLessons() ([]*models.Lesson, error) {
+func (a *AntidoteData) ListLessons() ([]*models.Lesson, error) {
 
 	db := pg.Connect(&pg.Options{
 		User:     a.User,
@@ -276,7 +276,7 @@ func (a *AntidoteDB) ListLessons() ([]*models.Lesson, error) {
 }
 
 // GetLesson retrieves a specific lesson via slug from the database
-func (a *AntidoteDB) GetLesson(slug string) (*models.Lesson, error) {
+func (a *AntidoteData) GetLesson(slug string) (*models.Lesson, error) {
 
 	db := pg.Connect(&pg.Options{
 		User:     a.User,

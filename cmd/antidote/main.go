@@ -85,7 +85,7 @@ func main() {
 					os.Exit(0)
 				}
 
-				adb := db.AntidoteDB{
+				adb := db.AntidoteData{
 					User:            dbuser,
 					Password:        dbpassword,
 					Database:        "antidote",
@@ -131,7 +131,7 @@ func main() {
 			Usage:   "Validates a full curriculum directory for correctness",
 			Action: func(c *cli.Context) {
 
-				adb := db.AntidoteDB{
+				adb := db.AntidoteData{
 					User:            dbuser,
 					Password:        dbpassword,
 					Database:        "antidote",
@@ -162,7 +162,7 @@ func main() {
 					Usage: "Retrieve all lessons and display in a table",
 					Action: func(c *cli.Context) {
 
-						adb := db.AntidoteDB{
+						adb := db.AntidoteData{
 							User:            dbuser,
 							Password:        dbpassword,
 							Database:        "antidote",
@@ -205,7 +205,7 @@ func main() {
 					Usage: "Show details of a specific lesson",
 					Action: func(c *cli.Context) {
 
-						adb := db.AntidoteDB{
+						adb := db.AntidoteData{
 							User:            dbuser,
 							Password:        dbpassword,
 							Database:        "antidote",

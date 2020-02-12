@@ -1,3 +1,15 @@
+# `db` package
+
+This package houses the types and functionality for internal Antidote data management.
+
+In db/models, there are models for two main types of things in Antidote:
+- "Live" state (prepended by `live*`), such as livelessons and livesesssions. These track runtime state of Antidote, such as launched lessons, session awareness, etc.
+- Curriculum resource definitions
+
+There are also functions enforced by an interface `DataManager` which do the expected CRUD operations for all of these models with the underlying datastore.
+
+This interface also enforces functions for importing curriculum resource types into memory, where appropriate. These do not interact with the underlying datastore, but higher-order code may make use of these functions as a precursor to actually inserting those
+
 # Postgres Stuff
 
 Running a test instance in docker:

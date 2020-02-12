@@ -13,22 +13,33 @@ import (
 	models "github.com/nre-learning/syringe/db/models"
 )
 
-// Databaser specifies the behavior that an Antidote database layer should have.
-// All functions needed by the rest of the Antidote codebase for databse functionality are
-// mandated here.
-type Databaser interface {
+// DataManager enforces the set of functions required by the rest of the Antidote codebase for
+// handling internal data, such as live state or loaded curriculum resource definitions.
+type DataManager interface {
 
 	// Misc
 	Preflight() error
 	Initialize() error
 
+	// Images
+	// TODO(mierdin): You may want to consider having ReadLessons in a separate
+	// place - as it doesn't interact with the database at all.
+	// ReadLessons() ([]*models.Lesson, error)
+	// InsertLessons([]*models.Lesson) error
+	// ListLessons() ([]*models.Lesson, error)
+	// GetLesson(string) (*models.Lesson, error)
+
 	// Lessons
+	// TODO(mierdin): You may want to consider having ReadLessons in a separate
+	// place - as it doesn't interact with the database at all.
 	ReadLessons() ([]*models.Lesson, error)
 	InsertLessons([]*models.Lesson) error
 	ListLessons() ([]*models.Lesson, error)
 	GetLesson(string) (*models.Lesson, error)
 
 	// // Collections
+	// TODO(mierdin): You may want to consider having ReadCollections in a separate
+	// place - as it doesn't interact with the database at all.
 	// ReadCollections() error
 	// InsertCollection([]*models.Collection) error
 	// ListCollections() ([]*models.Collection, error)
@@ -36,7 +47,7 @@ type Databaser interface {
 	// DeleteCollection(string) error
 
 	// // Curriculum
-	// SetCollection(*models.Collection) error
+	// SetCurriculum(*models.Curriculum) error
 
 	// // LiveLessons
 	// CreateLiveLesson(*models.LiveLesson) error
@@ -50,8 +61,9 @@ type Databaser interface {
 	// Sessions
 }
 
-// AntidoteDB is
-type AntidoteDB struct {
+// AntidoteData is a specific implementation of DataManager - meant to provide functions for handling
+// data within Antidote. This uses postgres as a back-end datastore where appropriate.
+type AntidoteData struct {
 	User            string
 	Password        string
 	Database        string
@@ -59,12 +71,12 @@ type AntidoteDB struct {
 	SyringeConfig   *config.SyringeConfig
 }
 
-var _ Databaser = &AntidoteDB{}
+var _ DataManager = &AntidoteData{}
 
 // Preflight is a basic database health checker function for Antidote. It checks
 // that the database exists, tables are in place, and that the version that initialized
-// this databse matches the one that we're operating with now.
-func (a *AntidoteDB) Preflight() error {
+// this database matches the one that we're operating with now.
+func (a *AntidoteData) Preflight() error {
 	db := pg.Connect(&pg.Options{
 		User:     a.User,
 		Password: a.Password,
@@ -96,7 +108,7 @@ func (a *AntidoteDB) Preflight() error {
 }
 
 // Initialize drops all Antidote tables, and re-initializes them
-func (a *AntidoteDB) Initialize() error {
+func (a *AntidoteData) Initialize() error {
 
 	// Connect to Postgres
 	db := pg.Connect(&pg.Options{
