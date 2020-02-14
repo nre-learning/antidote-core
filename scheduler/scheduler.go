@@ -224,8 +224,6 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
 
-	lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
-
 	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 	initContainers = append(initContainers, corev1.Container{
 		Name:  "copy-local-files",
@@ -235,21 +233,18 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 		},
 		Args: []string{
 			"-c",
-			fmt.Sprintf("cp -r %s-ro/lessons/ %s && adduser -D antidote && chown -R antidote:antidote %s",
-				ls.SyringeConfig.CurriculumDir,
-				ls.SyringeConfig.CurriculumDir,
-				ls.SyringeConfig.CurriculumDir),
+			"cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "host-volume",
 				ReadOnly:  true,
-				MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.CurriculumDir),
+				MountPath: "/antidote-ro",
 			},
 			{
 				Name:      "local-copy",
 				ReadOnly:  false,
-				MountPath: ls.SyringeConfig.CurriculumDir,
+				MountPath: "/antidote",
 			},
 		},
 	})
@@ -276,8 +271,8 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
 		Name:      "local-copy",
 		ReadOnly:  false,
-		MountPath: ls.SyringeConfig.CurriculumDir,
-		SubPath:   lessonDir,
+		MountPath: "/antidote",
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, "/antidote"),
 	})
 
 	return volumes, volumeMounts, initContainers
