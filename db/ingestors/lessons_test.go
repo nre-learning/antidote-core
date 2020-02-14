@@ -134,30 +134,3 @@ func TestMissingPresentationPort(t *testing.T) {
 
 	assert(t, (err == BasicValidationError), "Expected a BasicValidationError")
 }
-
-func TestLessonCRUD(t *testing.T) {
-	adb := AntidoteDB{
-		User:            "postgres",
-		Password:        "docker",
-		Database:        "antidote",
-		AntidoteVersion: "test",
-	}
-
-	// Initialize database
-	err := adb.Initialize()
-	if err != nil {
-		t.Fatal("Failed to initialize Antidote database.")
-	}
-
-	lessons := []*models.Lesson{
-		{
-			Name: "foobar",
-			Slug: "foobar",
-		},
-	}
-
-	err = adb.InsertLessons(lessons)
-	if err != nil {
-		t.Fatalf("Problem inserting lessons into the database: %v", err)
-	}
-}

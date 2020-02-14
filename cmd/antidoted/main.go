@@ -32,6 +32,9 @@ func main() {
 		log.Fatalf("Invalid configuration. Please re-run Syringe with appropriate env variables")
 	}
 
+	// TODO(mierdin): Now that there's a new package for data management, please create an instance of it here,
+	// and pass it equally into both the API server and the scheduler via pointer
+
 	var kubeConfig *rest.Config
 	if !syringeConfig.DisableScheduler {
 		kubeConfig, err = rest.InClusterConfig()

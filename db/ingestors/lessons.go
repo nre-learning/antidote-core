@@ -8,50 +8,38 @@ import (
 	"path/filepath"
 	"strings"
 
-	pg "github.com/go-pg/pg"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	config "github.com/nre-learning/syringe/config"
 	models "github.com/nre-learning/syringe/db/models"
 )
 
-// InsertLessons takes a slides of lesson definitions, and inserts them into the database.
-// It is a really good idea to only use slices returned from ReadLessons() as input for this function.
-func (a *AntidoteData) InsertLessons(lessons []*models.Lesson) error {
-
-	db := pg.Connect(&pg.Options{
-		User:     a.User,
-		Password: a.Password,
-		Database: a.Database,
-	})
-	defer db.Close()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	// Rollback tx on error.
-	defer tx.Rollback()
-
-	for i := range lessons {
-		err := tx.Insert(lessons[i])
-		if err != nil {
-			log.Errorf("Failed to insert lesson '%s' into the database: %v", lessons[i].Slug, err)
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
+// Common validation errors for Lesson ingestion
+//
+// TODO(mierdin): These need to be named more appropriately to be more consistent, and namespaced to lessons,
+// as other resources will have their own.
+var (
+	BasicValidationError          = errors.New("a")
+	TierMismatchError             = errors.New("a")
+	InsufficientPresentationError = errors.New("a")
+	ProhibitedImageTagError       = errors.New("a")
+	InvalidConfigurationType      = errors.New("a")
+	MissingConfigurationFile      = errors.New("a")
+	DuplicatePresentationError    = errors.New("a")
+	MissingPresentationPort       = errors.New("a")
+	BadConnectionError            = errors.New("a")
+	UnsupportedGuideTypeError     = errors.New("a")
+	MissingLessonGuide            = errors.New("a")
+	MissingCheckerScript          = errors.New("a")
+)
 
 // ReadLessons reads lesson definitions from the filesystem, validates them, and returns them
 // in a slice.
-func (a *AntidoteData) ReadLessons() ([]*models.Lesson, error) {
+func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
 
 	// Get lesson definitions
 	fileList := []string{}
-	lessonDir := fmt.Sprintf("%s/lessons", a.SyringeConfig.CurriculumDir)
+	lessonDir := fmt.Sprintf("%s/lessons", curriculumDir)
 	log.Debugf("Searching %s for lesson definitions", lessonDir)
 	err := filepath.Walk(lessonDir, func(path string, f os.FileInfo, err error) error {
 		syringeFileLocation := fmt.Sprintf("%s/lesson.meta.yaml", path)
@@ -87,7 +75,7 @@ func (a *AntidoteData) ReadLessons() ([]*models.Lesson, error) {
 		lesson.LessonFile = file
 		lesson.LessonDir = filepath.Dir(file)
 
-		err = validateLesson(a.SyringeConfig, &lesson)
+		err = validateLesson(&lesson)
 		if err != nil {
 			log.Errorf("Lesson '%s' failed to validate", lesson.Slug)
 			continue
@@ -111,26 +99,9 @@ func (a *AntidoteData) ReadLessons() ([]*models.Lesson, error) {
 
 }
 
-// TODO(mierdin): These need to be named more appropriately to be more consistent, and namespaced to lessons,
-// as other resources will have their own.
-var (
-	BasicValidationError          = errors.New("a")
-	TierMismatchError             = errors.New("a")
-	InsufficientPresentationError = errors.New("a")
-	ProhibitedImageTagError       = errors.New("a")
-	InvalidConfigurationType      = errors.New("a")
-	MissingConfigurationFile      = errors.New("a")
-	DuplicatePresentationError    = errors.New("a")
-	MissingPresentationPort       = errors.New("a")
-	BadConnectionError            = errors.New("a")
-	UnsupportedGuideTypeError     = errors.New("a")
-	MissingLessonGuide            = errors.New("a")
-	MissingCheckerScript          = errors.New("a")
-)
-
 // validateLesson validates a single lesson, returning a simple error if the lesson fails
 // to validate.
-func validateLesson(syringeConfig *config.SyringeConfig, lesson *models.Lesson) error {
+func validateLesson(lesson *models.Lesson) error {
 
 	/* TODO(mierdin): Need to add these checks:
 
@@ -254,42 +225,4 @@ func entityInLabDef(entityName string, ld *models.Lesson) bool {
 		}
 	}
 	return false
-}
-
-// ListLessons retrieves lessons present in the database
-func (a *AntidoteData) ListLessons() ([]*models.Lesson, error) {
-
-	db := pg.Connect(&pg.Options{
-		User:     a.User,
-		Password: a.Password,
-		Database: a.Database,
-	})
-	defer db.Close()
-
-	var lessons []*models.Lesson
-	err := db.Model(&lessons).Select()
-	if err != nil {
-		return nil, err
-	}
-
-	return lessons, nil
-}
-
-// GetLesson retrieves a specific lesson via slug from the database
-func (a *AntidoteData) GetLesson(slug string) (*models.Lesson, error) {
-
-	db := pg.Connect(&pg.Options{
-		User:     a.User,
-		Password: a.Password,
-		Database: a.Database,
-	})
-	defer db.Close()
-
-	var lesson models.Lesson
-	_, err := db.QueryOne(&lesson, `SELECT * FROM lessons WHERE slug = ?`, slug)
-	if err != nil {
-		return nil, err
-	}
-
-	return &lesson, nil
 }

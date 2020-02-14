@@ -13,3 +13,4 @@ api/exp/generated/
 *buildinfo.go
 release_assets/
 cover.html
+*.tbd
