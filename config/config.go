@@ -118,15 +118,6 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		}
 	}
 
-	// +syringeconfig SYRINGE_CURRICULUM_LOCAL is a boolean variable to specify if the curriculum should
-	// be pulled from the local filesystem (true), bypassing the need to clone a repository.
-	curriculumLocal, err := strconv.ParseBool(os.Getenv("SYRINGE_CURRICULUM_LOCAL"))
-	if curriculumLocal == false || err != nil {
-		config.CurriculumLocal = false
-	} else {
-		config.CurriculumLocal = true
-	}
-
 	// +syringeconfig SYRINGE_CURRICULUM_VERSION is the version of the curriculum to use.
 	version := os.Getenv("SYRINGE_CURRICULUM_VERSION")
 	if version == "" {
@@ -134,22 +125,6 @@ func LoadConfigVars() (*SyringeConfig, error) {
 		config.CurriculumVersion = "latest"
 	} else {
 		config.CurriculumVersion = version
-	}
-
-	// +syringeconfig SYRINGE_CURRICULUM_REPO_REMOTE is the git repo from which pull lesson content
-	remote := os.Getenv("SYRINGE_CURRICULUM_REPO_REMOTE")
-	if remote == "" {
-		config.CurriculumRepoRemote = "https://github.com/nre-learning/nrelabs-curriculum.git"
-	} else {
-		config.CurriculumRepoRemote = remote
-	}
-
-	// +syringeconfig SYRINGE_CURRICULUM_REPO_BRANCH is the branch of the git repo where lesson content is located
-	branch := os.Getenv("SYRINGE_CURRICULUM_REPO_BRANCH")
-	if branch == "" {
-		config.CurriculumRepoBranch = "master"
-	} else {
-		config.CurriculumRepoBranch = branch
 	}
 
 	// +syringeconfig SYRINGE_LIVELESSON_TTL is the length of time (in minutes) a lesson is allowed
