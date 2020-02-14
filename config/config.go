@@ -13,7 +13,9 @@ import (
 type SyringeConfig struct {
 	SyringeID string
 
-	CurriculumDir       string
+	CurriculumDir     string
+	CurriculumVersion string
+
 	Tier                string
 	Domain              string
 	GRPCPort            int
@@ -29,11 +31,6 @@ type SyringeConfig struct {
 	InfluxPassword  string
 
 	TSDBExportInterval int
-
-	CurriculumLocal      bool
-	CurriculumVersion    string
-	CurriculumRepoRemote string
-	CurriculumRepoBranch string
 
 	AlwaysPull bool
 

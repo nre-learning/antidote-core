@@ -41,7 +41,7 @@ func equals(tb testing.TB, exp, act interface{}) {
 
 // TestConfigJSON ensures a given config renders correctly as JSON
 func TestConfigJSON(t *testing.T) {
-	os.Setenv("SYRINGE_CURRICULUM", "foo")
+	os.Setenv("SYRINGE_CURRICULUM", "/nrelabs-curriculum")
 	os.Setenv("SYRINGE_ID", "syringe-testing")
 	os.Setenv("SYRINGE_DOMAIN", "bar")
 	syringeConfig, err := LoadConfigVars()
@@ -50,26 +50,23 @@ func TestConfigJSON(t *testing.T) {
 	}
 
 	desired := SyringeConfig{
-		CurriculumDir:        "foo",
-		SyringeID:            "syringe-testing",
-		Tier:                 "local",
-		Domain:               "bar",
-		GRPCPort:             50099,
-		HTTPPort:             8086,
-		DeviceGCAge:          0,
-		NonDeviceGCAge:       0,
-		HealthCheckInterval:  0,
-		LiveLessonTTL:        30,
-		InfluxdbEnabled:      false,
-		InfluxURL:            "https://influxdb.networkreliability.engineering/",
-		InfluxUsername:       "admin",
-		InfluxPassword:       "zerocool",
-		TSDBExportInterval:   0,
-		CurriculumLocal:      false,
-		CurriculumVersion:    "latest",
-		CurriculumRepoRemote: "https://github.com/nre-learning/nrelabs-curriculum.git",
-		CurriculumRepoBranch: "master",
-		AlwaysPull:           true,
+		CurriculumDir:       "/nrelabs-curriculum",
+		SyringeID:           "syringe-testing",
+		Tier:                "local",
+		Domain:              "bar",
+		GRPCPort:            50099,
+		HTTPPort:            8086,
+		DeviceGCAge:         0,
+		NonDeviceGCAge:      0,
+		HealthCheckInterval: 0,
+		LiveLessonTTL:       30,
+		InfluxdbEnabled:     false,
+		InfluxURL:           "https://influxdb.networkreliability.engineering/",
+		InfluxUsername:      "admin",
+		InfluxPassword:      "zerocool",
+		TSDBExportInterval:  0,
+		CurriculumVersion:   "latest",
+		AlwaysPull:          true,
 		PrivilegedImages: []string{
 			"antidotelabs/container-vqfx",
 			"antidotelabs/vqfx-snap1",
