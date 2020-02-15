@@ -272,7 +272,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 		Name:      "local-copy",
 		ReadOnly:  false,
 		MountPath: "/antidote",
-		SubPath:   strings.TrimPrefix(lesson.LessonDir, "/antidote"),
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, "/antidote/"),
 	})
 
 	return volumes, volumeMounts, initContainers
