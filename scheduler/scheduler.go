@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -272,7 +273,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 		Name:      "local-copy",
 		ReadOnly:  false,
 		MountPath: "/antidote",
-		SubPath:   strings.TrimPrefix(lesson.LessonDir, "/antidote/"),
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(ls.SyringeConfig.CurriculumDir))),
 	})
 
 	return volumes, volumeMounts, initContainers
