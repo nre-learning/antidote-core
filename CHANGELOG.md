@@ -3,6 +3,10 @@
 ## In development
 
 
+## v0.5.1 - February 17, 2020
+
+- Move away from runtime git clone model [#153](https://github.com/nre-learning/syringe/pull/153)
+
 ## v0.5.0 - February 01, 2020
 
 - Initial work on a 'mock' syringe with static sample data for integration testing [#136])https://github.com/nre-learning/syringe/pull/136)

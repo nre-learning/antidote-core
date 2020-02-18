@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -102,13 +100,9 @@ func main() {
 		log.Info("Skipping scheduler start due to configuration")
 	}
 
-	antidoteSha, err := ioutil.ReadFile(fmt.Sprintf("%s/.git/refs/heads/%s", syringeConfig.CurriculumDir, syringeConfig.CurriculumRepoBranch))
-	if err != nil {
-		log.Error("Encountered problem getting antidote SHA")
-		buildInfo["antidoteSha"] = "null"
-	} else {
-		buildInfo["antidoteSha"] = string(antidoteSha)
-	}
+	// TODO(mierdin): This provides the loaded version of the curriculum via syringeinfo, primarily
+	// for the PTR banner on the front-end. Should rename to something that makes sense
+	buildInfo["antidoteSha"] = syringeConfig.CurriculumVersion
 
 	// Start API, and feed it pointer to lesson scheduler so they can talk
 	apiServer := &api.SyringeAPIServer{

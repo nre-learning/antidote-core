@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -224,96 +225,56 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
 
-	lessonDir := strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", ls.SyringeConfig.CurriculumDir))
-
-	if ls.SyringeConfig.CurriculumLocal {
-
-		// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
-		initContainers = append(initContainers, corev1.Container{
-			Name:  "copy-local-files",
-			Image: "bash",
-			Command: []string{
-				"bash",
+	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
+	initContainers = append(initContainers, corev1.Container{
+		Name:  "copy-local-files",
+		Image: "bash",
+		Command: []string{
+			"bash",
+		},
+		Args: []string{
+			"-c",
+			"cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "host-volume",
+				ReadOnly:  true,
+				MountPath: "/antidote-ro",
 			},
-			Args: []string{
-				"-c",
-				fmt.Sprintf("cp -r %s-ro/lessons/ %s && adduser -D antidote && chown -R antidote:antidote %s",
-					ls.SyringeConfig.CurriculumDir,
-					ls.SyringeConfig.CurriculumDir,
-					ls.SyringeConfig.CurriculumDir),
+			{
+				Name:      "local-copy",
+				ReadOnly:  false,
+				MountPath: "/antidote",
 			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "host-volume",
-					ReadOnly:  true,
-					MountPath: fmt.Sprintf("%s-ro", ls.SyringeConfig.CurriculumDir),
-				},
-				{
-					Name:      "local-copy",
-					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.CurriculumDir,
-				},
-			},
-		})
+		},
+	})
 
-		// Add outer host volume, should be mounted read-only
-		volumes = append(volumes, corev1.Volume{
-			Name: "host-volume",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: ls.SyringeConfig.CurriculumDir,
-				},
+	// Add outer host volume, should be mounted read-only
+	volumes = append(volumes, corev1.Volume{
+		Name: "host-volume",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: ls.SyringeConfig.CurriculumDir,
 			},
-		})
+		},
+	})
 
-		// Add inner container volume, should be mounted read-write so we can copy files into it
-		volumes = append(volumes, corev1.Volume{
-			Name: "local-copy",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
+	// Add inner container volume, should be mounted read-write so we can copy files into it
+	volumes = append(volumes, corev1.Volume{
+		Name: "local-copy",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
 
-		// Finally, mount local copy volume as read-write
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "local-copy",
-			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.CurriculumDir,
-			SubPath:   lessonDir,
-		})
-
-	} else {
-		volumes = append(volumes, corev1.Volume{
-			Name: "git-volume",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
-
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "git-volume",
-			ReadOnly:  false,
-			MountPath: ls.SyringeConfig.CurriculumDir,
-			SubPath:   lessonDir,
-		})
-
-		initContainers = append(initContainers, corev1.Container{
-			Name:  "git-clone",
-			Image: fmt.Sprintf("antidotelabs/githelper:%s", ls.BuildInfo["imageVersion"]),
-			Args: []string{
-				ls.SyringeConfig.CurriculumRepoRemote,
-				ls.SyringeConfig.CurriculumRepoBranch,
-				ls.SyringeConfig.CurriculumDir,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "git-volume",
-					ReadOnly:  false,
-					MountPath: ls.SyringeConfig.CurriculumDir,
-				},
-			},
-		})
-	}
+	// Finally, mount local copy volume as read-write
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      "local-copy",
+		ReadOnly:  false,
+		MountPath: "/antidote",
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(ls.SyringeConfig.CurriculumDir))),
+	})
 
 	return volumes, volumeMounts, initContainers
 
