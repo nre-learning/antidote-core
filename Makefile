@@ -15,16 +15,9 @@ compile:
 	@rm -f /tmp/datafile.go
 	@rm -f cmd/antidote/buildinfo.go
 	@rm -f cmd/antidoted/buildinfo.go
+	@rm -f cmd/antictl/buildinfo.go
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 	@./compile-proto.sh
-
-	@# Adding equivalent YAML tags so we can import lesson definitions into protobuf-created structs
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lesson.pb.go
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/curriculum.pb.go
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/collection.pb.go
-	@rm -f api/exp/generated/lesson.pb.go.bak
-	@rm -f api/exp/generated/curriculum.pb.go.bak
-	@rm -f api/exp/generated/collection.pb.go.bak
 
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/
@@ -35,18 +28,21 @@ compile:
 
 	@echo "Compiling syringe binaries..."
 
-	# @go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+	@# It doesn't seem like we need this. TODO(mierdin): Verify
+	@#go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+
 	@go install ./cmd/...
 
 docker:
 	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
 	docker push antidotelabs/syringe:$(TARGET_VERSION)
 
-test: 
-	@go test ./api/... ./cmd/... ./config/... ./scheduler/... -cover -coverprofile=coverage.out
-	@go tool cover -html=coverage.out -o=coverage.html
+test:
+	@#This will run tests on all but the pkg package, if you want to limit this in the future.
+	@#go test `go list ./... | grep -v pkg`
 
-	@# This is causing problems - go test ./pkg/... -cover 
+	@go test ./... -cover -coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o=coverage.html
 
 update:
 	dep ensure
