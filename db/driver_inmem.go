@@ -7,6 +7,26 @@ import (
 	models "github.com/nre-learning/syringe/db/models"
 )
 
+func NewADMInMem() DataManager {
+
+	return &ADMInMem{
+		// AntidoteVersion string
+		lessons:        map[string]*models.Lesson{},
+		lessonsMu:      &sync.Mutex{},
+		collections:    map[string]*models.Collection{},
+		collectionsMu:  &sync.Mutex{},
+		images:         map[string]*models.Image{},
+		imagesMu:       &sync.Mutex{},
+		curriculum:     &models.Curriculum{},
+		curriculumMu:   &sync.Mutex{},
+		liveLessons:    map[string]*models.LiveLesson{},
+		liveLessonsMu:  &sync.Mutex{},
+		liveSessions:   map[string]*models.LiveSession{},
+		liveSessionsMu: &sync.Mutex{},
+	}
+
+}
+
 // ADMInMem is an implementation of DataManager which uses in-memory
 // constructs as a backing data store
 type ADMInMem struct {

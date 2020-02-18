@@ -58,15 +58,6 @@ func main() {
 			Usage:   "Validates a full curriculum directory for correctness",
 			Action: func(c *cli.Context) {
 
-				// adb := db.AntidoteDriverInMem{
-				// 	AntidoteVersion: buildInfo["buildVersion"],
-				// 	SyringeConfig: &config.SyringeConfig{
-				// 		// TODO(mierdin) Use a real syringeconfig
-				// 		Tier:          "local",
-				// 		CurriculumDir: c.Args().First(),
-				// 	},
-				// }
-
 				_, err := ingestors.ReadLessons(c.Args().First())
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")

@@ -1,5 +1,8 @@
 package db
 
+// LiveSession represents a single provisioned session for interacting with Antidote.
+// LiveSessions hold a one-to-many relationship with LiveLessons - any number of LiveLessons
+// can refer to a single LiveSession ID.
 type LiveSession struct {
 	ID string `json:"id"`
 
