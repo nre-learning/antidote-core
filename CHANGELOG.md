@@ -2,6 +2,7 @@
 
 ## In development
 
+- Internal Data Management Re-vamp [#141](https://github.com/nre-learning/syringe/pull/141)
 
 ## v0.5.1 - February 17, 2020
 
