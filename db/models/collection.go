@@ -1,5 +1,9 @@
 package db
 
+// Collection is a resource type that provides a type of categorization for other curriculum resources
+// like Lessons. A Collection might be defined for a company, an open-source project, or even for an individual,
+// as a home for all curriculum resources with strong relationships to that entity, and as a way of giving
+// more information for that entity.
 type Collection struct {
 	Slug             string   `json:"Id,omitempty" yaml:"id,omitempty"`
 	Title            string   `json:"Title,omitempty" yaml:"title,omitempty"`

@@ -75,6 +75,8 @@ func (l Lesson) JSValidate() bool {
 	return result.Valid()
 }
 
+// LessonStage is a specific state that a Lesson can be in. This can be thought of like chapters in a book.
+// A Lesson might have one or more LessonStages.
 type LessonStage struct {
 	Description   string `json:"Description" yaml:"description"`
 	GuideType     string `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
@@ -90,6 +92,9 @@ type LessonStage struct {
 // 	Description string `json:"Description" yaml:"description" jsonschema:"required"`
 // }
 
+// LessonEndpoint is typically a container that runs some software in a Lesson. This can be a network device,
+// or a simple container with some Python libraries installed - it doesn't really matter. It's just some software
+// that you want to have running in a lesson for educational purposes
 type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
 	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/-]*$"`
@@ -101,12 +106,16 @@ type LessonEndpoint struct {
 	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations"`
 }
 
+// LessonPresentation is a particular view into a LessonEndpoint. It's a way of specifying how an endpoint
+// should be made available to the user in the front-end
 type LessonPresentation struct {
 	Name string `json:"Name" yaml:"name" jsonschema:"required"`
 	Port int32  `json:"Port" yaml:"port" jsonschema:"required,minimum=1"`
 	Type string `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
 }
 
+// LessonConnection is a point-to-point network connection between two LessonEndpoints. The `A` and `B` properties should
+// refer to the Name of LessonEndpoints within a given lesson that should be networked together.
 type LessonConnection struct {
 	A string `json:"A" yaml:"a" jsonschema:"required"`
 	B string `json:"B" yaml:"b" jsonschema:"required"`

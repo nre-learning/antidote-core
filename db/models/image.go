@@ -4,6 +4,7 @@ import (
 	jsonschema "github.com/alecthomas/jsonschema"
 )
 
+// Image is a resource type that provides metadata for endpoint images in use within Lessons
 type Image struct {
 	Slug string `json:"Slug" yaml:"slug" jsonschema:"Unique identifier for this image"`
 

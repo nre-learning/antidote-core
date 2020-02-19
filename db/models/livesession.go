@@ -10,5 +10,5 @@ type LiveSession struct {
 
 	// This replaces the old whitelist model. To preserve a session through GC, set this to true.
 	// Set to false by default on creation
-	Persistent bool `json: "persistent"`
+	Persistent bool `json:"persistent"`
 }
