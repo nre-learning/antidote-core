@@ -29,7 +29,7 @@ type DataManager interface {
 	GetLesson(string) (*models.Lesson, error)
 
 	// Collections
-	InsertCollection([]*models.Collection) error
+	InsertCollections([]*models.Collection) error
 	ListCollections() ([]*models.Collection, error)
 	GetCollection(string) (*models.Collection, error)
 
@@ -45,7 +45,7 @@ type DataManager interface {
 	DeleteLiveLesson(string) error
 
 	// LiveSessions
-	CreateLiveSessions(*models.LiveSession) error
+	CreateLiveSession(*models.LiveSession) error
 	ListLiveSessions() ([]*models.LiveSession, error)
 	GetLiveSession(string) (*models.LiveSession, error)
 	UpdateLiveSession(*models.LiveSession) error

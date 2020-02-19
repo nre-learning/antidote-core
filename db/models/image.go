@@ -7,6 +7,8 @@ import (
 type Image struct {
 	Slug string `json:"Slug" yaml:"slug" jsonschema:"Unique identifier for this image"`
 
+	Description string `json:"Description" yaml:"description" jsonschema:"Description of this image"`
+
 	// Temporary measure to grant privileges to endpoints selectively
 	VirtualMachine string `json:"VirtualMachine" yaml:"virtualMachine" jsonschema:"Does this Image house a virtual machine?"`
 
