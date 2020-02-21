@@ -8,14 +8,14 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/syringe/db/models"
 	scheduler "github.com/nre-learning/syringe/scheduler"
 	log "github.com/sirupsen/logrus"
 )
 
 func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
 
-	// TODO(mierdin): need to perform some basic security checks here. Need to check incoming IP address
-	// and do some rate-limiting if possible. Alternatively you could perform this on the Ingress
+	// TODO(mierdin) look up session ID in DB first
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
 		log.Error(msg)
@@ -34,13 +34,9 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 		return nil, errors.New(msg)
 	}
 
-	// A livelesson's UUID is formed with the lesson ID and the session ID together.
-	// This allows us to store all livelessons within a flat key-value structure while maintaining
-	// uniqueness.
-	lessonUuid := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
-
 	// Identify lesson definition - return error if doesn't exist by ID
-	if _, ok := s.Scheduler.Curriculum.Lessons[lp.LessonId]; !ok {
+	_, err := s.Db.GetLesson(lp.LessonId)
+	if err != nil {
 		log.Errorf("Couldn't find lesson ID %d", lp.LessonId)
 		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
 	}
@@ -49,65 +45,73 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 	// stage ID 1 refers to the second index (1) in the stage slice.
 	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
 	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
-	if len(s.Scheduler.Curriculum.Lessons[lp.LessonId].Stages) < int(lp.LessonStage) {
-		msg := "Invalid stage ID for this lesson"
-		log.Error(msg)
-		return nil, errors.New(msg)
-	}
+	// if len(s.Scheduler.Curriculum.Lessons[lp.LessonId].Stages) < int(lp.LessonStage) {
+	// 	msg := "Invalid stage ID for this lesson"
+	// 	log.Error(msg)
+	// 	return nil, errors.New(msg)
+	// }
 
 	// Check to see if the livelesson already exists in an errored state.
-	// If so, clear it out so we can treat it like a new creation in the following logic.
-	// TODO(mierdin): What if the namespace and resources still exist? Should we delete them first?
-	// Maybe we should just return an error to the user and say "try again later"? Then let this get GC'd as normal?
-	if s.LiveLessonExists(lessonUuid) {
-		if s.LiveLessonState[lessonUuid].Error {
-			s.DeleteLiveLesson(lessonUuid)
+	// If so, return error. TODO(mierdin): Consider this further, maybe we can do something to clean up the
+	// LiveLesson and the underlying resources and try again?
+	llID := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
+	ll, err := s.Db.GetLiveLesson(llID)
+	// LiveLesson already exists, so we should handle this accordingly
+	if err == nil {
+		if ll.Error {
+			return &pb.LessonUUID{}, errors.New("Lesson is in errored state. Please try again later")
 		}
-	}
 
-	// Check to see if it already exists in memory. If it does, don't send provision request.
-	// Just look it up and send UUID
-	if s.LiveLessonExists(lessonUuid) {
+		// TODO(mierdin): Is this the right place for this?
+		if ll.Busy {
+			return &pb.LessonUUID{}, errors.New("LiveLesson is currently busy")
+		}
 
-		if s.LiveLessonState[lessonUuid].LessonStage != lp.LessonStage {
+		// If the incoming requested LessonStage is different from the current livelesson state,
+		// tell the scheduler to change the state
+		if ll.LessonStage != lp.LessonStage {
 
-			// Update in-memory state
-			s.UpdateLiveLessonStage(lessonUuid, lp.LessonStage)
+			// Update state
+			ll.LessonStage = lp.LessonStage
+			ll.Busy = true
+			s.Db.UpdateLiveLesson(ll)
 
 			// Request the schedule move forward with stage change activities
 			req := &scheduler.LessonScheduleRequest{
-				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
-				Operation: scheduler.OperationType_MODIFY,
-				Stage:     lp.LessonStage,
-				Uuid:      lessonUuid,
+				Operation:    scheduler.OperationType_MODIFY,
+				Stage:        lp.LessonStage,
+				LiveLessonID: llID,
 			}
-
-			s.Scheduler.Requests <- req
+			s.Requests <- req
 
 		} else {
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
 			req := &scheduler.LessonScheduleRequest{
-				Operation: scheduler.OperationType_BOOP,
-				Uuid:      lessonUuid,
-				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
+				Operation:    scheduler.OperationType_BOOP,
+				LiveLessonID: llID,
 			}
-
-			s.Scheduler.Requests <- req
+			s.Requests <- req
 		}
 
-		return &pb.LessonUUID{Id: lessonUuid}, nil
+		return &pb.LessonUUID{Id: llID}, nil
 	}
 
+	// If we get here, the LiveLesson doesn't exist, and we should continue with a workflow for creating one
+
 	// 3 - if doesn't already exist, put together schedule request and send to channel
-	req := &scheduler.LessonScheduleRequest{
-		Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
-		Operation: scheduler.OperationType_CREATE,
-		Stage:     lp.LessonStage,
-		Uuid:      lessonUuid,
-		Created:   time.Now(),
-	}
-	s.Scheduler.Requests <- req
+
+	// Initialize new LiveLesson
+	s.Db.CreateLiveLesson(&models.LiveLesson{
+		ID:            llID,
+		SessionID:     lp.SessionId,
+		LessonID:      lp.LessonId,
+		LiveEndpoints: map[string]*models.LiveEndpoint{},
+		LessonStage:   lp.LessonStage,
+		Busy:          true,
+		Status:        "INITIAL_BOOT",
+		CreatedTime:   time.Now(),
+	})
 
 	// Pre-emptively populate livelessons map with initial status.
 	// This will be updated when the Scheduler response comes back.
@@ -118,7 +122,15 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonP
 		LessonStage:      lp.LessonStage,
 	})
 
-	return &pb.LessonUUID{Id: lessonUuid}, nil
+	req := &scheduler.LessonScheduleRequest{
+		Operation:    scheduler.OperationType_CREATE,
+		Stage:        lp.LessonStage,
+		LiveLessonID: llID,
+		Created:      time.Now(),
+	}
+	s.Requests <- req
+
+	return &pb.LessonUUID{Id: llID}, nil
 }
 
 func (s *SyringeAPIServer) GetSyringeState(ctx context.Context, _ *empty.Empty) (*pb.SyringeState, error) {

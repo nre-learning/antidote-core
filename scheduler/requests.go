@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
 type LessonScheduleRequest struct {
-	Lesson    *pb.Lesson
-	Operation OperationType
-	Uuid      string
-	Stage     int32
-	Created   time.Time
+	Operation    OperationType
+	LiveLessonID string
+	Stage        int32
+	Created      time.Time
 }
 
 type LessonScheduleResult struct {
@@ -36,7 +36,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	// that only one goroutine will access THIS pointer (since they're separated by
 	// session ID). Not currently encountering issues here, but might want to think about it
 	// longer-term.
-	newKubeLab, err := ls.createKubeLab(newRequest)
+	err := ls.createK8sStuff(newRequest)
 	if err != nil {
 		log.Errorf("Error creating lesson: %s", err)
 		ls.Results <- &LessonScheduleResult{
@@ -47,6 +47,9 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		}
 		return
 	}
+
+	// TODO the request above should only contain a livelesson ID for us to look up. We should first GET that
+	// from the datastore and proceed only if successful.
 
 	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
 	// populate the entry in the API server with data about endpoints that it doesn't have yet.
@@ -287,4 +290,99 @@ func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest
 		Uuid:      newRequest.Uuid,
 		Operation: newRequest.Operation,
 	}
+}
+
+func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
+
+	ns, err := ls.createNamespace(req)
+	if err != nil {
+		log.Error(err)
+	}
+
+	err = ls.syncSecret(ns.ObjectMeta.Name)
+	if err != nil {
+		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
+	}
+
+	// Append endpoint and create ingress for jupyter lab guide if necessary
+	if usesJupyterLabGuide(req.Lesson) {
+
+		jupyterEp := &pb.Endpoint{
+			Name:            "jupyterlabguide",
+			Image:           fmt.Sprintf("antidotelabs/jupyter:%s", ls.BuildInfo["imageVersion"]),
+			AdditionalPorts: []int32{8888},
+		}
+		req.Lesson.Endpoints = append(req.Lesson.Endpoints, jupyterEp)
+
+		_, err := ls.createIngress(
+			ns.ObjectMeta.Name,
+			jupyterEp,
+			&pb.Presentation{
+				Name: "web",
+				Port: 8888,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("Unable to create ingress resource - %v", err)
+		}
+	}
+
+	// Create networks from connections property
+	for c := range req.Lesson.Connections {
+		connection := req.Lesson.Connections[c]
+		_, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+	}
+
+	// Create pods and services
+	for d := range req.Lesson.Endpoints {
+		ep := req.Lesson.Endpoints[d]
+
+		// Create pod
+		newPod, err := ls.createPod(
+			ep,
+			getMemberNetworks(ep.Name, req.Lesson.Connections),
+			req,
+		)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		// Expose via service if needed
+		if len(newPod.Spec.Containers[0].Ports) > 0 {
+			_, err := ls.createService(
+				newPod,
+				req,
+			)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+		}
+
+		// Create appropriate presentations
+		for pr := range ep.Presentations {
+			p := ep.Presentations[pr]
+
+			if p.Type == "http" {
+				_, err := ls.createIngress(
+					ns.ObjectMeta.Name,
+					ep,
+					p,
+				)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+			} else if p.Type == "ssh" {
+				// nothing to do?
+			}
+		}
+	}
+
+	return nil
 }

@@ -8,14 +8,14 @@ import "lesson.proto";
 
 service LiveLessonsService {
 
-  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckMessage) {
+  rpc HealthCheck(google.protobuf.Empty) returns (LBHealthCheckResponse) {
     option (google.api.http) = {
       get: "/*"
     };
   }
 
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
-  rpc RequestLiveLesson(LessonParams) returns (LessonUUID) {
+  rpc RequestLiveLesson(LiveLessonRequest) returns (LessonUUID) {
     option (google.api.http) = {
       post: "/exp/livelesson"
       body: "*"
@@ -29,43 +29,15 @@ service LiveLessonsService {
     };
   }
 
-  rpc RequestVerification(LessonUUID) returns (VerificationTaskUUID) {
-    option (google.api.http) = {
-      post: "/exp/livelesson/{id}/verify"
-      body: "*"
-    };
-  }
-
-  rpc GetVerification(VerificationTaskUUID) returns (VerificationTask) {
-    option (google.api.http) = {
-      get: "/exp/verification/{id}"
-    };
-  }
-
   // THESE ARE SENSITIVE - do not expose via REST
-  rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
-  rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
-  rpc RemoveSessionFromGCWhitelist(Session) returns (HealthCheckMessage) {}
-  rpc GetGCWhitelist(google.protobuf.Empty) returns (Sessions) {}
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {}
   rpc KillLiveLesson(LessonUUID) returns (KillLiveLessonStatus) {}
 }
 
+message LBHealthCheckResponse {}
+
 message Session {
   string id = 1;
-}
-
-message Sessions {
-  repeated Session sessions = 1;
-}
-
-message HealthCheckMessage {}
-
-message SyringeState {
-
-  // Map that contains a mapping of UUIDs to LiveLesson messages
-  map<string, LiveLesson> Livelessons = 1;
-
 }
 
 enum Status {
@@ -101,21 +73,8 @@ message LiveLessons {
   map<string, LiveLesson> items = 1;
 }
 
-message VerificationTaskUUID {
-  string id = 1;
-}
-
-message VerificationTask {
-  string liveLessonId = 1;
-  int32 liveLessonStage = 2;
-  bool success = 3;
-  bool working = 4;
-  string message = 5;
-  google.protobuf.Timestamp completed = 6;
-}
-
-message LessonParams {
-  int32 lessonId = 1;
+message LiveLessonRequest {
+  string lessonSlug = 1;
   string sessionId = 2;
   int32 lessonStage = 3;
 }

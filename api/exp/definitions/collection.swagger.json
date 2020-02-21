@@ -31,7 +31,7 @@
         ]
       }
     },
-    "/exp/collection/{id}": {
+    "/exp/collection/{slug}": {
       "get": {
         "operationId": "GetCollection",
         "responses": {
@@ -44,11 +44,10 @@
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -61,9 +60,8 @@
     "expCollection": {
       "type": "object",
       "properties": {
-        "Id": {
-          "type": "integer",
-          "format": "int32"
+        "Slug": {
+          "type": "string"
         },
         "Title": {
           "type": "string"
@@ -116,9 +114,8 @@
     "expLessonSummary": {
       "type": "object",
       "properties": {
-        "lessonId": {
-          "type": "integer",
-          "format": "int32"
+        "lessonSlug": {
+          "type": "string"
         },
         "lessonName": {
           "type": "string"

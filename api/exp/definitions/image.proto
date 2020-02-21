@@ -1,0 +1,19 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service ImagesService {
+
+  // THESE ARE SENSITIVE - do not expose via REST
+  rpc ListImages(google.protobuf.Empty) returns (Images) {}
+}
+
+message Image {
+  string Name = 1;
+}
+
+message Images {
+  map<string, Image> items = 1;
+}

@@ -34,7 +34,7 @@ Collection = `{
         ]
       }
     },
-    "/exp/collection/{id}": {
+    "/exp/collection/{slug}": {
       "get": {
         "operationId": "GetCollection",
         "responses": {
@@ -47,11 +47,10 @@ Collection = `{
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -64,9 +63,8 @@ Collection = `{
     "expCollection": {
       "type": "object",
       "properties": {
-        "Id": {
-          "type": "integer",
-          "format": "int32"
+        "Slug": {
+          "type": "string"
         },
         "Title": {
           "type": "string"
@@ -119,9 +117,8 @@ Collection = `{
     "expLessonSummary": {
       "type": "object",
       "properties": {
-        "lessonId": {
-          "type": "integer",
-          "format": "int32"
+        "lessonSlug": {
+          "type": "string"
         },
         "lessonName": {
           "type": "string"
@@ -187,10 +184,10 @@ Curriculum = `{
   }
 }
 `
-Kubelab = `{
+Image = `{
   "swagger": "2.0",
   "info": {
-    "title": "kubelab.proto",
+    "title": "image.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -205,253 +202,24 @@ Kubelab = `{
   ],
   "paths": {},
   "definitions": {
-    "expConnection": {
-      "type": "object",
-      "properties": {
-        "A": {
-          "type": "string"
-        },
-        "B": {
-          "type": "string"
-        }
-      }
-    },
-    "expEndpoint": {
+    "expImage": {
       "type": "object",
       "properties": {
         "Name": {
           "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
-        },
-        "AdditionalPorts": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
-        },
-        "Presentations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expPresentation"
-          }
-        },
-        "Host": {
-          "type": "string"
         }
       }
     },
-    "expKubeLab": {
+    "expImages": {
       "type": "object",
       "properties": {
-        "Namespace": {
-          "type": "string"
-        },
-        "CreateRequest": {
-          "$ref": "#/definitions/expLessonScheduleRequest"
-        },
-        "Networks": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "Pods": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "Services": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "Ingresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "status": {
-          "$ref": "#/definitions/expStatus"
-        },
-        "ReachableEndpoints": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "CurrentStage": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "expKubeLabs": {
-      "type": "object",
-      "properties": {
-        "Items": {
+        "items": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expKubeLab"
+            "$ref": "#/definitions/expImage"
           }
         }
       }
-    },
-    "expLesson": {
-      "type": "object",
-      "properties": {
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Stages": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expLessonStage"
-          }
-        },
-        "LessonName": {
-          "type": "string"
-        },
-        "Endpoints": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expEndpoint"
-          }
-        },
-        "Connections": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expConnection"
-          }
-        },
-        "Category": {
-          "type": "string"
-        },
-        "LessonDiagram": {
-          "type": "string"
-        },
-        "LessonVideo": {
-          "type": "string"
-        },
-        "Tier": {
-          "type": "string"
-        },
-        "Prereqs": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "Tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "Collection": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Description": {
-          "type": "string"
-        },
-        "Slug": {
-          "type": "string",
-          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
-        },
-        "LessonFile": {
-          "type": "string"
-        },
-        "LessonDir": {
-          "type": "string"
-        }
-      }
-    },
-    "expLessonScheduleRequest": {
-      "type": "object",
-      "properties": {
-        "Lesson": {
-          "$ref": "#/definitions/expLesson"
-        },
-        "OperationType": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Uuid": {
-          "type": "string"
-        },
-        "Stage": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Created": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "expLessonStage": {
-      "type": "object",
-      "properties": {
-        "Id": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Description": {
-          "type": "string"
-        },
-        "LabGuide": {
-          "type": "string"
-        },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyCompleteness": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyObjective": {
-          "type": "string"
-        }
-      }
-    },
-    "expPresentation": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "Type": {
-          "type": "string"
-        }
-      }
-    },
-    "expStatus": {
-      "type": "string",
-      "enum": [
-        "DONOTUSE",
-        "INITIAL_BOOT",
-        "CONFIGURATION",
-        "READY"
-      ],
-      "default": "DONOTUSE"
     }
   }
 }
@@ -498,7 +266,7 @@ Lesson = `{
         ]
       }
     },
-    "/exp/lesson/{id}": {
+    "/exp/lesson/{slug}": {
       "get": {
         "operationId": "GetLesson",
         "responses": {
@@ -511,11 +279,10 @@ Lesson = `{
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -523,8 +290,9 @@ Lesson = `{
         ]
       }
     },
-    "/exp/lesson/{id}/prereqs": {
+    "/exp/lesson/{slug}/prereqs": {
       "get": {
+        "summary": "TODO(mierdin): Get rid of this. Just get it from GetLesson",
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {
@@ -536,11 +304,10 @@ Lesson = `{
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -571,16 +338,14 @@ Lesson = `{
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
+          "type": "string"
         },
         "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
+          }
         },
         "Presentations": {
           "type": "array",
@@ -596,9 +361,8 @@ Lesson = `{
     "expLesson": {
       "type": "object",
       "properties": {
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
+        "Slug": {
+          "type": "string"
         },
         "Stages": {
           "type": "array",
@@ -653,9 +417,9 @@ Lesson = `{
         "Description": {
           "type": "string"
         },
-        "Slug": {
+        "ShortDescription": {
           "type": "string",
-          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+          "title": "This is meant to fill: \"How well do you know \u003cShortDescription\u003e?\""
         },
         "LessonFile": {
           "type": "string"
@@ -756,7 +520,7 @@ Livelesson = `{
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expHealthCheckMessage"
+              "$ref": "#/definitions/expLBHealthCheckResponse"
             }
           }
         },
@@ -783,7 +547,7 @@ Livelesson = `{
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/expLessonParams"
+              "$ref": "#/definitions/expLiveLessonRequest"
             }
           }
         ],
@@ -816,62 +580,6 @@ Livelesson = `{
           "LiveLessonsService"
         ]
       }
-    },
-    "/exp/livelesson/{id}/verify": {
-      "post": {
-        "operationId": "RequestVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTaskUUID"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/expLessonUUID"
-            }
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
-    },
-    "/exp/verification/{id}": {
-      "get": {
-        "operationId": "GetVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTask"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
     }
   },
   "definitions": {
@@ -885,16 +593,14 @@ Livelesson = `{
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
+          "type": "string"
         },
         "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
+          }
         },
         "Presentations": {
           "type": "array",
@@ -907,9 +613,6 @@ Livelesson = `{
         }
       }
     },
-    "expHealthCheckMessage": {
-      "type": "object"
-    },
     "expKillLiveLessonStatus": {
       "type": "object",
       "properties": {
@@ -919,21 +622,8 @@ Livelesson = `{
         }
       }
     },
-    "expLessonParams": {
-      "type": "object",
-      "properties": {
-        "lessonId": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "sessionId": {
-          "type": "string"
-        },
-        "lessonStage": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
+    "expLBHealthCheckResponse": {
+      "type": "object"
     },
     "expLessonUUID": {
       "type": "object",
@@ -998,6 +688,21 @@ Livelesson = `{
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
     },
+    "expLiveLessonRequest": {
+      "type": "object",
+      "properties": {
+        "lessonSlug": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "lessonStage": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "expLiveLessons": {
       "type": "object",
       "properties": {
@@ -1024,25 +729,6 @@ Livelesson = `{
         }
       }
     },
-    "expSession": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
-    },
-    "expSessions": {
-      "type": "object",
-      "properties": {
-        "sessions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expSession"
-          }
-        }
-      }
-    },
     "expStatus": {
       "type": "string",
       "enum": [
@@ -1052,51 +738,72 @@ Livelesson = `{
         "READY"
       ],
       "default": "DONOTUSE"
-    },
-    "expSyringeState": {
+    }
+  }
+}
+`
+Livesession = `{
+  "swagger": "2.0",
+  "info": {
+    "title": "livesession.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/livesession": {
+      "post": {
+        "summary": "Request a lab is created, or request the UUID of one that already exists for these parameters.",
+        "operationId": "RequestLiveSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expLiveSession"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "LiveSessionsService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expLiveSession": {
       "type": "object",
       "properties": {
-        "Livelessons": {
+        "SessionID": {
+          "type": "string"
+        }
+      }
+    },
+    "expLiveSessions": {
+      "type": "object",
+      "properties": {
+        "items": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expLiveLesson"
-          },
-          "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
-        }
-      }
-    },
-    "expVerificationTask": {
-      "type": "object",
-      "properties": {
-        "liveLessonId": {
-          "type": "string"
-        },
-        "liveLessonStage": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "success": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "working": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "message": {
-          "type": "string"
-        },
-        "completed": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "expVerificationTaskUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
+            "$ref": "#/definitions/expLiveSession"
+          }
         }
       }
     }

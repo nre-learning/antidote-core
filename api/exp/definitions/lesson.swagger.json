@@ -40,7 +40,7 @@
         ]
       }
     },
-    "/exp/lesson/{id}": {
+    "/exp/lesson/{slug}": {
       "get": {
         "operationId": "GetLesson",
         "responses": {
@@ -53,11 +53,10 @@
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -65,8 +64,9 @@
         ]
       }
     },
-    "/exp/lesson/{id}/prereqs": {
+    "/exp/lesson/{slug}/prereqs": {
       "get": {
+        "summary": "TODO(mierdin): Get rid of this. Just get it from GetLesson",
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {
@@ -78,11 +78,10 @@
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "slug",
             "in": "path",
             "required": true,
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         ],
         "tags": [
@@ -113,16 +112,14 @@
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
+          "type": "string"
         },
         "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
+          }
         },
         "Presentations": {
           "type": "array",
@@ -138,9 +135,8 @@
     "expLesson": {
       "type": "object",
       "properties": {
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
+        "Slug": {
+          "type": "string"
         },
         "Stages": {
           "type": "array",
@@ -195,9 +191,9 @@
         "Description": {
           "type": "string"
         },
-        "Slug": {
+        "ShortDescription": {
           "type": "string",
-          "title": "This is meant to fill: \"How well do you know \u003cslug\u003e?\""
+          "title": "This is meant to fill: \"How well do you know \u003cShortDescription\u003e?\""
         },
         "LessonFile": {
           "type": "string"

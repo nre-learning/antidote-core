@@ -17,7 +17,6 @@ RUN cd $GOPATH/src/github.com/nre-learning/syringe/vendor/github.com/grpc-ecosys
     && go install ./...
 
 RUN go get -u github.com/golang/protobuf/protoc-gen-go
-RUN go get -u github.com/envoyproxy/protoc-gen-validate
 RUN go get github.com/jteeuwen/go-bindata/...
 
 env PATH $GOPATH/bin:$PATH

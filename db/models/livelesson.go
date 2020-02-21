@@ -18,18 +18,19 @@ import (
 // being requested by a specific session (via SessionID) and holds all of the runtime state that Antidote
 // needs to know about it to serve it to the front-end appropriately
 type LiveLesson struct {
-	ID               string                   `json:"LiveLessonId,omitempty"`
-	SessionID        string                   `json:"SessionId,omitempty"`
-	LessonID         int32                    `json:"LessonId,omitempty"`
-	LiveEndpoints    map[string]*LiveEndpoint `json:"LiveEndpoints,omitempty"`
-	LessonStage      int32                    `json:"LessonStage,omitempty"`
-	LabGuide         string                   `json:"LabGuide,omitempty"`
-	JupyterLabGuide  bool                     `json:"JupyterLabGuide,omitempty"`
-	LiveLessonStatus string                   `json:"LiveLessonStatus,omitempty"`
-	CreatedTime      *timestamp.Timestamp     `json:"createdTime,omitempty"`
-	Error            bool                     `json:"Error,omitempty"`
-	HealthyTests     int32                    `json:"HealthyTests,omitempty"`
-	TotalTests       int32                    `json:"TotalTests,omitempty"`
+	ID              string                   `json:"LiveLessonId,omitempty"`
+	SessionID       string                   `json:"SessionId,omitempty"`
+	LessonID        int32                    `json:"LessonId,omitempty"`
+	LiveEndpoints   map[string]*LiveEndpoint `json:"LiveEndpoints,omitempty"`
+	LessonStage     int32                    `json:"LessonStage,omitempty"`
+	LabGuide        string                   `json:"LabGuide,omitempty"`
+	JupyterLabGuide bool                     `json:"JupyterLabGuide,omitempty"`
+	Status          string                   `json:"Status,omitempty"`
+	CreatedTime     *timestamp.Timestamp     `json:"createdTime,omitempty"`
+	Error           bool                     `json:"Error,omitempty"`
+	HealthyTests    int32                    `json:"HealthyTests,omitempty"`
+	TotalTests      int32                    `json:"TotalTests,omitempty"`
+	Busy            bool                     `json:"Busy,omitempty"`
 }
 
 // LiveEndpoint is a running instance of a LessonEndpoint, with additional details

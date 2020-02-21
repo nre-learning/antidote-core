@@ -12,8 +12,11 @@ import (
 // Only this struct should be loaded as a table. All sub-values can be stored as binary JSON
 // and deserialized quickly upon retrieval.
 type Lesson struct {
-	Slug string `json:"Slug" yaml:"slug" sql:",pk" pg:",unique" jsonschema:"description=Unique slug to identify this lesson"`
 
+	// Used as an identifier today, but slug may be used in the future.
+	ID string `json:"ID" yaml:"id" jsonschema:"description=Unique id number to identify this lesson"`
+
+	Slug        string              `json:"Slug" yaml:"slug" jsonschema:"description=Unique slug to identify this lesson"`
 	Stages      []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
 	Name        string              `json:"Name" yaml:"name" jsonschema:"required,description=Name of the lesson"`
 	Endpoints   []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"required,minItems=1"`

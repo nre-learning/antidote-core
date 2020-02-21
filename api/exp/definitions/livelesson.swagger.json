@@ -22,7 +22,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expHealthCheckMessage"
+              "$ref": "#/definitions/expLBHealthCheckResponse"
             }
           }
         },
@@ -49,7 +49,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/expLessonParams"
+              "$ref": "#/definitions/expLiveLessonRequest"
             }
           }
         ],
@@ -82,62 +82,6 @@
           "LiveLessonsService"
         ]
       }
-    },
-    "/exp/livelesson/{id}/verify": {
-      "post": {
-        "operationId": "RequestVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTaskUUID"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/expLessonUUID"
-            }
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
-    },
-    "/exp/verification/{id}": {
-      "get": {
-        "operationId": "GetVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTask"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
     }
   },
   "definitions": {
@@ -151,16 +95,14 @@
           "type": "string"
         },
         "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
+          "type": "string"
         },
         "AdditionalPorts": {
           "type": "array",
           "items": {
             "type": "integer",
             "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
+          }
         },
         "Presentations": {
           "type": "array",
@@ -173,9 +115,6 @@
         }
       }
     },
-    "expHealthCheckMessage": {
-      "type": "object"
-    },
     "expKillLiveLessonStatus": {
       "type": "object",
       "properties": {
@@ -185,21 +124,8 @@
         }
       }
     },
-    "expLessonParams": {
-      "type": "object",
-      "properties": {
-        "lessonId": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "sessionId": {
-          "type": "string"
-        },
-        "lessonStage": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
+    "expLBHealthCheckResponse": {
+      "type": "object"
     },
     "expLessonUUID": {
       "type": "object",
@@ -264,6 +190,21 @@
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
     },
+    "expLiveLessonRequest": {
+      "type": "object",
+      "properties": {
+        "lessonSlug": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "lessonStage": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "expLiveLessons": {
       "type": "object",
       "properties": {
@@ -290,25 +231,6 @@
         }
       }
     },
-    "expSession": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
-    },
-    "expSessions": {
-      "type": "object",
-      "properties": {
-        "sessions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expSession"
-          }
-        }
-      }
-    },
     "expStatus": {
       "type": "string",
       "enum": [
@@ -318,53 +240,6 @@
         "READY"
       ],
       "default": "DONOTUSE"
-    },
-    "expSyringeState": {
-      "type": "object",
-      "properties": {
-        "Livelessons": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/expLiveLesson"
-          },
-          "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
-        }
-      }
-    },
-    "expVerificationTask": {
-      "type": "object",
-      "properties": {
-        "liveLessonId": {
-          "type": "string"
-        },
-        "liveLessonStage": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "success": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "working": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "message": {
-          "type": "string"
-        },
-        "completed": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "expVerificationTaskUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
     }
   }
 }

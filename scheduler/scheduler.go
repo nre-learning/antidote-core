@@ -16,6 +16,7 @@ import (
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
+	"github.com/nre-learning/syringe/db"
 
 	// Custom Network CRD Types
 	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -59,10 +60,11 @@ type LessonScheduler struct {
 	Results       chan *LessonScheduleResult
 	Curriculum    *pb.Curriculum
 	SyringeConfig *config.SyringeConfig
-	GcWhiteList   map[string]*pb.Session
-	GcWhiteListMu *sync.Mutex
-	KubeLabs      map[string]*KubeLab
-	KubeLabsMu    *sync.Mutex
+	// GcWhiteList   map[string]*pb.Session
+	// GcWhiteListMu *sync.Mutex
+	// KubeLabs      map[string]*KubeLab
+	// KubeLabsMu    *sync.Mutex
+	Db            db.DataManager
 	HealthChecker LessonHealthChecker
 
 	// Allows us to disable GC for testing. Production code should leave this at
@@ -146,21 +148,6 @@ func (ls *LessonScheduler) Start() error {
 		}()
 	}
 	return nil
-}
-
-func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
-	ls.KubeLabsMu.Lock()
-	defer ls.KubeLabsMu.Unlock()
-	ls.KubeLabs[uuid] = kl
-}
-
-func (ls *LessonScheduler) deleteKubelab(uuid string) {
-	if _, ok := ls.KubeLabs[uuid]; !ok {
-		return
-	}
-	ls.KubeLabsMu.Lock()
-	defer ls.KubeLabsMu.Unlock()
-	delete(ls.KubeLabs, uuid)
 }
 
 func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {

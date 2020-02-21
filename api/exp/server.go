@@ -14,6 +14,8 @@ import (
 
 	"github.com/golang/glog"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
+	config "github.com/nre-learning/syringe/config"
+	"github.com/nre-learning/syringe/db"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
@@ -28,28 +30,31 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-// this will keep our state.
 type SyringeAPIServer struct {
 
 	// in-memory map of liveLessons, indexed by UUID
 	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
 	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
 	// will result in 19-582k2aidfjekxefi.
-	LiveLessonState map[string]*pb.LiveLesson
-	LiveLessonsMu   *sync.Mutex
+	// LiveLessonState map[string]*pb.LiveLesson
+	// LiveLessonsMu   *sync.Mutex
 
 	// in-memory map of verification tasks, indexed by UUID+stage
 	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
 	VerificationTasks   map[string]*pb.VerificationTask
 	VerificationTasksMu *sync.Mutex
 
-	Scheduler *scheduler.LessonScheduler
+	Db            db.DataManager
+	SyringeConfig *config.SyringeConfig
+
+	Requests chan *scheduler.LessonScheduleRequest
+	Results  chan *scheduler.LessonScheduleResult
 }
 
 func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
 
-	grpcPort := apiServer.Scheduler.SyringeConfig.GRPCPort
-	httpPort := apiServer.Scheduler.SyringeConfig.HTTPPort
+	grpcPort := apiServer.SyringeConfig.GRPCPort
+	httpPort := apiServer.SyringeConfig.HTTPPort
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
@@ -62,7 +67,6 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
 	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
-	pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
 	defer grpcServer.Stop()
 
 	// Start grpc server
@@ -130,7 +134,7 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	}).Info("Syringe API started.")
 
 	// Begin periodically exporting metrics to TSDB
-	if apiServer.Scheduler.SyringeConfig.InfluxdbEnabled {
+	if apiServer.SyringeConfig.InfluxdbEnabled {
 		go apiServer.startTSDBExport()
 	}
 

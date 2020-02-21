@@ -1,0 +1,27 @@
+syntax = "proto3";
+package syringe.api.exp;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service LiveSessionsService {
+
+  // Request a lab is created, or request the UUID of one that already exists for these parameters.
+  rpc RequestLiveSession(google.protobuf.Empty) returns (LiveSession) {
+    option (google.api.http) = {
+      post: "/exp/livesession"
+      body: "*"
+    };
+  }
+
+  // THESE ARE SENSITIVE - do not expose via REST
+  rpc ListLiveSessions(google.protobuf.Empty) returns (LiveSessions) {}
+}
+
+message LiveSession {
+  string SessionID = 1;
+}
+
+message LiveSessions {
+  map<string, LiveSession> items = 1;
+}
