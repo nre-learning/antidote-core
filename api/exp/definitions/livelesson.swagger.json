@@ -39,7 +39,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expLessonUUID"
+              "$ref": "#/definitions/expLiveLessonId"
             }
           }
         },
@@ -127,23 +127,14 @@
     "expLBHealthCheckResponse": {
       "type": "object"
     },
-    "expLessonUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
-    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
-        "LessonUUID": {
+        "Id": {
           "type": "string"
         },
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
+        "LessonSlug": {
+          "type": "string"
         },
         "LiveEndpoints": {
           "type": "object",
@@ -189,6 +180,14 @@
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
+    },
+    "expLiveLessonId": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
     },
     "expLiveLessonRequest": {
       "type": "object",

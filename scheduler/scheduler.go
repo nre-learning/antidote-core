@@ -39,7 +39,6 @@ var (
 	OperationType_DELETE OperationType = 2
 	OperationType_MODIFY OperationType = 3
 	OperationType_BOOP   OperationType = 4
-	OperationType_VERIFY OperationType = 5
 	defaultGitFileMode   int32         = 0755
 )
 
@@ -60,10 +59,6 @@ type LessonScheduler struct {
 	Results       chan *LessonScheduleResult
 	Curriculum    *pb.Curriculum
 	SyringeConfig *config.SyringeConfig
-	// GcWhiteList   map[string]*pb.Session
-	// GcWhiteListMu *sync.Mutex
-	// KubeLabs      map[string]*KubeLab
-	// KubeLabsMu    *sync.Mutex
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
 
@@ -86,10 +81,10 @@ type LessonScheduler struct {
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
 func (ls *LessonScheduler) Start() error {
-	// Ensure cluster is cleansed before we start the scheduler
-	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
+
+	// In case we're restarting from a previous instance, we want to make sure we clean up any orphaned k8s
+	// namespaces by killing any with our ID
 	ls.nukeFromOrbit()
-	// I have taken this out now that garbage collection is in place. We should probably not have this in here, in case syringe panics, and then restarts, nuking everything.
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
@@ -110,7 +105,7 @@ func (ls *LessonScheduler) Start() error {
 				for i := range cleaned {
 
 					// Clean up local kubelab state
-					ls.deleteKubelab(cleaned[i])
+					// ls.deleteKubelab(cleaned[i])
 
 					// Send result to API server to clean up livelesson state
 					ls.Results <- &LessonScheduleResult{
@@ -132,15 +127,14 @@ func (ls *LessonScheduler) Start() error {
 		OperationType_DELETE: ls.handleRequestDELETE,
 		OperationType_MODIFY: ls.handleRequestMODIFY,
 		OperationType_BOOP:   ls.handleRequestBOOP,
-		OperationType_VERIFY: ls.handleRequestVERIFY,
 	}
 	for {
 		newRequest := <-ls.Requests
 
 		log.WithFields(log.Fields{
-			"Operation": newRequest.Operation,
-			"Uuid":      newRequest.Uuid,
-			"Stage":     newRequest.Stage,
+			"Operation":  newRequest.Operation,
+			"LiveLesson": newRequest.LiveLessonID,
+			"Stage":      newRequest.Stage,
 		}).Debug("Scheduler received new request. Sending to handle function.")
 
 		go func() {

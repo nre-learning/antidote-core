@@ -210,65 +210,6 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 	}
 }
 
-func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest) {
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
-
-	ls.killAllJobs(nsName, "verify")
-	verifyJob, err := ls.verifyLiveLesson(newRequest)
-	if err != nil {
-		log.Debugf("Unable to verify: %s", err)
-
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-	}
-
-	// Quick timeout here. About 30 seconds or so.
-	for i := 0; i < 15; i++ {
-
-		finished, err := ls.verifyStatus(verifyJob, newRequest)
-		// Return immediately if there was a problem
-		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
-		}
-
-		// Return immediately if successful and finished
-		if finished == true {
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
-		}
-
-		// Not failed or succeeded yet. Try again.
-		time.Sleep(2 * time.Second)
-	}
-
-	// Return failure, there's clearly a problem.
-	ls.Results <- &LessonScheduleResult{
-		Success:   false,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
-	}
-}
-
 func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
 	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
 

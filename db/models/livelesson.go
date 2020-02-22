@@ -20,7 +20,7 @@ import (
 type LiveLesson struct {
 	ID              string                   `json:"LiveLessonId,omitempty"`
 	SessionID       string                   `json:"SessionId,omitempty"`
-	LessonID        int32                    `json:"LessonId,omitempty"`
+	LessonSlug      string                   `json:"LessonSlug,omitempty"`
 	LiveEndpoints   map[string]*LiveEndpoint `json:"LiveEndpoints,omitempty"`
 	LessonStage     int32                    `json:"LessonStage,omitempty"`
 	LabGuide        string                   `json:"LabGuide,omitempty"`
@@ -54,14 +54,33 @@ type LivePresentation struct {
 	Type           string `json:"Type,omitempty"`
 }
 
-// Might be worth implementing these fields as enums
-// type Status int32
+// Might be worth implementing these fields as well
 // type PresentationType int32
 
 // const (
-// 	Status_INITIAL_BOOT   Status = 1
-// 	Status_CONFIGURATION  Status = 2
-// 	Status_READY          Status = 3
 // 	PresentationType_http Status = 1
 // 	PresentationType_ssh  Status = 2
 // )
+
+type Status int32
+
+const (
+	Status_DONOTUSE      Status = 0
+	Status_INITIAL_BOOT  Status = 1
+	Status_CONFIGURATION Status = 2
+	Status_READY         Status = 3
+)
+
+var Status_name = map[int32]string{
+	0: "DONOTUSE",
+	1: "INITIAL_BOOT",
+	2: "CONFIGURATION",
+	3: "READY",
+}
+
+var Status_value = map[string]int32{
+	"DONOTUSE":      0,
+	"INITIAL_BOOT":  1,
+	"CONFIGURATION": 2,
+	"READY":         3,
+}

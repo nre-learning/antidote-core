@@ -34,6 +34,13 @@ func main() {
 	// Initialize DataManager
 	adb := db.NewADMInMem()
 
+	// TODO(mierdin): Ingest resources automatically here
+
+	// TODO(mierdin): In the future, also initialize here a pub/sub system that will replace the current channels.
+	// This, and the new DataManager will form the two resources that all services will share.
+	// Then, you can get to a place in the config where you pick and choose which services you want to run, and all
+	// services are simply spawned as goroutines and passed mostly the same stuff (comms, db, etc)
+
 	var kubeConfig *rest.Config
 	if !syringeConfig.DisableScheduler {
 		kubeConfig, err = rest.InClusterConfig()
@@ -42,11 +49,6 @@ func main() {
 		}
 	} else {
 		kubeConfig = &rest.Config{}
-	}
-
-	curriculum, err := api.ImportCurriculum(syringeConfig)
-	if err != nil {
-		log.Warn(err)
 	}
 
 	// Build comms channels
@@ -60,10 +62,6 @@ func main() {
 		Results:       res,
 		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
-		// GcWhiteList:   make(map[string]*pb.Session),
-		// GcWhiteListMu: &sync.Mutex{},
-		// KubeLabs:      make(map[string]*scheduler.KubeLab),
-		// KubeLabsMu:    &sync.Mutex{},
 		Db:            adb,
 		BuildInfo:     buildInfo,
 		HealthChecker: &scheduler.LessonHealthCheck{},
@@ -103,21 +101,15 @@ func main() {
 		log.Info("Skipping scheduler start due to configuration")
 	}
 
-	// Start API, and feed it pointer to lesson scheduler so they can talk
 	apiServer := &api.SyringeAPIServer{
-		// LiveLessonState:     make(map[string]*pb.LiveLesson),
-		// LiveLessonsMu:       &sync.Mutex{},
-		// VerificationTasks:   make(map[string]*pb.VerificationTask),
-		// VerificationTasksMu: &sync.Mutex{},
-		// Scheduler:           &lessonScheduler,
-
+		BuildInfo:     buildInfo,
 		Db:            adb,
 		SyringeConfig: syringeConfig,
 		Requests:      req,
 		Results:       res,
 	}
 	go func() {
-		err = apiServer.StartAPI(&lessonScheduler, buildInfo)
+		err = apiServer.Start(&lessonScheduler, buildInfo)
 		if err != nil {
 			log.Fatalf("Problem starting API: %s", err)
 		}

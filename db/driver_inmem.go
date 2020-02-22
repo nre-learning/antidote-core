@@ -90,10 +90,10 @@ func (a *ADMInMem) InsertLessons(lessons []*models.Lesson) error {
 }
 
 // ListLessons lists the Lessons currently available in the data store
-func (a *ADMInMem) ListLessons() ([]*models.Lesson, error) {
-	lessons := []*models.Lesson{}
-	for _, lesson := range a.lessons {
-		lessons = append(lessons, lesson)
+func (a *ADMInMem) ListLessons() (map[string]models.Lesson, error) {
+	lessons := map[string]models.Lesson{}
+	for slug, lesson := range a.lessons {
+		lessons[slug] = *lesson
 	}
 	return lessons, nil
 }
@@ -125,10 +125,10 @@ func (a *ADMInMem) InsertImages(images []*models.Image) error {
 }
 
 // ListImages lists the Images currently available in the data store
-func (a *ADMInMem) ListImages() ([]*models.Image, error) {
-	images := []*models.Image{}
-	for _, image := range a.images {
-		images = append(images, image)
+func (a *ADMInMem) ListImages() (map[string]models.Image, error) {
+	images := map[string]models.Image{}
+	for slug, image := range a.images {
+		images[slug] = *image
 	}
 	return images, nil
 }
@@ -160,10 +160,10 @@ func (a *ADMInMem) InsertCollections(collections []*models.Collection) error {
 }
 
 // ListCollections lists the Collections currently available in the data store
-func (a *ADMInMem) ListCollections() ([]*models.Collection, error) {
-	collections := []*models.Collection{}
-	for _, collection := range a.collections {
-		collections = append(collections, collection)
+func (a *ADMInMem) ListCollections() (map[string]models.Collection, error) {
+	collections := map[string]models.Collection{}
+	for slug, collection := range a.collections {
+		collections[slug] = *collection
 	}
 	return collections, nil
 }
@@ -205,12 +205,13 @@ func (a *ADMInMem) CreateLiveLesson(ll *models.LiveLesson) error {
 }
 
 // ListLiveLessons lists all LiveLessons currently tracked in memory
-func (a *ADMInMem) ListLiveLessons() ([]*models.LiveLesson, error) {
-	liveLessons := []*models.LiveLesson{}
-	for _, liveLesson := range a.liveLessons {
-		liveLessons = append(liveLessons, liveLesson)
+func (a *ADMInMem) ListLiveLessons() (map[string]models.LiveLesson, error) {
+	liveLessons := map[string]models.LiveLesson{}
+	for id, ll := range a.liveLessons {
+		liveLessons[id] = *ll
 	}
 	return liveLessons, nil
+
 }
 
 // GetLiveLesson retrieves a specific LiveLesson from the in-memory store via ID
@@ -254,10 +255,10 @@ func (a *ADMInMem) CreateLiveSession(ls *models.LiveSession) error {
 }
 
 // ListLiveSessions lists all LiveSessions currently tracked in memory
-func (a *ADMInMem) ListLiveSessions() ([]*models.LiveSession, error) {
-	liveSessions := []*models.LiveSession{}
-	for _, liveSession := range a.liveSessions {
-		liveSessions = append(liveSessions, liveSession)
+func (a *ADMInMem) ListLiveSessions() (map[string]models.LiveSession, error) {
+	liveSessions := map[string]models.LiveSession{}
+	for id, ls := range a.liveSessions {
+		liveSessions[id] = *ls
 	}
 	return liveSessions, nil
 }

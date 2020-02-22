@@ -66,7 +66,7 @@
     },
     "/exp/lesson/{slug}/prereqs": {
       "get": {
-        "summary": "TODO(mierdin): Get rid of this. Just get it from GetLesson",
+        "summary": "NOTE that this doesn't just get the prereqs for this lesson, but for all dependent\nlessons as well. So it's not enough to just retrieve from the prereqs field in a given lesson,\nthis function will traverse that tree for you and provide a flattened and de-duplicated list.",
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {

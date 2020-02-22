@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -15,9 +14,9 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     s.Scheduler.SyringeConfig.InfluxURL,
-		Username: s.Scheduler.SyringeConfig.InfluxUsername,
-		Password: s.Scheduler.SyringeConfig.InfluxPassword,
+		Addr:     s.SyringeConfig.InfluxURL,
+		Username: s.SyringeConfig.InfluxUsername,
+		Password: s.SyringeConfig.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -46,17 +45,17 @@ func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.L
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonId":    strconv.Itoa(int(res.Lesson.LessonId)),
+		"lessonSlug":  res.Lesson.Slug,
 		"lessonName":  res.Lesson.LessonName,
-		"syringeTier": s.Scheduler.SyringeConfig.Tier,
-		"syringeId":   s.Scheduler.SyringeConfig.SyringeID,
+		"syringeTier": s.SyringeConfig.Tier,
+		"syringeId":   s.SyringeConfig.SyringeID,
 	}
 
 	fields := map[string]interface{}{
-		"lessonId":         strconv.Itoa(int(res.Lesson.LessonId)),
+		"lessonSlug":       res.Lesson.Slug,
 		"provisioningTime": timeSecs,
 		"lessonName":       res.Lesson.LessonName,
-		"lessonIDName":     fmt.Sprintf("%d - %s", res.Lesson.LessonId, res.Lesson.LessonName),
+		"lessonSlugName":   fmt.Sprintf("%s - %s", res.Lesson.Slug, res.Lesson.LessonName),
 	}
 
 	pt, err := influx.NewPoint("provisioningTime", tags, fields, time.Now())
@@ -81,10 +80,10 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: s.Scheduler.SyringeConfig.InfluxURL,
+		Addr: s.SyringeConfig.InfluxURL,
 
-		Username: s.Scheduler.SyringeConfig.InfluxUsername,
-		Password: s.Scheduler.SyringeConfig.InfluxPassword,
+		Username: s.SyringeConfig.InfluxUsername,
+		Password: s.SyringeConfig.InfluxPassword,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -116,19 +115,24 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 			continue
 		}
 
-		for lessonId, _ := range s.Scheduler.Curriculum.Lessons {
+		lessons, err := s.Db.ListLessons()
+		if err != nil {
+			log.Error("Unable to get lessons from DB for influxdb")
+		}
+
+		for _, lesson := range lessons {
 
 			tags := map[string]string{}
 			fields := map[string]interface{}{}
 
-			tags["lessonId"] = strconv.Itoa(int(lessonId))
-			tags["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
-			tags["syringeTier"] = s.Scheduler.SyringeConfig.Tier
-			tags["syringeId"] = s.Scheduler.SyringeConfig.SyringeID
+			tags["lessonSlug"] = lesson.Slug
+			tags["lessonName"] = lesson.Name
+			tags["syringeTier"] = s.SyringeConfig.Tier
+			tags["syringeId"] = s.SyringeConfig.SyringeID
 
-			count, duration := s.getCountAndDuration(lessonId)
-			fields["lessonName"] = s.Scheduler.Curriculum.Lessons[lessonId].LessonName
-			fields["lessonId"] = strconv.Itoa(int(lessonId))
+			count, duration := s.getCountAndDuration(lesson.Slug)
+			fields["lessonName"] = lesson.Name
+			fields["lessonSlug"] = lesson.Slug
 
 			if duration != 0 {
 				fields["avgDuration"] = duration
@@ -161,13 +165,19 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 	return nil
 }
 
-func (s *SyringeAPIServer) getCountAndDuration(lessonId int32) (int64, int64) {
+func (s *SyringeAPIServer) getCountAndDuration(lessonSlug string) (int64, int64) {
 
 	count := 0
 
+	liveLessons, err := s.Db.ListLiveLessons()
+	if err != nil {
+		log.Errorf("Problem retrieving livelessons - %v", err)
+		return 0, 0
+	}
+
 	durations := []int64{}
-	for _, liveLesson := range s.LiveLessonState {
-		if liveLesson.LessonId != lessonId {
+	for _, liveLesson := range liveLessons {
+		if liveLesson.LessonSlug != lessonSlug {
 			continue
 		}
 

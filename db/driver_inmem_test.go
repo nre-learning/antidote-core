@@ -216,7 +216,8 @@ func TestLiveLessonCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Problem updating LiveLesson: %v", err)
 	}
-	newLl, _ := adb.GetLiveLesson("10-abcdef")
+	newLl, err := adb.GetLiveLesson("10-abcdef")
+	ok(t, err)
 	assert(t, newLl.LessonStage == 2, "update check failed")
 
 	err = adb.UpdateLiveLesson(&models.LiveLesson{
@@ -234,12 +235,13 @@ func TestLiveLessonCRUD(t *testing.T) {
 		t.Fatalf("Problem deleting LiveLesson: %v", err)
 	}
 
-	finalLiveLessonsList, _ := adb.ListLiveLessons()
+	finalLiveLessonsList, err := adb.ListLiveLessons()
+	ok(t, err)
 	assert(t, len(finalLiveLessonsList) == 2, "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList[0].LessonStage == 2, "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList[0].SessionID == "abcdef", "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList[1].LessonStage == 1, "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList[1].SessionID == "ghijk", "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-abcdef"].LessonStage == 2, "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-abcdef"].SessionID == "abcdef", "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-ghijk"].LessonStage == 1, "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-ghijk"].SessionID == "ghijk", "final livelesson assertion failed")
 }
 
 func TestLiveSessionCRUD(t *testing.T) {
@@ -319,8 +321,8 @@ func TestLiveSessionCRUD(t *testing.T) {
 
 	finalLiveSessionsList, _ := adb.ListLiveSessions()
 	assert(t, len(finalLiveSessionsList) == 2, "final livesession assertion failed")
-	assert(t, finalLiveSessionsList[0].SourceIP == "123.123.123.123", "final livesession assertion failed")
-	assert(t, finalLiveSessionsList[0].ID == "abcdef", "final livesession assertion failed")
-	assert(t, finalLiveSessionsList[1].SourceIP == "3.3.3.3", "final livesession assertion failed")
-	assert(t, finalLiveSessionsList[1].ID == "mnopqr", "final livesession assertion failed")
+	assert(t, finalLiveSessionsList["abcdef"].SourceIP == "123.123.123.123", "final livesession assertion failed")
+	assert(t, finalLiveSessionsList["abcdef"].ID == "abcdef", "final livesession assertion failed")
+	assert(t, finalLiveSessionsList["mnopqr"].SourceIP == "3.3.3.3", "final livesession assertion failed")
+	assert(t, finalLiveSessionsList["mnopqr"].ID == "mnopqr", "final livesession assertion failed")
 }

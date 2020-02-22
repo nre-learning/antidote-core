@@ -19,7 +19,7 @@ service LiveSessionsService {
 }
 
 message LiveSession {
-  string SessionID = 1;
+  string Id = 1;
 }
 
 message LiveSessions {

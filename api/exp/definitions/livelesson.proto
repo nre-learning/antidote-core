@@ -15,7 +15,7 @@ service LiveLessonsService {
   }
 
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
-  rpc RequestLiveLesson(LiveLessonRequest) returns (LessonUUID) {
+  rpc RequestLiveLesson(LiveLessonRequest) returns (LiveLessonId) {
     option (google.api.http) = {
       post: "/exp/livelesson"
       body: "*"
@@ -23,7 +23,7 @@ service LiveLessonsService {
   }
 
   // Retrieve details about a lesson
-  rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
+  rpc GetLiveLesson(LiveLessonId) returns (LiveLesson) {
     option (google.api.http) = {
       get: "/exp/livelesson/{id}"
     };
@@ -31,7 +31,7 @@ service LiveLessonsService {
 
   // THESE ARE SENSITIVE - do not expose via REST
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {}
-  rpc KillLiveLesson(LessonUUID) returns (KillLiveLessonStatus) {}
+  rpc KillLiveLesson(LiveLessonId) returns (KillLiveLessonStatus) {}
 }
 
 message LBHealthCheckResponse {}
@@ -50,8 +50,8 @@ enum Status {
 // A provisioned lab without the scheduler details. The server will translate from an underlying type
 // (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
 message LiveLesson {
-  string LessonUUID = 1;
-  int32 LessonId = 2;
+  string Id = 1;
+  string LessonSlug = 2;
 
   map <string, Endpoint> LiveEndpoints  = 3;
 
@@ -79,7 +79,7 @@ message LiveLessonRequest {
   int32 lessonStage = 3;
 }
 
-message LessonUUID {
+message LiveLessonId {
   string id = 1;
 }
 

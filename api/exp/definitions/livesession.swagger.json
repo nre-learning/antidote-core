@@ -47,7 +47,7 @@
     "expLiveSession": {
       "type": "object",
       "properties": {
-        "SessionID": {
+        "Id": {
           "type": "string"
         }
       }

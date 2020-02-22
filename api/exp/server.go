@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -31,27 +30,16 @@ import (
 )
 
 type SyringeAPIServer struct {
-
-	// in-memory map of liveLessons, indexed by UUID
-	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
-	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
-	// will result in 19-582k2aidfjekxefi.
-	// LiveLessonState map[string]*pb.LiveLesson
-	// LiveLessonsMu   *sync.Mutex
-
-	// in-memory map of verification tasks, indexed by UUID+stage
-	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
-	VerificationTasks   map[string]*pb.VerificationTask
-	VerificationTasksMu *sync.Mutex
-
 	Db            db.DataManager
 	SyringeConfig *config.SyringeConfig
 
-	Requests chan *scheduler.LessonScheduleRequest
-	Results  chan *scheduler.LessonScheduleResult
+	Requests  chan *scheduler.LessonScheduleRequest
+	Results   chan *scheduler.LessonScheduleResult
+	BuildInfo map[string]string
 }
 
-func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
+// Start runs the API server. Meant to be executed in a goroutine, as it will block indefinitely
+func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
 
 	grpcPort := apiServer.SyringeConfig.GRPCPort
 	httpPort := apiServer.SyringeConfig.HTTPPort

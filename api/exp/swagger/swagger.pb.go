@@ -292,7 +292,7 @@ Lesson = `{
     },
     "/exp/lesson/{slug}/prereqs": {
       "get": {
-        "summary": "TODO(mierdin): Get rid of this. Just get it from GetLesson",
+        "summary": "NOTE that this doesn't just get the prereqs for this lesson, but for all dependent\nlessons as well. So it's not enough to just retrieve from the prereqs field in a given lesson,\nthis function will traverse that tree for you and provide a flattened and de-duplicated list.",
         "operationId": "GetAllLessonPrereqs",
         "responses": {
           "200": {
@@ -537,7 +537,7 @@ Livelesson = `{
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expLessonUUID"
+              "$ref": "#/definitions/expLiveLessonId"
             }
           }
         },
@@ -625,23 +625,14 @@ Livelesson = `{
     "expLBHealthCheckResponse": {
       "type": "object"
     },
-    "expLessonUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
-    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
-        "LessonUUID": {
+        "Id": {
           "type": "string"
         },
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
+        "LessonSlug": {
+          "type": "string"
         },
         "LiveEndpoints": {
           "type": "object",
@@ -687,6 +678,14 @@ Livelesson = `{
         }
       },
       "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
+    },
+    "expLiveLessonId": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
     },
     "expLiveLessonRequest": {
       "type": "object",
@@ -791,7 +790,7 @@ Livesession = `{
     "expLiveSession": {
       "type": "object",
       "properties": {
-        "SessionID": {
+        "Id": {
           "type": "string"
         }
       }
