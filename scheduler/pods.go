@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/syringe/db/models"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes Types
@@ -18,7 +18,7 @@ import (
 
 // createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
 // into a Kubernetes pod object, and attempts to create it.
-func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
+func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
@@ -43,9 +43,9 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
 	var imageRef string
 	if strings.Contains(ep.Image, "jupyter") {
-		imageRef = ep.GetImage()
+		imageRef = ep.Image
 	} else {
-		imageRef = fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion)
+		imageRef = fmt.Sprintf("%s:%s", ep.Image, ls.SyringeConfig.CurriculumVersion)
 	}
 
 	pullPolicy := v1.PullAlways
@@ -55,12 +55,12 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ep.GetName(),
+			Name:      ep.Name,
 			Namespace: nsName,
 			Labels: map[string]string{
 				"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
 				"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
-				"podName":        ep.GetName(),
+				"podName":        ep.Name,
 				"syringeManaged": "yes",
 			},
 			Annotations: map[string]string{
@@ -96,7 +96,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			InitContainers: initContainers,
 			Containers: []corev1.Container{
 				{
-					Name:            ep.GetName(),
+					Name:            ep.Name,
 					Image:           imageRef,
 					ImagePullPolicy: pullPolicy,
 
@@ -127,16 +127,9 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		}
 	}
 
-	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
-	rawPorts := ep.GetAdditionalPorts()
-	for p := range ep.Presentations {
-		rawPorts = append(rawPorts, ep.Presentations[p].Port)
-	}
-	ports := unique(rawPorts)
-
 	// Convert to ContainerPort and attach to pod container
-	for p := range ports {
-		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
+	for p := range ep.Ports {
+		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ep.Ports[p]})
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
@@ -151,29 +144,17 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		}).Infof("Created pod: %s", result.ObjectMeta.Name)
 
 	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Pod %s already exists.", ep.GetName())
+		log.Warnf("Pod %s already exists.", ep.Name)
 
-		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
+		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
 	} else {
-		log.Errorf("Problem creating pod %s: %s", ep.GetName(), err)
+		log.Errorf("Problem creating pod %s: %s", ep.Name, err)
 		return nil, err
 	}
 	return result, err
-}
-
-func unique(intSlice []int32) []int32 {
-	keys := make(map[int32]bool)
-	list := []int32{}
-	for _, entry := range intSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }

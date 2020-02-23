@@ -6,7 +6,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	models "github.com/nre-learning/syringe/db/models"
 )
 
@@ -221,7 +220,7 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 		_, err := ls.createIngress(
 			ns.ObjectMeta.Name,
 			jupyterEp,
-			&pb.Presentation{
+			&models.LivePresentation{
 				Name: "web",
 				Port: 8888,
 			},
@@ -231,13 +230,9 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 		}
 	}
 
-	// TODO(mierdin): Should all of these details instead be dervived from LiveEndpoint? If so,
-	// We'll need to make sure it's populated first at the API layer properly. We'll also have to
-	// update the LiveEndpoint details like when the services get created
-
 	// Create networks from connections property
-	for c := range req.Lesson.Connections {
-		connection := req.Lesson.Connections[c]
+	for c := range lesson.Connections {
+		connection := lesson.Connections[c]
 		_, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
 		if err != nil {
 			log.Error(err)
@@ -246,13 +241,13 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 	}
 
 	// Create pods and services
-	for d := range req.Lesson.Endpoints {
-		ep := req.Lesson.Endpoints[d]
+	for d := range ll.LiveEndpoints {
+		ep := ll.LiveEndpoints[d]
 
 		// Create pod
 		newPod, err := ls.createPod(
 			ep,
-			getMemberNetworks(ep.Name, req.Lesson.Connections),
+			getMemberNetworks(ep.Name, lesson.Connections),
 			req,
 		)
 		if err != nil {
@@ -270,6 +265,11 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 				log.Error(err)
 				return err
 			}
+
+			// TODO(mierdin): Update livelesson liveendpoint with details here:
+			// From kubelab.go
+			// endpoint.Host = kl.Services[s].Spec.ClusterIP
+
 		}
 
 		// Create appropriate presentations

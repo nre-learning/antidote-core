@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	log "github.com/sirupsen/logrus"
+
+	models "github.com/nre-learning/syringe/db/models"
 
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
@@ -88,14 +89,14 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 }
 
-func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
 
 	log.Debugf("Configuring endpoint %s", ep.Name)
 
 	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
-	jobName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
-	podName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
+	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
+	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
 	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.LessonSlug)
 

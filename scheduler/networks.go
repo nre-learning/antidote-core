@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/syringe/db/models"
 
 	// Custom Network CRD Types
 	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -210,7 +210,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 }
 
 // getMemberNetworks gets the names of all networks an endpoint belongs to based on definition.
-func getMemberNetworks(epName string, connections []*pb.Connection) []string {
+func getMemberNetworks(epName string, connections []*models.LessonConnection) []string {
 	// We want the management network to be first always.
 	// EDIT: Commented out since the management network is provided implicitly for now. We may want to move to an explicit model soon.
 	// memberNets := []string{

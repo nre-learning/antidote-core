@@ -11,9 +11,10 @@ declare -a protos=(
     'livesession.proto'
 );
 
+echo -n "Compiling protobufs: ("
 for i in "${protos[@]}"
 do
-    echo "Compiling protobufs for $i..."
+    echo -n "$i"
     protoc -I api/exp/definitions/ -I./api/exp/definitions \
         -I api/exp/definitions/ \
         api/exp/definitions/"$i" \
@@ -21,4 +22,7 @@ do
         --go_out=plugins=grpc:api/exp/generated/ \
         --grpc-gateway_out=logtostderr=true,allow_delete_body=true:api/exp/generated/ \
         --swagger_out=logtostderr=true,allow_delete_body=true:api/exp/definitions/
+    echo -n ","
 done
+
+echo ")"

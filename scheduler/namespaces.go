@@ -144,7 +144,8 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 
 // PurgeOldLessons identifies any kubernetes namespaces that are operating with our syringeId,
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
-// TTL. This function is meant to be run in a loop within a goroutine, at a configured interval.
+// TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
+// a slice of livelesson IDs to be deleted by the caller (not handled by this function)
 func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -161,6 +162,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 		return []string{}, nil
 	}
 
+	liveLessonsToDelete := []string{}
 	oldNameSpaces := []string{}
 	for n := range nameSpaces.Items {
 
@@ -184,6 +186,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 			continue
 		}
 
+		liveLessonsToDelete = append(liveLessonsToDelete, nameSpaces.Items[n].ObjectMeta.Labels["liveLesson"])
 		oldNameSpaces = append(oldNameSpaces, nameSpaces.Items[n].ObjectMeta.Name)
 	}
 
@@ -205,7 +208,8 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 	}
 	wg.Wait()
 	log.Infof("Finished garbage-collecting %d old lessons", len(oldNameSpaces))
-	return oldNameSpaces, nil
+
+	return liveLessonsToDelete, nil
 
 }
 

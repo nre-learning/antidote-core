@@ -60,7 +60,6 @@ func main() {
 		KubeConfig:    kubeConfig,
 		Requests:      req,
 		Results:       res,
-		Curriculum:    curriculum,
 		SyringeConfig: syringeConfig,
 		Db:            adb,
 		BuildInfo:     buildInfo,

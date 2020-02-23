@@ -5,16 +5,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	models "github.com/nre-learning/syringe/db/models"
+
 	// Kubernetes types
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-func (ls *LessonScheduler) createIngress(nsName string, ep *pb.Endpoint, p *pb.Presentation) (*v1beta1.Ingress, error) {
+func (ls *LessonScheduler) createIngress(nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
 
 	redir := "true"
 

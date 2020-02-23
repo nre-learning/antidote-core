@@ -14,7 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	models "github.com/nre-learning/syringe/db/models"
 
 	config "github.com/nre-learning/syringe/config"
@@ -59,7 +58,6 @@ type LessonScheduler struct {
 	KubeConfig    *rest.Config
 	Requests      chan *LessonScheduleRequest
 	Results       chan *LessonScheduleResult
-	Curriculum    *pb.Curriculum
 	SyringeConfig *config.SyringeConfig
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
@@ -99,22 +97,17 @@ func (ls *LessonScheduler) Start() error {
 		go func() {
 			for {
 
-				cleaned, err := ls.PurgeOldLessons()
+				// Clean up any old lesson namespaces
+				llToDelete, err := ls.PurgeOldLessons()
 				if err != nil {
 					log.Error("Problem with GCing lessons")
 				}
 
-				for i := range cleaned {
-
-					// Clean up local kubelab state
-					// ls.deleteKubelab(cleaned[i])
-
-					// Send result to API server to clean up livelesson state
-					ls.Results <- &LessonScheduleResult{
-						Success:   true,
-						Lesson:    nil,
-						Uuid:      cleaned[i],
-						Operation: OperationType_DELETE,
+				// Clean up local state based on purge results
+				for i := range llToDelete {
+					err := ls.Db.DeleteLiveLesson(llToDelete[i])
+					if err != nil {
+						log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
 					}
 				}
 				time.Sleep(1 * time.Minute)
@@ -309,18 +302,21 @@ func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[s
 
 		ep := ll.LiveEndpoints[n]
 
+		// TODO(mierdin): Since you're collapsing all ports into the LiveEndpoint "Ports" property,
+		// You may be able to simplify below
+
 		// If no presentations, we can just test the first port in the additionalPorts list.
-		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) != 0 {
+		if len(ep.Presentations) == 0 && len(ep.Ports) != 0 {
 
 			go func() {
 				defer wg.Done()
 				testResult := false
 
-				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
-				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.AdditionalPorts[0]))
+				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Ports[0])
+				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.Ports[0]))
 
 				if testResult {
-					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
+					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.Ports[0])
 				}
 
 				mapMutex.Lock()

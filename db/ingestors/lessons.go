@@ -186,12 +186,12 @@ func validateLesson(lesson *models.Lesson) error {
 			"jupyter":  ".ipynb",
 		}
 
-		if _, ok := guideFileMap[s.GuideType]; !ok {
+		if _, ok := guideFileMap[string(s.GuideType)]; !ok {
 			log.Errorf("Failed to import %s: - stage references an unsupported guide type", file)
 			return UnsupportedGuideTypeError
 		}
 
-		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), l, guideFileMap[s.GuideType])
+		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), l, guideFileMap[string(s.GuideType)])
 		contents, err := ioutil.ReadFile(fileName)
 		if err != nil {
 			log.Errorf("Encountered problem reading lesson guide: %s", err)

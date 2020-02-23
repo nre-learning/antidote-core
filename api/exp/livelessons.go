@@ -164,14 +164,14 @@ func initializeLiveEndpoints(lesson *models.Lesson) []*models.LiveEndpoint {
 				Type: ep.Presentations[p].Type,
 			})
 
-			// TODO(mierdin): Only if doesn't already exist
 			lep.Ports = append(lep.Ports, ep.Presentations[p].Port)
 		}
 
 		for pt := range ep.AdditionalPorts {
-			// TODO(mierdin): Only if doesn't already exist
 			lep.Ports = append(lep.Ports, ep.AdditionalPorts[pt])
 		}
+
+		lep.Ports = unique(lep.Ports)
 
 		liveEps = append(liveEps, lep)
 
@@ -181,6 +181,18 @@ func initializeLiveEndpoints(lesson *models.Lesson) []*models.LiveEndpoint {
 
 	}
 	return liveEps
+}
+
+func unique(intSlice []int32) []int32 {
+	keys := make(map[int32]bool)
+	list := []int32{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
 
 // HealthCheck provides an endpoint for retuning 200K for load balancer health checks
