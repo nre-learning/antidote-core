@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/syringe/db/models"
+
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/db"
 
@@ -84,7 +86,7 @@ func (ls *LessonScheduler) Start() error {
 
 	// In case we're restarting from a previous instance, we want to make sure we clean up any orphaned k8s
 	// namespaces by killing any with our ID
-	ls.nukeFromOrbit()
+	ls.cleanOrphanedNamespaces()
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	ls.createNetworkCrd()
@@ -144,7 +146,7 @@ func (ls *LessonScheduler) Start() error {
 	return nil
 }
 
-func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
+func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest *LessonScheduleRequest) error {
 
 	ls.killAllJobs(nsName, "config")
 
@@ -201,7 +203,14 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (ls *LessonScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+
+	lesson, err := ls.Db.GetLesson(lessonSlug)
+	if err != nil {
+		// TODO(mierdin): This function doesn't return an error, which is problematic.
+		return nil, nil, nil
+	}
+
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
@@ -261,7 +270,10 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 
 }
 
-func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
+// TODO(mierdin): You had to add "Ports" to LiveEndpoint - you'll need to finish this work by
+// taking all presentation ports and additionalPorts when the livelesson is created and populating
+// the LiveEndpoint.Ports field appropriately - probably in the api server on creation
+func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[string]bool {
 
 	// Prepare the reachability map as well as the waitgroup to handle the concurrency
 	// of our health checks. We want to pre-populate every possible health check with a

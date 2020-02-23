@@ -43,7 +43,7 @@ message Lessons {
 }
 
 message LessonPrereqs {
-  repeated int32 prereqs = 1;
+  repeated string prereqs = 1;
 }
 
 message LessonSlug {

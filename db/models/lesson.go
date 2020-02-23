@@ -27,7 +27,7 @@ type Lesson struct {
 	Tier        string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
 	Prereqs     []string            `json:"Prereqs,omitempty" yaml:"prereqs"`
 	Tags        []string            `json:"Tags" yaml:"tags"`
-	Collection  int32               `json:"Collection" yaml:"collection"`
+	Collection  string              `json:"Collection" yaml:"collection"`
 	Description string              `json:"Description" yaml:"description" jsonschema:"required,description=Description of this lesson"`
 
 	// TODO(mierdin): Figure out if these are needed anymore.

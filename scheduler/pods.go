@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -21,7 +20,7 @@ import (
 // into a Kubernetes pod object, and attempts to create it.
 func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	type networkAnnotation struct {
 		Name string `json:"name"`
@@ -38,7 +37,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.LessonSlug)
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
@@ -59,7 +58,8 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			Name:      ep.GetName(),
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
+				"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
+				"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
 				"podName":        ep.GetName(),
 				"syringeManaged": "yes",
 			},
@@ -79,7 +79,8 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
+									"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
+									"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
 									"syringeManaged": "yes",
 								},
 							},
@@ -139,7 +140,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
-		return nil, errors.New(fmt.Sprintf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name))
+		return nil, fmt.Errorf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name)
 	}
 
 	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)

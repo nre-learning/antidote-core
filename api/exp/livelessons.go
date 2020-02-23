@@ -84,9 +84,11 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 
 			// Request the schedule move forward with stage change activities
 			req := &scheduler.LessonScheduleRequest{
-				Operation:    scheduler.OperationType_MODIFY,
-				Stage:        lp.LessonStage,
-				LiveLessonID: existingLL.ID,
+				Operation:     scheduler.OperationType_MODIFY,
+				Stage:         lp.LessonStage,
+				LessonSlug:    lp.LessonSlug,
+				LiveSessionID: lp.SessionId,
+				LiveLessonID:  existingLL.ID,
 			}
 			s.Requests <- req
 
@@ -94,8 +96,10 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
 			req := &scheduler.LessonScheduleRequest{
-				Operation:    scheduler.OperationType_BOOP,
-				LiveLessonID: existingLL.ID,
+				Operation:     scheduler.OperationType_BOOP,
+				LiveLessonID:  existingLL.ID,
+				LessonSlug:    lp.LessonSlug,
+				LiveSessionID: lp.SessionId,
 			}
 			s.Requests <- req
 		}
@@ -104,6 +108,7 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 	}
 
 	// Initialize new LiveLesson
+	// TODO(mierdin): there's much more to do here. Fill out endpoints with ports, etc
 	newID := db.RandomID(10)
 	s.Db.CreateLiveLesson(&models.LiveLesson{
 		ID:            newID,
@@ -112,15 +117,17 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 		LiveEndpoints: map[string]*models.LiveEndpoint{},
 		LessonStage:   lp.LessonStage,
 		Busy:          true,
-		Status:        "INITIAL_BOOT", // TODO(mierdin): just made this up, use a real value here
+		Status:        models.Status_INITIALIZED,
 		// CreatedTime:   time.Now(),
 	})
 
 	req := &scheduler.LessonScheduleRequest{
-		Operation:    scheduler.OperationType_CREATE,
-		Stage:        lp.LessonStage,
-		LiveLessonID: newID,
-		Created:      time.Now(),
+		Operation:     scheduler.OperationType_CREATE,
+		Stage:         lp.LessonStage,
+		LessonSlug:    lp.LessonSlug,
+		LiveLessonID:  newID,
+		LiveSessionID: lp.SessionId,
+		Created:       time.Now(),
 	}
 	s.Requests <- req
 

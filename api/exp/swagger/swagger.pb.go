@@ -435,8 +435,7 @@ Lesson = `{
         "prereqs": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         }
       }

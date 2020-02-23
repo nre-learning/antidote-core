@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,10 +36,10 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 	return nil
 }
 
-// nukeFromOrbit seeks out all syringe-managed namespaces, and deletes them.
+// cleanOrphanedNamespaces seeks out all syringe-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
 // in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
-func (ls *LessonScheduler) nukeFromOrbit() error {
+func (ls *LessonScheduler) cleanOrphanedNamespaces() error {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
@@ -103,17 +102,23 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 
 func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	log.Infof("Creating namespace: %s", nsName)
+
+	ll, err := ls.Db.GetLiveLesson(req.LiveLessonID)
+	if err != nil {
+		return nil, err
+	}
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
+				"liveLesson":     fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":    fmt.Sprintf("%s", req.LiveSessionID),
+				"lessonSlug":     fmt.Sprintf("%s", ll.LessonSlug),
 				"syringeManaged": "yes",
-				"name":           nsName,
 				"syringeId":      ls.SyringeConfig.SyringeID,
 				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
 				"created":        strconv.Itoa(int(req.Created.Unix())),
@@ -137,7 +142,9 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 	return result, err
 }
 
-// Lesson garbage-collector
+// PurgeOldLessons identifies any kubernetes namespaces that are operating with our syringeId,
+// and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
+// TTL. This function is meant to be run in a loop within a goroutine, at a configured interval.
 func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -168,10 +175,12 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 			continue
 		}
 
-		// Skip GC if this session is in whitelist
-		session := strings.Split(nameSpaces.Items[n].Name, "-")[1]
-		if _, ok := ls.GcWhiteList[session]; ok {
-			log.Debugf("Skipping GC of expired namespace %s because this session is in the whitelist.", nameSpaces.Items[n].Name)
+		ls, err := ls.Db.GetLiveSession(nameSpaces.Items[n].ObjectMeta.Labels["liveSession"])
+		if err != nil {
+			return nil, err
+		}
+		if ls.Persistent {
+			log.Debugf("Skipping GC of expired namespace %s because its sessionId %s is marked as persistent.", nameSpaces.Items[n].Name, ls.ID)
 			continue
 		}
 
@@ -198,4 +207,10 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 	log.Infof("Finished garbage-collecting %d old lessons", len(oldNameSpaces))
 	return oldNameSpaces, nil
 
+}
+
+// generateNamespaceName is a helper function for determining the name of our kubernetes
+// namespaces, so we don't have to do this all over the codebase and maybe get it wrong.
+func generateNamespaceName(syringeID, liveLessonID string) string {
+	return fmt.Sprintf("%s-%s", syringeID, liveLessonID)
 }

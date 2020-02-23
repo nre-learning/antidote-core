@@ -57,7 +57,7 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 
 func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
@@ -74,7 +74,7 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 	if result.Status.Failed >= 3 {
 		log.Errorf("Problem configuring with %s", result.Name)
-		return true, errors.New(fmt.Sprintf("Problem configuring with %s", result.Name))
+		return true, fmt.Errorf("Problem configuring with %s", result.Name)
 	}
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
@@ -92,12 +92,12 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 
 	log.Debugf("Configuring endpoint %s", ep.Name)
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	jobName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
+	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.LessonSlug)
 
 	var configCommand []string
 
@@ -106,14 +106,6 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 			"python",
 			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
 		}
-
-		// Not yet.
-		// } else if ep.ConfigurationType == "bash" {
-		// 	configCommand = []string{
-		// 		"bash",
-		// 		fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
-		// 	}
-
 	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
 			"ansible-playbook",
@@ -146,7 +138,6 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 				"jobType":        "config",
 				"stageId":        strconv.Itoa(int(req.Stage)),
@@ -160,7 +151,6 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 						"syringeManaged": "yes",
 						"configPod":      "yes",
 						"stageId":        strconv.Itoa(int(req.Stage)),
@@ -216,91 +206,9 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 	return result, err
 }
 
-func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv1.Job, error) {
-
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-
-	jobName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
-	podName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
-
-	var retry int32 = 1
-
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
-
-	verifyJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: nsName,
-			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"syringeManaged": "yes",
-				"jobType":        "verify",
-				"stageId":        strconv.Itoa(int(req.Stage)),
-			},
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit: &retry,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      podName,
-					Namespace: nsName,
-					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-						"syringeManaged": "yes",
-						"verifyPod":      "yes",
-						"stageId":        strconv.Itoa(int(req.Stage)),
-					},
-				},
-				Spec: corev1.PodSpec{
-					InitContainers: initContainers,
-					Containers: []corev1.Container{
-						{
-							Name:  "verifier",
-							Image: "antidotelabs/utility",
-							Command: []string{
-								"python",
-								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/verify.py", req.Lesson.LessonId, req.Stage),
-							},
-
-							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
-							ImagePullPolicy: "Always",
-							VolumeMounts:    volumeMounts,
-						},
-					},
-					RestartPolicy: "Never",
-					Volumes:       volumes,
-				},
-			},
-		},
-	}
-
-	// if config.SkipLessonClone, use read-only volume mount to local filesystem?
-
-	result, err := ls.Client.BatchV1().Jobs(nsName).Create(verifyJob)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created job: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Job %s already exists.", jobName)
-
-		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating job %s: %s", jobName, err)
-		return nil, err
-	}
-	return result, err
-}
-
 func (ls *LessonScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleRequest) (finished bool, err error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {

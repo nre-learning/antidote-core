@@ -22,21 +22,23 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
+				"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
+				"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
 				"syringeManaged": "yes",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"lessonId": fmt.Sprintf("%d", req.Lesson.LessonId),
-				"podName":  pod.ObjectMeta.Name,
+				"liveLesson":  fmt.Sprintf("%d", req.LiveLessonID),
+				"liveSession": fmt.Sprintf("%d", req.LiveSessionID),
+				"podName":     pod.ObjectMeta.Name,
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below
 

@@ -25,7 +25,7 @@ type LiveLesson struct {
 	LessonStage     int32                    `json:"LessonStage,omitempty"`
 	LabGuide        string                   `json:"LabGuide,omitempty"`
 	JupyterLabGuide bool                     `json:"JupyterLabGuide,omitempty"`
-	Status          string                   `json:"Status,omitempty"`
+	Status          LiveLessonStatus         `json:"Status,omitempty"`
 	CreatedTime     *timestamp.Timestamp     `json:"createdTime,omitempty"`
 	Error           bool                     `json:"Error,omitempty"`
 	HealthyTests    int32                    `json:"HealthyTests,omitempty"`
@@ -36,12 +36,15 @@ type LiveLesson struct {
 // LiveEndpoint is a running instance of a LessonEndpoint, with additional details
 // that are relevant at runtime.
 type LiveEndpoint struct {
-	ID            int32               `json:"ID,omitempty"`
-	LiveLessonID  string              `json:"LiveLessonID,omitempty"`
-	Name          string              `json:"Name,omitempty"`
-	Image         string              `json:"Image,omitempty"`
-	Presentations []*LivePresentation `json:"Presentations,omitempty"`
-	Host          string              `json:"Host,omitempty"`
+	ID                int32               `json:"ID,omitempty"`
+	LiveLessonID      string              `json:"LiveLessonID,omitempty"`
+	Name              string              `json:"Name,omitempty"`
+	Image             string              `json:"Image,omitempty"`
+	Ports             string              `json:"Ports,omitempty"`
+	Presentations     []*LivePresentation `json:"Presentations,omitempty"`
+	ConfigurationType string              `json:"ConfigurationType,omitempty"`
+
+	Host string `json:"Host,omitempty"`
 }
 
 // LivePresentation is a running instance of a LessonPresentation, with additional details
@@ -62,25 +65,11 @@ type LivePresentation struct {
 // 	PresentationType_ssh  Status = 2
 // )
 
-type Status int32
+type LiveLessonStatus string
 
 const (
-	Status_DONOTUSE      Status = 0
-	Status_INITIAL_BOOT  Status = 1
-	Status_CONFIGURATION Status = 2
-	Status_READY         Status = 3
+	Status_INITIALIZED   LiveLessonStatus = "INITIALIZED"
+	Status_BOOTING       LiveLessonStatus = "BOOTING"
+	Status_CONFIGURATION LiveLessonStatus = "CONFIGURATION"
+	Status_READY         LiveLessonStatus = "READY"
 )
-
-var Status_name = map[int32]string{
-	0: "DONOTUSE",
-	1: "INITIAL_BOOT",
-	2: "CONFIGURATION",
-	3: "READY",
-}
-
-var Status_value = map[string]int32{
-	"DONOTUSE":      0,
-	"INITIAL_BOOT":  1,
-	"CONFIGURATION": 2,
-	"READY":         3,
-}

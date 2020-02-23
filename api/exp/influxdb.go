@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *SyringeAPIServer) recordProvisioningTime(timeSecs int, res *scheduler.LessonScheduleResult) error {
+func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleResult) error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{

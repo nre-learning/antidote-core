@@ -33,8 +33,9 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 	return nil
 }
 
-// createNetworkPolicy applies a kubernetes networkpolicy object to prohibit traffic out of the created namespace, for all
-// pods that aren't used for configuration purposes.
+// createNetworkPolicy applies a kubernetes networkpolicy object control traffic out of the namespace.
+// The main use case is to restrict access for lesson users to only resources in that lesson,
+// with some exceptions.
 func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
 
 	var tcp corev1.Protocol = "TCP"
@@ -61,13 +62,6 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 					},
 					{ // do not apply network policy to config pods, they need to get to internet for configs
 						Key:      "configPod",
-						Operator: meta_v1.LabelSelectorOpNotIn,
-						Values: []string{
-							"yes",
-						},
-					},
-					{ // do not apply network policy to verify pods, they need to get to internet for configs
-						Key:      "verifyPod",
 						Operator: meta_v1.LabelSelectorOpNotIn,
 						Values: []string{
 							"yes",
@@ -139,15 +133,22 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 
 // createNetwork
 func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
 	// Max of 15 characters in the bridge name - https://access.redhat.com/solutions/652593
-	bridgeName := fmt.Sprintf("%d-%s", netIndex, req.Uuid)
-	if len(bridgeName) > 15 {
-		bridgeName = bridgeName[0:15]
+	livelesson := req.LiveLessonID
+	if len(livelesson) > 6 {
+		livelesson = livelesson[0:6]
 	}
+	syringeID := ls.SyringeConfig.SyringeID
+	if len(syringeID) > 6 {
+		syringeID = syringeID[0:6]
+	}
+	// Combined, these use no more than 12 characters. This leaves three digits for the netIndex, which
+	// should be way more than enough.
+	bridgeName := fmt.Sprintf("%d%s%s", netIndex, syringeID, livelesson)
 
 	// NOTE that this is just a placeholder, not necessarily the actual subnet in use on this segment.
 	// We have to put SOMETHING here, but because we're using the bridge plugin, this isn't actually
@@ -170,14 +171,12 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 			}
 		}`, networkName, bridgeName, subnet)
 
-	// Create a new Network object and write to k8s
 	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
 				"syringeManaged": "yes",
 			},
 		},

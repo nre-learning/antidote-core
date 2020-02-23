@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
 	config "github.com/nre-learning/syringe/config"
 	kubernetesCrdFake "github.com/nre-learning/syringe/pkg/client/clientset/versioned/fake"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +53,6 @@ func TestNetworks(t *testing.T) {
 		ClientExt:     kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd:     kubernetesCrdFake.NewSimpleClientset(),
 	}
-	uuid := "1-abcdef"
 	// END SETUP
 
 	t.Run("A=1", func(t *testing.T) {
@@ -63,10 +61,7 @@ func TestNetworks(t *testing.T) {
 			0,
 			"vqfx1-vqfx2",
 			&LessonScheduleRequest{
-				Uuid: uuid,
-				Lesson: &pb.Lesson{
-					LessonId: 1,
-				},
+				LiveLessonID: "asdf",
 			},
 		)
 		ok(t, err)

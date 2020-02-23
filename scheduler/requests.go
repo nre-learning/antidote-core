@@ -7,82 +7,66 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/syringe/db/models"
 )
 
 type LessonScheduleRequest struct {
-	Operation    OperationType
-	LiveLessonID string
-	Stage        int32
-	Created      time.Time
+	Operation     OperationType
+	LessonSlug    string
+	LiveLessonID  string
+	LiveSessionID string
+	Stage         int32
+	Created       time.Time
 }
 
+// TODO(mierdin) This needs to be removed once the influx stuff is re-thought
+// currently, that's the only thing that is using this.
 type LessonScheduleResult struct {
-	Success          bool
-	Stage            int32
-	Lesson           *pb.Lesson
-	Operation        OperationType
-	Message          string
+	LessonSlug       string
+	LiveLessonID     string
+	LiveSessionID    string
 	ProvisioningTime int
-	Uuid             string
 }
 
 func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
 
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
 
-	// TODO(mierdin): This function returns a pointer, and as a result, we're able to
-	// set properties of newKubeLab and the map that stores these is immediately updated.
-	// This isn't technically goroutine-safe, even though it's more or lesson guaranteed
-	// that only one goroutine will access THIS pointer (since they're separated by
-	// session ID). Not currently encountering issues here, but might want to think about it
-	// longer-term.
-	err := ls.createK8sStuff(newRequest)
+	ll, err := ls.Db.GetLiveLesson(newRequest.LiveLessonID)
 	if err != nil {
-		log.Errorf("Error creating lesson: %s", err)
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-		}
+		log.Errorf("Error getting livelesson: %v", err)
 		return
 	}
 
-	// TODO the request above should only contain a livelesson ID for us to look up. We should first GET that
-	// from the datastore and proceed only if successful.
-
-	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
-	// populate the entry in the API server with data about endpoints that it doesn't have yet.
-	log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
-	newKubeLab.Status = pb.Status_INITIAL_BOOT
-	newKubeLab.CurrentStage = newRequest.Stage
-	ls.setKubelab(newRequest.Uuid, newKubeLab)
-
-	// Trigger a status update in the API server
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: OperationType_MODIFY,
-		Stage:     newRequest.Stage,
+	err = ls.createK8sStuff(newRequest)
+	if err != nil {
+		log.Errorf("Error creating lesson: %v", err)
+		return
 	}
 
-	liveLesson := newKubeLab.ToLiveLesson()
+	log.Debugf("Bootstrap complete for livelesson %s. Moving into BOOTING status", newRequest.LiveLessonID)
+	ll.Status = models.Status_BOOTING
+	ll.LessonStage = newRequest.Stage
+	err = ls.Db.UpdateLiveLesson(ll)
+	if err != nil {
+		log.Errorf("Error updating livelesson: %v", err)
+		return
+	}
 
 	var success = false
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
 
-		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", liveLesson.LessonUUID, liveLesson.LiveEndpoints)
+		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", ll.ID, ll.LiveEndpoints)
 
-		reachability := ls.testEndpointReachability(liveLesson)
+		reachability := ls.testEndpointReachability(ll)
 
-		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, reachability)
+		log.Debugf("Livelesson %s health check results: %v", ll.ID, reachability)
 
 		// Update reachability status
 		failed := false
-		healthy := 0
-		total := len(reachability)
+		healthy := int32(0)
+		total := int32(len(reachability))
 		for _, reachable := range reachability {
 			if reachable {
 				healthy++
@@ -90,17 +74,8 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 				failed = true
 			}
 		}
-		newKubeLab.HealthyTests = healthy
-		newKubeLab.TotalTests = total
-
-		// Trigger a status update in the API server
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
-		}
+		ll.HealthyTests = healthy
+		ll.TotalTests = total
 
 		// Begin again if one of the endpoints isn't reachable
 		if failed {
@@ -113,52 +88,32 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	}
 
 	if !success {
-		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.Lesson.LessonId)
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+		log.Errorf("Timeout waiting for livelesson to become reachable", ll.ID)
+		ll.Error = true
+		err = ls.Db.UpdateLiveLesson(ll)
+		if err != nil {
+			log.Errorf("Error updating livelesson: %v", err)
 		}
 		return
-	} else {
-
-		log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_CONFIGURATION
-
-		// Trigger a status update in the API server
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
-		}
 	}
 
-	log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
-	err = ls.configureStuff(nsName, liveLesson, newRequest)
+	log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.LiveLessonID)
+	ll.Status = models.Status_CONFIGURATION
+	err = ls.Db.UpdateLiveLesson(ll)
 	if err != nil {
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-	} else {
-		log.Debugf("Setting %s to READY", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_READY
+		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
+	}
 
-		ls.Results <- &LessonScheduleResult{
-			Success:          true,
-			Lesson:           newRequest.Lesson,
-			Uuid:             newRequest.Uuid,
-			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
-			Operation:        newRequest.Operation,
-			Stage:            newRequest.Stage,
+	log.Infof("Performing configuration for livelesson %s", ll.ID)
+	err = ls.configureStuff(nsName, ll, newRequest)
+	if err != nil {
+		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
+		ll.Error = true
+		err = ls.Db.UpdateLiveLesson(ll)
+		if err != nil {
+			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}
+		return
 	}
 
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
@@ -168,30 +123,32 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 		ls.createNetworkPolicy(nsName)
 	}
 
-	ls.setKubelab(newRequest.Uuid, newKubeLab)
-
+	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
+	ll.Status = models.Status_READY
+	err = ls.Db.UpdateLiveLesson(ll)
+	if err != nil {
+		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
+	}
 }
 
 func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
 
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
 
-	// TODO(mierdin): Check for presence first?
-	kl := ls.KubeLabs[newRequest.Uuid]
-	kl.CurrentStage = newRequest.Stage
-	ls.setKubelab(newRequest.Uuid, kl)
-
-	liveLesson := kl.ToLiveLesson()
-
-	log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
-	err := ls.configureStuff(nsName, liveLesson, newRequest)
+	ll, err := ls.Db.GetLiveLesson(newRequest.LiveLessonID)
 	if err != nil {
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
+		log.Errorf("Error getting livelesson: %v", err)
+		return
+	}
+
+	log.Infof("Performing configuration for stage %d of livelesson %s", newRequest.Stage, newRequest.LiveLessonID)
+	err = ls.configureStuff(nsName, ll, newRequest)
+	if err != nil {
+		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
+		ll.Error = true
+		err = ls.Db.UpdateLiveLesson(ll)
+		if err != nil {
+			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}
 		return
 	}
@@ -200,18 +157,10 @@ func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
 	}
-
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
-	}
 }
 
 func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
 
 	err := ls.boopNamespace(nsName)
 	if err != nil {
@@ -219,20 +168,24 @@ func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) 
 	}
 }
 
+// handleRequestDELETE handles a livelesson deletion request by first sending a delete request
+// for the corresponding namespace, and then cleaning up local state.
 func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
-
-	// Delete the namespace object and then clean up our local state
-	// TODO(mierdin): This is an unlikely operation to fail, but maybe add some kind logic here just in case?
-	ls.deleteNamespace(fmt.Sprintf("%s-ns", newRequest.Uuid))
-	ls.deleteKubelab(newRequest.Uuid)
-
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
+	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
+	err := ls.deleteNamespace(nsName)
+	if err != nil {
+		log.Errorf("Unable to delete namespace %s: %v", nsName, err)
+		return
+	}
+	err = ls.Db.DeleteLiveLesson(newRequest.LiveLessonID)
+	if err != nil {
+		log.Errorf("Error getting livelesson: %v", err)
 	}
 }
 
+// createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
+// of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
+// lesson are all created as part of this workflow.
 func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 
 	ns, err := ls.createNamespace(req)

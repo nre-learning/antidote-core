@@ -4,105 +4,109 @@ import (
 	"context"
 	"errors"
 
+	copier "github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	models "github.com/nre-learning/syringe/db/models"
 )
 
+// ListLessons returns a list of Lessons present in the data store
 func (s *SyringeAPIServer) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
 
-	defs := []*pb.Lesson{}
+	lessons := []*pb.Lesson{}
 
-	// TODO(mierdin): Okay for now, but not super efficient. Should store in category keys when loaded.
-	for _, lesson := range s.Curriculum.Lessons {
+	dbLessons, err := s.Db.ListLessons()
+	if err != nil {
+		log.Error(err)
+		return nil, errors.New("Error retrieving lessons")
+	}
 
-		if filter.Category == "" {
-			defs = append(defs, lesson)
-			continue
-		}
-
-		if lesson.Category == filter.Category {
-			defs = append(defs, lesson)
-		}
+	for _, l := range dbLessons {
+		lessons = append(lessons, lessonDBToAPI(&l))
 	}
 
 	return &pb.Lessons{
-		Lessons: defs,
+		Lessons: lessons,
 	}, nil
 }
 
-// var preReqs []int32
-
-func (s *SyringeAPIServer) GetAllLessonPrereqs(ctx context.Context, lid *pb.LessonID) (*pb.LessonPrereqs, error) {
+// GetAllLessonPrereqs examines the entire tree of depedencies that a given lesson might have, and returns
+// it as a flattened, de-duplicated list. Used for the advisor's learning path tool in antidote-web
+func (s *SyringeAPIServer) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.LessonPrereqs, error) {
 
 	// Preload the requested lesson ID so we can strip it before returning
-	pr := s.getPrereqs(lid.Id, []int32{lid.Id})
-	log.Debugf("Getting prerequisites for Lesson %d: %d", lid.Id, pr)
+	pr := s.getPrereqs(lessonSlug.Slug, []string{lessonSlug.Slug})
+	log.Debugf("Getting prerequisites for Lesson %d: %d", lessonSlug.Slug, pr)
 
 	return &pb.LessonPrereqs{
-		// Remove first item from slice - this is the lesson ID being requested
+		// Remove first item from slice - this is the lesson being requested
 		Prereqs: pr[1:],
 	}, nil
 }
 
-func (s *SyringeAPIServer) getPrereqs(lessonID int32, currentPrereqs []int32) []int32 {
+func (s *SyringeAPIServer) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
 
-	// Return if lesson ID doesn't exist
-	if _, ok := s.Curriculum.Lessons[lessonID]; !ok {
+	// Return if lesson slug doesn't exist
+	lesson, err := s.Db.GetLesson(lessonSlug)
+	if err != nil {
 		return currentPrereqs
 	}
 
-	// Add this lessonID to prereqs if doesn't already exist
-	if !isAlreadyInSlice(lessonID, currentPrereqs) {
-		currentPrereqs = append(currentPrereqs, lessonID)
+	// Add this lessonSlug to prereqs if doesn't already exist
+	if !isAlreadyInSlice(lessonSlug, currentPrereqs) {
+		currentPrereqs = append(currentPrereqs, lessonSlug)
 	}
 
 	// Return if lesson doesn't have prerequisites
-	lesson := s.Curriculum.Lessons[lessonID]
 	if len(lesson.Prereqs) == 0 {
 		return currentPrereqs
 	}
 
 	// Call recursion for lesson IDs that need it
 	for i := range lesson.Prereqs {
-		pid := lesson.Prereqs[i]
-		currentPrereqs = s.getPrereqs(pid, currentPrereqs)
+		prereqSlug := lesson.Prereqs[i]
+		currentPrereqs = s.getPrereqs(prereqSlug, currentPrereqs)
 	}
 
 	return currentPrereqs
 }
 
-func isAlreadyInSlice(lessonID int32, currentPrereqs []int32) bool {
+func isAlreadyInSlice(lessonSlug string, currentPrereqs []string) bool {
 	for i := range currentPrereqs {
-		if currentPrereqs[i] == lessonID {
+		if currentPrereqs[i] == lessonSlug {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *SyringeAPIServer) GetLesson(ctx context.Context, lid *pb.LessonID) (*pb.Lesson, error) {
+// GetLesson retrieves a single Lesson from the data store by Slug
+func (s *SyringeAPIServer) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
 
-	if _, ok := s.Curriculum.Lessons[lid.Id]; !ok {
-		return nil, errors.New("Invalid lesson ID")
+	dbLesson, err := s.Db.GetLesson(lessonSlug.Slug)
+	if err != nil {
+		log.Error(err)
+		return nil, errors.New("Error retrieving specified lesson")
 	}
 
-	lesson := s.Curriculum.Lessons[lid.Id]
+	lesson := lessonDBToAPI(dbLesson)
 
 	return lesson, nil
 }
 
 // lessonDBToAPI translates a single Lesson from the `db` package models into the
 // api package's equivalent
-func lessonDBToAPI(dbLesson *models.Lesson) (*pb.Lesson, error) {
-	lessonAPI := *pb.Lesson{}
-	return lessonAPI, nil
+func lessonDBToAPI(dbLesson *models.Lesson) *pb.Lesson {
+	lessonAPI := &pb.Lesson{}
+	copier.Copy(&lessonAPI, dbLesson)
+	return lessonAPI
 }
 
 // lessonAPIToDB translates a single Lesson from the `api` package models into the
 // `db` package's equivalent
-func lessonAPIToDB(pbLesson *pb.Lesson) (*models.Lesson, error) {
-	lessonAPI := *pb.Lesson{}
-	return lessonAPI, nil
+func lessonAPIToDB(pbLesson *pb.Lesson) *models.Lesson {
+	lessonDB := &models.Lesson{}
+	copier.Copy(&pbLesson, lessonDB)
+	return lessonDB
 }

@@ -162,56 +162,6 @@ func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInf
 	return nil
 }
 
-func (s *SyringeAPIServer) LiveLessonExists(uuid string) bool {
-	_, ok := s.LiveLessonState[uuid]
-	return ok
-}
-
-func (s *SyringeAPIServer) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-
-	s.LiveLessonState[uuid] = ll
-}
-
-func (s *SyringeAPIServer) UpdateLiveLessonStage(uuid string, stage int32) {
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-
-	s.LiveLessonState[uuid].LessonStage = stage
-	s.LiveLessonState[uuid].LiveLessonStatus = pb.Status_CONFIGURATION
-}
-
-func (s *SyringeAPIServer) DeleteLiveLesson(uuid string) {
-	if _, ok := s.LiveLessonState[uuid]; !ok {
-		// Nothing to do
-		log.Debug("DeleteLiveLesson - Returning early.")
-		return
-	}
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-	log.Debugf("DeleteLiveLesson - About to Delete. Current state: %s", s.LiveLessonState)
-	delete(s.LiveLessonState, uuid)
-	log.Debugf("DeleteLiveLesson - FINISHED. Current state: %s", s.LiveLessonState)
-}
-
-func (s *SyringeAPIServer) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
-	s.VerificationTasksMu.Lock()
-	defer s.VerificationTasksMu.Unlock()
-
-	s.VerificationTasks[uuid] = vt
-}
-
-func (s *SyringeAPIServer) DeleteVerificationTask(uuid string) {
-	if _, ok := s.VerificationTasks[uuid]; !ok {
-		// Nothing to do
-		return
-	}
-	s.VerificationTasksMu.Lock()
-	defer s.VerificationTasksMu.Unlock()
-	delete(s.VerificationTasks, uuid)
-}
-
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
 // connections or otherHandler otherwise. Copied from cockroachdb.
 func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
