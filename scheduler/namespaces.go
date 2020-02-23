@@ -15,18 +15,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ls *LessonScheduler) boopNamespace(nsName string) error {
+func (s *AntidoteScheduler) boopNamespace(nsName string) error {
 
 	log.Debugf("Booping %s", nsName)
 
-	ns, err := ls.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
+	ns, err := s.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	ns.ObjectMeta.Labels["lastAccessed"] = strconv.Itoa(int(time.Now().Unix()))
 
-	_, err = ls.Client.CoreV1().Namespaces().Update(ns)
+	_, err = s.Client.CoreV1().Namespaces().Update(ns)
 	if err != nil {
 		return err
 	}
@@ -39,11 +39,11 @@ func (ls *LessonScheduler) boopNamespace(nsName string) error {
 // cleanOrphanedNamespaces seeks out all syringe-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
 // in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
-func (ls *LessonScheduler) cleanOrphanedNamespaces() error {
+func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
 
-	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
+	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", s.Config.InstanceID),
 	})
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (ls *LessonScheduler) cleanOrphanedNamespaces() error {
 		return nil
 	}
 
-	log.Warnf("Nuking all namespaces with a syringeId of %s", ls.SyringeConfig.SyringeID)
+	log.Warnf("Nuking all namespaces with a syringeId of %s", s.Config.InstanceID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
@@ -63,7 +63,7 @@ func (ls *LessonScheduler) cleanOrphanedNamespaces() error {
 		nsName := nameSpaces.Items[n].ObjectMeta.Name
 		go func() {
 			defer wg.Done()
-			ls.deleteNamespace(nsName)
+			s.deleteNamespace(nsName)
 		}()
 	}
 	wg.Wait()
@@ -71,9 +71,9 @@ func (ls *LessonScheduler) cleanOrphanedNamespaces() error {
 	return nil
 }
 
-func (ls *LessonScheduler) deleteNamespace(name string) error {
+func (s *AntidoteScheduler) deleteNamespace(name string) error {
 
-	err := ls.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
+	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 	for i := 0; i < deleteTimeoutSecs/5; i++ {
 		time.Sleep(5 * time.Second)
 
-		_, err := ls.Client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+		_, err := s.Client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 		if err == nil {
 			log.Debugf("Waiting for namespace %s to delete...", name)
 			continue
@@ -100,13 +100,13 @@ func (ls *LessonScheduler) deleteNamespace(name string) error {
 	return errors.New(errorMsg)
 }
 
-func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
+func (s *AntidoteScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	log.Infof("Creating namespace: %s", nsName)
 
-	ll, err := ls.Db.GetLiveLesson(req.LiveLessonID)
+	ll, err := s.Db.GetLiveLesson(req.LiveLessonID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,14 +119,14 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 				"liveSession":    fmt.Sprintf("%s", req.LiveSessionID),
 				"lessonSlug":     fmt.Sprintf("%s", ll.LessonSlug),
 				"syringeManaged": "yes",
-				"syringeId":      ls.SyringeConfig.SyringeID,
+				"syringeId":      s.Config.InstanceID,
 				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
 				"created":        strconv.Itoa(int(req.Created.Unix())),
 			},
 		},
 	}
 
-	result, err := ls.Client.CoreV1().Namespaces().Create(namespace)
+	result, err := s.Client.CoreV1().Namespaces().Create(namespace)
 	if err == nil {
 		log.Infof("Created namespace: %s", result.ObjectMeta.Name)
 	} else if apierrors.IsAlreadyExists(err) {
@@ -146,11 +146,11 @@ func (ls *LessonScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
-func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
+func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 
-	nameSpaces, err := ls.Client.CoreV1().Namespaces().List(metav1.ListOptions{
+	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", ls.SyringeConfig.SyringeID),
+		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", s.Config.InstanceID),
 	})
 	if err != nil {
 		return nil, err
@@ -173,11 +173,11 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 		}
 		lastAccessed := time.Unix(i, 0)
 
-		if time.Since(lastAccessed) < time.Duration(ls.SyringeConfig.LiveLessonTTL)*time.Minute {
+		if time.Since(lastAccessed) < time.Duration(s.Config.LiveLessonTTL)*time.Minute {
 			continue
 		}
 
-		ls, err := ls.Db.GetLiveSession(nameSpaces.Items[n].ObjectMeta.Labels["liveSession"])
+		ls, err := s.Db.GetLiveSession(nameSpaces.Items[n].ObjectMeta.Labels["liveSession"])
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +203,7 @@ func (ls *LessonScheduler) PurgeOldLessons() ([]string, error) {
 	for n := range oldNameSpaces {
 		go func(ns string) {
 			defer wg.Done()
-			ls.deleteNamespace(ns)
+			s.deleteNamespace(ns)
 		}(oldNameSpaces[n])
 	}
 	wg.Wait()

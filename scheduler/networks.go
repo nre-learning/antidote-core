@@ -18,12 +18,12 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (ls *LessonScheduler) createNetworkCrd() error {
+func (s *AntidoteScheduler) createNetworkCrd() error {
 
 	// note: if the CRD exist our CreateCRD function is set to exit without an error
-	err := networkcrd.CreateCRD(ls.ClientExt)
+	err := networkcrd.CreateCRD(s.ClientExt)
 	if err != nil {
-		panic(err)
+		panic(err) // TODO(mierdin): boooooo. Get rid of this
 	}
 
 	// Wait for the CRD to be created before we use it (only needed if its a new one)
@@ -36,7 +36,7 @@ func (ls *LessonScheduler) createNetworkCrd() error {
 // createNetworkPolicy applies a kubernetes networkpolicy object control traffic out of the namespace.
 // The main use case is to restrict access for lesson users to only resources in that lesson,
 // with some exceptions.
-func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
+func (s *AntidoteScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
 
 	var tcp corev1.Protocol = "TCP"
 	var udp corev1.Protocol = "UDP"
@@ -109,7 +109,7 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 		},
 	}
 
-	newnp, err := ls.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
+	newnp, err := s.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -132,8 +132,8 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 }
 
 // createNetwork
-func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+func (s *AntidoteScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -142,7 +142,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 	if len(livelesson) > 6 {
 		livelesson = livelesson[0:6]
 	}
-	syringeID := ls.SyringeConfig.SyringeID
+	syringeID := s.Config.InstanceID
 	if len(syringeID) > 6 {
 		syringeID = syringeID[0:6]
 	}
@@ -186,7 +186,7 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		},
 	}
 
-	nadClient := ls.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
+	nadClient := s.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
 
 	result, err := nadClient.Create(network)
 	if err == nil {

@@ -27,17 +27,17 @@ type LessonScheduleResult struct {
 	ProvisioningTime int
 }
 
-func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-	ll, err := ls.Db.GetLiveLesson(newRequest.LiveLessonID)
+	ll, err := s.Db.GetLiveLesson(newRequest.LiveLessonID)
 	if err != nil {
 		log.Errorf("Error getting livelesson: %v", err)
 		return
 	}
 
-	err = ls.createK8sStuff(newRequest)
+	err = s.createK8sStuff(newRequest)
 	if err != nil {
 		log.Errorf("Error creating lesson: %v", err)
 		return
@@ -46,7 +46,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	log.Debugf("Bootstrap complete for livelesson %s. Moving into BOOTING status", newRequest.LiveLessonID)
 	ll.Status = models.Status_BOOTING
 	ll.LessonStage = newRequest.Stage
-	err = ls.Db.UpdateLiveLesson(ll)
+	err = s.Db.UpdateLiveLesson(ll)
 	if err != nil {
 		log.Errorf("Error updating livelesson: %v", err)
 		return
@@ -58,7 +58,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", ll.ID, ll.LiveEndpoints)
 
-		reachability := ls.testEndpointReachability(ll)
+		reachability := s.testEndpointReachability(ll)
 
 		log.Debugf("Livelesson %s health check results: %v", ll.ID, reachability)
 
@@ -89,7 +89,7 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	if !success {
 		log.Errorf("Timeout waiting for livelesson to become reachable", ll.ID)
 		ll.Error = true
-		err = ls.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLesson(ll)
 		if err != nil {
 			log.Errorf("Error updating livelesson: %v", err)
 		}
@@ -98,17 +98,17 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 
 	log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.LiveLessonID)
 	ll.Status = models.Status_CONFIGURATION
-	err = ls.Db.UpdateLiveLesson(ll)
+	err = s.Db.UpdateLiveLesson(ll)
 	if err != nil {
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
 
 	log.Infof("Performing configuration for livelesson %s", ll.ID)
-	err = ls.configureStuff(nsName, ll, newRequest)
+	err = s.configureStuff(nsName, ll, newRequest)
 	if err != nil {
 		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
 		ll.Error = true
-		err = ls.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLesson(ll)
 		if err != nil {
 			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}
@@ -118,50 +118,50 @@ func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
-	if !ls.SyringeConfig.AllowEgress {
-		ls.createNetworkPolicy(nsName)
+	if s.Config.AllowEgress {
+		s.createNetworkPolicy(nsName)
 	}
 
 	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
 	ll.Status = models.Status_READY
-	err = ls.Db.UpdateLiveLesson(ll)
+	err = s.Db.UpdateLiveLesson(ll)
 	if err != nil {
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
 }
 
-func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-	ll, err := ls.Db.GetLiveLesson(newRequest.LiveLessonID)
+	ll, err := s.Db.GetLiveLesson(newRequest.LiveLessonID)
 	if err != nil {
 		log.Errorf("Error getting livelesson: %v", err)
 		return
 	}
 
 	log.Infof("Performing configuration for stage %d of livelesson %s", newRequest.Stage, newRequest.LiveLessonID)
-	err = ls.configureStuff(nsName, ll, newRequest)
+	err = s.configureStuff(nsName, ll, newRequest)
 	if err != nil {
 		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
 		ll.Error = true
-		err = ls.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLesson(ll)
 		if err != nil {
 			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}
 		return
 	}
 
-	err = ls.boopNamespace(nsName)
+	err = s.boopNamespace(nsName)
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
 	}
 }
 
-func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
+func (s *AntidoteScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-	err := ls.boopNamespace(nsName)
+	err := s.boopNamespace(nsName)
 	if err != nil {
 		log.Errorf("Problem booping %s: %v", nsName, err)
 	}
@@ -169,14 +169,14 @@ func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) 
 
 // handleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
-func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, newRequest.LiveLessonID)
-	err := ls.deleteNamespace(nsName)
+func (s *AntidoteScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
+	err := s.deleteNamespace(nsName)
 	if err != nil {
 		log.Errorf("Unable to delete namespace %s: %v", nsName, err)
 		return
 	}
-	err = ls.Db.DeleteLiveLesson(newRequest.LiveLessonID)
+	err = s.Db.DeleteLiveLesson(newRequest.LiveLessonID)
 	if err != nil {
 		log.Errorf("Error getting livelesson: %v", err)
 	}
@@ -185,24 +185,24 @@ func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest
 // createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
 // of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
 // lesson are all created as part of this workflow.
-func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
+func (s *AntidoteScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 
-	ns, err := ls.createNamespace(req)
+	ns, err := s.createNamespace(req)
 	if err != nil {
 		log.Error(err)
 	}
 
-	err = ls.syncSecret(ns.ObjectMeta.Name)
+	err = s.syncSecret(ns.ObjectMeta.Name)
 	if err != nil {
 		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
 	}
 
-	lesson, err := ls.Db.GetLesson(req.LessonSlug)
+	lesson, err := s.Db.GetLesson(req.LessonSlug)
 	if err != nil {
 		return err
 	}
 
-	ll, err := ls.Db.GetLiveLesson(req.LiveLessonID)
+	ll, err := s.Db.GetLiveLesson(req.LiveLessonID)
 	if err != nil {
 		return err
 	}
@@ -212,12 +212,12 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 
 		jupyterEp := &models.LiveEndpoint{
 			Name:  "jupyterlabguide",
-			Image: fmt.Sprintf("antidotelabs/jupyter:%s", ls.BuildInfo["imageVersion"]),
+			Image: fmt.Sprintf("antidotelabs/jupyter:%s", s.BuildInfo["imageVersion"]),
 			Ports: []int32{8888},
 		}
 		ll.LiveEndpoints = append(ll.LiveEndpoints, jupyterEp)
 
-		_, err := ls.createIngress(
+		_, err := s.createIngress(
 			ns.ObjectMeta.Name,
 			jupyterEp,
 			&models.LivePresentation{
@@ -233,7 +233,7 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 	// Create networks from connections property
 	for c := range lesson.Connections {
 		connection := lesson.Connections[c]
-		_, err := ls.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+		_, err := s.createNetwork(c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -245,7 +245,7 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 		ep := ll.LiveEndpoints[d]
 
 		// Create pod
-		newPod, err := ls.createPod(
+		newPod, err := s.createPod(
 			ep,
 			getMemberNetworks(ep.Name, lesson.Connections),
 			req,
@@ -257,7 +257,7 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 
 		// Expose via service if needed
 		if len(newPod.Spec.Containers[0].Ports) > 0 {
-			_, err := ls.createService(
+			_, err := s.createService(
 				newPod,
 				req,
 			)
@@ -277,7 +277,7 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 			p := ep.Presentations[pr]
 
 			if p.Type == "http" {
-				_, err := ls.createIngress(
+				_, err := s.createIngress(
 					ns.ObjectMeta.Name,
 					ep,
 					p,

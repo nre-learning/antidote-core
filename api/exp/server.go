@@ -29,8 +29,8 @@ import (
 )
 
 type SyringeAPIServer struct {
-	Db            db.DataManager
-	SyringeConfig *config.SyringeConfig
+	Db     db.DataManager
+	Config *config.AntidoteConfig
 
 	Requests  chan *scheduler.LessonScheduleRequest
 	Results   chan *scheduler.LessonScheduleResult
@@ -38,10 +38,10 @@ type SyringeAPIServer struct {
 }
 
 // Start runs the API server. Meant to be executed in a goroutine, as it will block indefinitely
-func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
+func (apiServer *SyringeAPIServer) Start(buildInfo map[string]string) error {
 
-	grpcPort := apiServer.SyringeConfig.GRPCPort
-	httpPort := apiServer.SyringeConfig.HTTPPort
+	grpcPort := apiServer.Config.GRPCPort
+	httpPort := apiServer.Config.HTTPPort
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
@@ -121,7 +121,7 @@ func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInf
 	}).Info("Syringe API started.")
 
 	// Begin periodically exporting metrics to TSDB
-	if apiServer.SyringeConfig.InfluxdbEnabled {
+	if apiServer.Config.Stats.Enabled {
 		go apiServer.startTSDBExport()
 	}
 
@@ -130,7 +130,7 @@ func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInf
 	// remaining handler function. When this gets removed, please remember to put some other blocking code at the
 	// end of this function so the api server stays alive.
 	for {
-		result := <-ls.Results
+		result := <-apiServer.Results
 		apiServer.handleResultCREATE(result)
 	}
 	// return nil

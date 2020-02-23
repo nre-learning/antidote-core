@@ -9,7 +9,7 @@ import (
 // function is removed, please also remove all of the response infrastructure, as the API server will at
 // that point no longer need it at all.
 func (s *SyringeAPIServer) handleResultCREATE(result *scheduler.LessonScheduleResult) {
-	if s.SyringeConfig.InfluxdbEnabled {
+	if s.Config.Stats.Enabled {
 		s.recordProvisioningTime(result)
 	}
 }

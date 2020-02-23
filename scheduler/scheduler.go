@@ -14,10 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
-	models "github.com/nre-learning/syringe/db/models"
-
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/db"
+	models "github.com/nre-learning/syringe/db/models"
 
 	// Custom Network CRD Types
 	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -54,11 +53,13 @@ type NetworkCrdClient interface {
 	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
 }
 
-type LessonScheduler struct {
+// AntidoteScheduler is an Antidote service that receives commands for things like creating new lesson instances,
+// moving existing livelessons to a different stage, deleting old lessons, etc.
+type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
 	Requests      chan *LessonScheduleRequest
 	Results       chan *LessonScheduleResult
-	SyringeConfig *config.SyringeConfig
+	Config        *config.AntidoteConfig
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
 
@@ -80,32 +81,32 @@ type LessonScheduler struct {
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
-func (ls *LessonScheduler) Start() error {
+func (s *AntidoteScheduler) Start() error {
 
 	// In case we're restarting from a previous instance, we want to make sure we clean up any orphaned k8s
 	// namespaces by killing any with our ID
-	ls.cleanOrphanedNamespaces()
+	s.cleanOrphanedNamespaces()
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
-	ls.createNetworkCrd()
+	s.createNetworkCrd()
 
 	// TODO(mierdin): Maybe not an issue right now, but should consider if we should check if another Syringe is operating with
 	// our configured ID.
 
 	// Garbage collection
-	if !ls.DisableGC {
+	if !s.DisableGC {
 		go func() {
 			for {
 
 				// Clean up any old lesson namespaces
-				llToDelete, err := ls.PurgeOldLessons()
+				llToDelete, err := s.PurgeOldLessons()
 				if err != nil {
 					log.Error("Problem with GCing lessons")
 				}
 
 				// Clean up local state based on purge results
 				for i := range llToDelete {
-					err := ls.Db.DeleteLiveLesson(llToDelete[i])
+					err := s.Db.DeleteLiveLesson(llToDelete[i])
 					if err != nil {
 						log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
 					}
@@ -118,13 +119,13 @@ func (ls *LessonScheduler) Start() error {
 
 	// Handle incoming requests asynchronously
 	var handlers = map[OperationType]interface{}{
-		OperationType_CREATE: ls.handleRequestCREATE,
-		OperationType_DELETE: ls.handleRequestDELETE,
-		OperationType_MODIFY: ls.handleRequestMODIFY,
-		OperationType_BOOP:   ls.handleRequestBOOP,
+		OperationType_CREATE: s.handleRequestCREATE,
+		OperationType_DELETE: s.handleRequestDELETE,
+		OperationType_MODIFY: s.handleRequestMODIFY,
+		OperationType_BOOP:   s.handleRequestBOOP,
 	}
 	for {
-		newRequest := <-ls.Requests
+		newRequest := <-s.Requests
 
 		log.WithFields(log.Fields{
 			"Operation":  newRequest.Operation,
@@ -139,9 +140,9 @@ func (ls *LessonScheduler) Start() error {
 	return nil
 }
 
-func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest *LessonScheduleRequest) error {
+func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest *LessonScheduleRequest) error {
 
-	ls.killAllJobs(nsName, "config")
+	s.killAllJobs(nsName, "config")
 
 	wg := new(sync.WaitGroup)
 	log.Debugf("Endpoints length: %d", len(liveLesson.LiveEndpoints))
@@ -156,18 +157,18 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *models.Live
 			continue
 		}
 
-		job, err := ls.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
+		job, err := s.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
 		if err != nil {
 			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
 			continue // TODO(mierdin): should quit entirely and return an error result to the channel
 			// though this error is only immediate errors creating the job. This will succeed even if
-			// the eventually configuration fails. See below for a better handle on configuration failures.
+			// the eventually configuration fais. See below for a better handle on configuration failures.
 		}
 		go func() {
 			defer wg.Done()
 
 			for i := 0; i < 120; i++ {
-				completed, err := ls.isCompleted(job, newRequest)
+				completed, err := s.isCompleted(job, newRequest)
 				if err != nil {
 					allGood = false
 					return
@@ -196,9 +197,9 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *models.Live
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (ls *LessonScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (s *AntidoteScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
 
-	lesson, err := ls.Db.GetLesson(lessonSlug)
+	lesson, err := s.Db.GetLesson(lessonSlug)
 	if err != nil {
 		// TODO(mierdin): This function doesn't return an error, which is problematic.
 		return nil, nil, nil
@@ -238,7 +239,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.
 		Name: "host-volume",
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: ls.SyringeConfig.CurriculumDir,
+				Path: s.Config.CurriculumDir,
 			},
 		},
 	})
@@ -256,7 +257,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.
 		Name:      "local-copy",
 		ReadOnly:  false,
 		MountPath: "/antidote",
-		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(ls.SyringeConfig.CurriculumDir))),
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
 	})
 
 	return volumes, volumeMounts, initContainers
@@ -266,7 +267,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.
 // TODO(mierdin): You had to add "Ports" to LiveEndpoint - you'll need to finish this work by
 // taking all presentation ports and additionalPorts when the livelesson is created and populating
 // the LiveEndpoint.Ports field appropriately - probably in the api server on creation
-func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[string]bool {
+func (s *AntidoteScheduler) testEndpointReachability(ll *models.LiveLesson) map[string]bool {
 
 	// Prepare the reachability map as well as the waitgroup to handle the concurrency
 	// of our health checks. We want to pre-populate every possible health check with a
@@ -313,7 +314,7 @@ func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[s
 				testResult := false
 
 				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Ports[0])
-				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.Ports[0]))
+				testResult = s.HealthChecker.tcpTest(ep.Host, int(ep.Ports[0]))
 
 				if testResult {
 					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.Ports[0])
@@ -337,7 +338,7 @@ func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[s
 				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
 				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
 				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
-				testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port))
+				testResult = s.HealthChecker.tcpTest(ep.Host, int(lp.Port))
 				if testResult {
 					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
 				}

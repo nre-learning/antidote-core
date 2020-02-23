@@ -18,9 +18,9 @@ import (
 
 // createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
 // into a Kubernetes pod object, and attempts to create it.
-func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
+func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	type networkAnnotation struct {
 		Name string `json:"name"`
@@ -37,7 +37,9 @@ func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string,
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.LessonSlug)
+	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(req.LessonSlug)
+
+	privileged := false
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
@@ -45,11 +47,21 @@ func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string,
 	if strings.Contains(ep.Image, "jupyter") {
 		imageRef = ep.Image
 	} else {
-		imageRef = fmt.Sprintf("%s:%s", ep.Image, ls.SyringeConfig.CurriculumVersion)
+
+		image, err := s.Db.GetImage(ep.Image)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
+		}
+		privileged = image.Privileged
+		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
 	}
 
+	// TODO(mierdin): Here, you will want to do two things. Append the image org from the config.
+	// Also, you will want to verify that the referenced image is loaded in the DB. This is because
+	// we'll use metadata from it.
+
 	pullPolicy := v1.PullAlways
-	if !ls.SyringeConfig.AlwaysPull {
+	if s.Config.AlwaysPull {
 		pullPolicy = v1.PullIfNotPresent
 	}
 
@@ -112,18 +124,15 @@ func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string,
 	// TODO(mierdin): See Antidote mini-project 6 (MP6) for details on how we're planning to obviate
 	// the need for privileged mode entirely. For now, this mechanism allows us to only grant this to
 	// images that contain a virtualization layer (i.e. network devices).
-	for i := range ls.SyringeConfig.PrivilegedImages {
-		if ep.Image == ls.SyringeConfig.PrivilegedImages[i] {
-			b := true
-			pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-				Privileged:               &b,
-				AllowPrivilegeEscalation: &b,
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{
-						"NET_ADMIN",
-					},
+	if privileged {
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &privileged,
+			AllowPrivilegeEscalation: &privileged,
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"NET_ADMIN",
 				},
-			}
+			},
 		}
 	}
 
@@ -136,7 +145,7 @@ func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string,
 		return nil, fmt.Errorf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name)
 	}
 
-	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
+	result, err := s.Client.CoreV1().Pods(nsName).Create(pod)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -146,7 +155,7 @@ func (ls *LessonScheduler) createPod(ep *models.LiveEndpoint, networks []string,
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Pod %s already exists.", ep.Name)
 
-		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.Name, metav1.GetOptions{})
+		result, err := s.Client.CoreV1().Pods(nsName).Get(ep.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err

@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	models "github.com/nre-learning/syringe/db/models"
+	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
@@ -18,9 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
+func (s *AntidoteScheduler) killAllJobs(nsName, jobType string) error {
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+	result, err := s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 	})
 	if err != nil {
@@ -31,7 +30,7 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 	existingJobs := result.Items
 
 	for i := range existingJobs {
-		err = ls.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
+		err = s.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -41,7 +40,7 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 	for {
 		//TODO(mierdin): add timeout
 		time.Sleep(time.Second * 5)
-		result, err = ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+		result, err = s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
 		if err != nil {
@@ -56,11 +55,11 @@ func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
 	return nil
 }
 
-func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
+func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
 		return false, err
@@ -89,16 +88,16 @@ func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequ
 
 }
 
-func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
 
 	log.Debugf("Configuring endpoint %s", ep.Name)
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.LessonSlug)
+	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(req.LessonSlug)
 
 	var configCommand []string
 
@@ -163,7 +162,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *Lesso
 					Containers: []corev1.Container{
 						{
 							Name:    "configurator",
-							Image:   fmt.Sprintf("antidotelabs/configurator:%s", ls.BuildInfo["imageVersion"]),
+							Image:   fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
 							Command: configCommand,
 
 							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
@@ -185,7 +184,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *Lesso
 		},
 	}
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).Create(configJob)
+	result, err := s.Client.BatchV1().Jobs(nsName).Create(configJob)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -194,7 +193,7 @@ func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *Lesso
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Job %s already exists.", jobName)
 
-		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
+		result, err := s.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
 			return nil, err
@@ -207,11 +206,11 @@ func (ls *LessonScheduler) configureEndpoint(ep *models.LiveEndpoint, req *Lesso
 	return result, err
 }
 
-func (ls *LessonScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleRequest) (finished bool, err error) {
+func (s *AntidoteScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleRequest) (finished bool, err error) {
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
 		return false, err

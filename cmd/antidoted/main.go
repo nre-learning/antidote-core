@@ -22,14 +22,14 @@ func main() {
 
 	log.Infof("antidoted (%s) starting.", buildInfo["buildVersion"])
 
-	syringeConfig, err := config.LoadConfigVars()
+	config, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Invalid configuration. Please re-run Antidote with appropriate env variables - %v", err)
 	}
 
 	// TODO(mierdin): This provides the loaded version of the curriculum via syringeinfo, primarily
 	// for the PTR banner on the front-end. Should rename to something that makes sense
-	buildInfo["antidoteSha"] = syringeConfig.CurriculumVersion
+	buildInfo["antidoteSha"] = config.CurriculumVersion
 
 	// Initialize DataManager
 	adb := db.NewADMInMem()
@@ -42,25 +42,27 @@ func main() {
 	// services are simply spawned as goroutines and passed mostly the same stuff (comms, db, etc)
 
 	var kubeConfig *rest.Config
-	if !syringeConfig.DisableScheduler {
-		kubeConfig, err = rest.InClusterConfig()
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		kubeConfig = &rest.Config{}
+	// if !config.DisableScheduler {
+
+	// TODO(mierdin): Only if scheduler is in enabledservices
+	kubeConfig, err = rest.InClusterConfig()
+	if err != nil {
+		log.Fatal(err)
 	}
+	// } else {
+	// 	kubeConfig = &rest.Config{}
+	// }
 
 	// Build comms channels
 	req := make(chan *scheduler.LessonScheduleRequest)
 	res := make(chan *scheduler.LessonScheduleResult)
 
-	// Start lesson scheduler
-	lessonScheduler := scheduler.LessonScheduler{
+	// Start scheduler
+	scheduler := scheduler.AntidoteScheduler{
 		KubeConfig:    kubeConfig,
 		Requests:      req,
 		Results:       res,
-		SyringeConfig: syringeConfig,
+		Config:        config,
 		Db:            adb,
 		BuildInfo:     buildInfo,
 		HealthChecker: &scheduler.LessonHealthCheck{},
@@ -73,42 +75,43 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create new kubernetes client - %v", err)
 	}
-	lessonScheduler.Client = cs
+	scheduler.Client = cs
 
 	// Client for creating new CRD definitions
 	csExt, err := kubernetesExt.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Fatalf("Unable to create new kubernetes ext client - %v", err)
 	}
-	lessonScheduler.ClientExt = csExt
+	scheduler.ClientExt = csExt
 
 	// Client for creating instances of the network CRD
 	clientCrd, err := crdclient.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Fatalf("Unable to create new kubernetes crd client - %v", err)
 	}
-	lessonScheduler.ClientCrd = clientCrd
+	scheduler.ClientCrd = clientCrd
 
-	if !syringeConfig.DisableScheduler {
-		go func() {
-			err = lessonScheduler.Start()
-			if err != nil {
-				log.Fatalf("Problem starting lesson scheduler: %s", err)
-			}
-		}()
-	} else {
-		log.Info("Skipping scheduler start due to configuration")
-	}
+	// if !syringeConfig.DisableScheduler {
+	// TODO(mierdin): Only if scheduler is in enabledservices
+	go func() {
+		err = scheduler.Start()
+		if err != nil {
+			log.Fatalf("Problem starting lesson scheduler: %s", err)
+		}
+	}()
+	// } else {
+	// 	log.Info("Skipping scheduler start due to configuration")
+	// }
 
 	apiServer := &api.SyringeAPIServer{
-		BuildInfo:     buildInfo,
-		Db:            adb,
-		SyringeConfig: syringeConfig,
-		Requests:      req,
-		Results:       res,
+		BuildInfo: buildInfo,
+		Db:        adb,
+		Config:    config,
+		Requests:  req,
+		Results:   res,
 	}
 	go func() {
-		err = apiServer.Start(&lessonScheduler, buildInfo)
+		err = apiServer.Start(buildInfo)
 		if err != nil {
 			log.Fatalf("Problem starting API: %s", err)
 		}

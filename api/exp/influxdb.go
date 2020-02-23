@@ -20,9 +20,9 @@ func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleR
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     s.SyringeConfig.InfluxURL,
-		Username: s.SyringeConfig.InfluxUsername,
-		Password: s.SyringeConfig.InfluxPassword,
+		Addr:     s.Config.Stats.URL,
+		Username: s.Config.Stats.Username,
+		Password: s.Config.Stats.Password,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -53,8 +53,8 @@ func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleR
 	tags := map[string]string{
 		"lessonSlug":  res.LessonSlug,
 		"lessonName":  lesson.Name,
-		"syringeTier": s.SyringeConfig.Tier,
-		"syringeId":   s.SyringeConfig.SyringeID,
+		"syringeTier": s.Config.Tier,
+		"syringeId":   s.Config.InstanceID,
 	}
 
 	fields := map[string]interface{}{
@@ -86,10 +86,10 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: s.SyringeConfig.InfluxURL,
+		Addr: s.Config.Stats.URL,
 
-		Username: s.SyringeConfig.InfluxUsername,
-		Password: s.SyringeConfig.InfluxPassword,
+		Username: s.Config.Stats.Username,
+		Password: s.Config.Stats.Password,
 
 		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
 		// I was getting validation errors.
@@ -133,8 +133,8 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 
 			tags["lessonSlug"] = lesson.Slug
 			tags["lessonName"] = lesson.Name
-			tags["syringeTier"] = s.SyringeConfig.Tier
-			tags["syringeId"] = s.SyringeConfig.SyringeID
+			tags["syringeTier"] = s.Config.Tier
+			tags["syringeId"] = s.Config.InstanceID
 
 			count, duration := s.getCountAndDuration(lesson.Slug)
 			fields["lessonName"] = lesson.Name

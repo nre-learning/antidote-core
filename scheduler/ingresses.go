@@ -14,17 +14,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (ls *LessonScheduler) createIngress(nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
+func (s *AntidoteScheduler) createIngress(nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
 
 	redir := "true"
 
 	// temporary but functional hack to disable SSL redirection for selfmedicate
 	// (doesn't currently use HTTPS)
-	if ls.SyringeConfig.Domain == "antidote-local" || ls.SyringeConfig.Domain == "localhost" {
+	if s.Config.Domain == "antidote-local" || s.Config.Domain == "localhost" {
 		redir = "false"
 	}
 
-	ingressDomain := fmt.Sprintf("%s-%s-%s.heps.%s", nsName, ep.Name, p.Name, ls.SyringeConfig.Domain)
+	ingressDomain := fmt.Sprintf("%s-%s-%s.heps.%s", nsName, ep.Name, p.Name, s.Config.Domain)
 
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -80,7 +80,7 @@ func (ls *LessonScheduler) createIngress(nsName string, ep *models.LiveEndpoint,
 			},
 		},
 	}
-	result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
+	result, err := s.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -89,7 +89,7 @@ func (ls *LessonScheduler) createIngress(nsName string, ep *models.LiveEndpoint,
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Ingress %s already exists.", ep.Name)
 
-		result, err := ls.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ep.Name, metav1.GetOptions{})
+		result, err := s.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ep.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
 			return nil, err

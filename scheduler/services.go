@@ -12,17 +12,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (ls *LessonScheduler) deleteService(name string) error {
-	return nil
-}
-
-func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
+func (s *AntidoteScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := generateNamespaceName(ls.SyringeConfig.SyringeID, req.LiveLessonID)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -57,7 +53,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 		})
 	}
 
-	result, err := ls.Client.CoreV1().Services(nsName).Create(svc)
+	result, err := s.Client.CoreV1().Services(nsName).Create(svc)
 	if err == nil {
 		log.WithFields(log.Fields{
 			"namespace": nsName,
@@ -65,7 +61,7 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Service %s already exists.", serviceName)
-		result, err := ls.Client.CoreV1().Services(nsName).Get(serviceName, metav1.GetOptions{})
+		result, err := s.Client.CoreV1().Services(nsName).Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Couldn't retrieve service after failing to create a duplicate: %s", err)
 			return nil, err
