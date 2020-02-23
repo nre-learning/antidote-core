@@ -198,15 +198,25 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
 	}
 
-	// Append endpoint and create ingress for jupyter lab guide if necessary
-	if usesJupyterLabGuide(req.Lesson) {
+	lesson, err := ls.Db.GetLesson(req.LessonSlug)
+	if err != nil {
+		return err
+	}
 
-		jupyterEp := &pb.Endpoint{
-			Name:            "jupyterlabguide",
-			Image:           fmt.Sprintf("antidotelabs/jupyter:%s", ls.BuildInfo["imageVersion"]),
-			AdditionalPorts: []int32{8888},
+	ll, err := ls.Db.GetLiveLesson(req.LiveLessonID)
+	if err != nil {
+		return err
+	}
+
+	// Append endpoint and create ingress for jupyter lab guide if necessary
+	if usesJupyterLabGuide(lesson) {
+
+		jupyterEp := &models.LiveEndpoint{
+			Name:  "jupyterlabguide",
+			Image: fmt.Sprintf("antidotelabs/jupyter:%s", ls.BuildInfo["imageVersion"]),
+			Ports: []int32{8888},
 		}
-		req.Lesson.Endpoints = append(req.Lesson.Endpoints, jupyterEp)
+		ll.LiveEndpoints = append(ll.LiveEndpoints, jupyterEp)
 
 		_, err := ls.createIngress(
 			ns.ObjectMeta.Name,
@@ -220,6 +230,10 @@ func (ls *LessonScheduler) createK8sStuff(req *LessonScheduleRequest) error {
 			return fmt.Errorf("Unable to create ingress resource - %v", err)
 		}
 	}
+
+	// TODO(mierdin): Should all of these details instead be dervived from LiveEndpoint? If so,
+	// We'll need to make sure it's populated first at the API layer properly. We'll also have to
+	// update the LiveEndpoint details like when the services get created
 
 	// Create networks from connections property
 	for c := range req.Lesson.Connections {

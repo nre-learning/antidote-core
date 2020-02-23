@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,11 @@ import (
 )
 
 func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleResult) error {
+
+	lesson, err := s.Db.GetLesson(res.LessonSlug)
+	if err != nil {
+		return errors.New("Problem getting lesson details for recording provisioning time")
+	}
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -45,17 +51,17 @@ func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleR
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonSlug":  res.Lesson.Slug,
-		"lessonName":  res.Lesson.LessonName,
+		"lessonSlug":  res.LessonSlug,
+		"lessonName":  lesson.Name,
 		"syringeTier": s.SyringeConfig.Tier,
 		"syringeId":   s.SyringeConfig.SyringeID,
 	}
 
 	fields := map[string]interface{}{
-		"lessonSlug":       res.Lesson.Slug,
-		"provisioningTime": timeSecs,
-		"lessonName":       res.Lesson.LessonName,
-		"lessonSlugName":   fmt.Sprintf("%s - %s", res.Lesson.Slug, res.Lesson.LessonName),
+		"lessonSlug":       res.LessonSlug,
+		"provisioningTime": res.ProvisioningTime,
+		"lessonName":       lesson.Name,
+		"lessonSlugName":   fmt.Sprintf("%s - %s", res.LessonSlug, lesson.Name),
 	}
 
 	pt, err := influx.NewPoint("provisioningTime", tags, fields, time.Now())

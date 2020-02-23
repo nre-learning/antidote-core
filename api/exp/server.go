@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
@@ -126,40 +125,15 @@ func (apiServer *SyringeAPIServer) Start(ls *scheduler.LessonScheduler, buildInf
 		go apiServer.startTSDBExport()
 	}
 
-	// Periodic clean-up of verification tasks
-	go func() {
-		for {
-			for id, vt := range apiServer.VerificationTasks {
-				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 15 {
-					apiServer.DeleteVerificationTask(id)
-				}
-			}
-			time.Sleep(time.Second * 5)
-		}
-	}()
-
 	// Handle results from scheduler asynchronously
-	var handlers = map[scheduler.OperationType]interface{}{
-		scheduler.OperationType_CREATE: apiServer.handleResultCREATE,
-		scheduler.OperationType_DELETE: apiServer.handleResultDELETE,
-		scheduler.OperationType_MODIFY: apiServer.handleResultMODIFY,
-		scheduler.OperationType_BOOP:   apiServer.handleResultBOOP,
-		scheduler.OperationType_VERIFY: apiServer.handleResultVERIFY,
-	}
+	// TODO(mierdin): This is almost deprecated, so we simplified this and sent this directly to the only
+	// remaining handler function. When this gets removed, please remember to put some other blocking code at the
+	// end of this function so the api server stays alive.
 	for {
 		result := <-ls.Results
-
-		log.WithFields(log.Fields{
-			"Operation": result.Operation,
-			"Success":   result.Success,
-			"Uuid":      result.Uuid,
-		}).Debug("Received result from scheduler.")
-
-		handleFunc := handlers[result.Operation].(func(*scheduler.LessonScheduleResult))
-		handleFunc(result)
-
+		apiServer.handleResultCREATE(result)
 	}
-	return nil
+	// return nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

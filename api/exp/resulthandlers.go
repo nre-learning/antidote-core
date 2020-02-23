@@ -10,6 +10,6 @@ import (
 // that point no longer need it at all.
 func (s *SyringeAPIServer) handleResultCREATE(result *scheduler.LessonScheduleResult) {
 	if s.SyringeConfig.InfluxdbEnabled {
-		s.recordProvisioningTime(result.ProvisioningTime, result)
+		s.recordProvisioningTime(result)
 	}
 }

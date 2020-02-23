@@ -368,6 +368,19 @@ func (ls *LessonScheduler) testEndpointReachability(ll *models.LiveLesson) map[s
 	}
 }
 
+// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
+// jupyter notebook as a lab guide in any stage.
+func usesJupyterLabGuide(lesson *models.Lesson) bool {
+
+	for i := range lesson.Stages {
+		if lesson.Stages[i].GuideType == models.GuideJupyter {
+			return true
+		}
+	}
+
+	return false
+}
+
 // LessonHealthChecker describes a struct which offers a variety of reachability
 // tests for lesson endpoints.
 type LessonHealthChecker interface {
@@ -405,16 +418,4 @@ func (lhc *LessonHealthCheck) tcpTest(host string, port int) bool {
 	}
 	defer conn.Close()
 	return true
-}
-
-// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
-// jupyter notebook as a lab guide in any stage.
-func usesJupyterLabGuide(ld *pb.Lesson) bool {
-	for i := range ld.Stages {
-		if ld.Stages[i].JupyterLabGuide {
-			return true
-		}
-	}
-
-	return false
 }

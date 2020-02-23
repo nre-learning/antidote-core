@@ -675,8 +675,7 @@ Livelesson = `{
           "type": "integer",
           "format": "int32"
         }
-      },
-      "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
+      }
     },
     "expLiveLessonId": {
       "type": "object",

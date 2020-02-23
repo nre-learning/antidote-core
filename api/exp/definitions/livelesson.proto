@@ -47,8 +47,6 @@ enum Status {
   READY = 3;
 }
 
-// A provisioned lab without the scheduler details. The server will translate from an underlying type
-// (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
 message LiveLesson {
   string Id = 1;
   string LessonSlug = 2;

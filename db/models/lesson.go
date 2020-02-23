@@ -81,13 +81,20 @@ func (l Lesson) JSValidate() bool {
 // LessonStage is a specific state that a Lesson can be in. This can be thought of like chapters in a book.
 // A Lesson might have one or more LessonStages.
 type LessonStage struct {
-	Description   string `json:"Description" yaml:"description"`
-	GuideType     string `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
-	GuideContents string `json:"GuideContents,omitempty" jsonschema:"-"`
+	Description   string          `json:"Description" yaml:"description"`
+	GuideType     LessonGuideType `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
+	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
 
 	// TODO(mierdin): Implementing this later
 	// Objectives    []*LessonStageObjective `json:"Objectives,omitempty" yaml:"objectives"`
 }
+
+type LessonGuideType string
+
+const (
+	GuideMarkdown LessonGuideType = "markdown"
+	GuideJupyter  LessonGuideType = "jupyter"
+)
 
 // TODO(mierdin): Implementing this later
 // type LessonStageObjective struct {
@@ -112,9 +119,9 @@ type LessonEndpoint struct {
 // LessonPresentation is a particular view into a LessonEndpoint. It's a way of specifying how an endpoint
 // should be made available to the user in the front-end
 type LessonPresentation struct {
-	Name string `json:"Name" yaml:"name" jsonschema:"required"`
-	Port int32  `json:"Port" yaml:"port" jsonschema:"required,minimum=1"`
-	Type string `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
+	Name string           `json:"Name" yaml:"name" jsonschema:"required"`
+	Port int32            `json:"Port" yaml:"port" jsonschema:"required,minimum=1"`
+	Type PresentationType `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
 }
 
 // LessonConnection is a point-to-point network connection between two LessonEndpoints. The `A` and `B` properties should
@@ -123,3 +130,10 @@ type LessonConnection struct {
 	A string `json:"A" yaml:"a" jsonschema:"required"`
 	B string `json:"B" yaml:"b" jsonschema:"required"`
 }
+
+type PresentationType string
+
+const (
+	PresentationType_http PresentationType = "http"
+	PresentationType_ssh  PresentationType = "ssh"
+)
