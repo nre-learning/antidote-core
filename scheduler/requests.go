@@ -7,27 +7,19 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/nre-learning/syringe/db/models"
+	"github.com/nre-learning/syringe/services"
 )
-
-type LessonScheduleRequest struct {
-	Operation     OperationType
-	LessonSlug    string
-	LiveLessonID  string
-	LiveSessionID string
-	Stage         int32
-	Created       time.Time
-}
 
 // TODO(mierdin) This needs to be removed once the influx stuff is re-thought
 // currently, that's the only thing that is using this.
-type LessonScheduleResult struct {
-	LessonSlug       string
-	LiveLessonID     string
-	LiveSessionID    string
-	ProvisioningTime int
-}
+// type LessonScheduleResult struct {
+// 	LessonSlug       string
+// 	LiveLessonID     string
+// 	LiveSessionID    string
+// 	ProvisioningTime int
+// }
 
-func (s *AntidoteScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonScheduleRequest) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
@@ -130,7 +122,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest *LessonScheduleReques
 	}
 }
 
-func (s *AntidoteScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestMODIFY(newRequest services.LessonScheduleRequest) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
@@ -158,7 +150,7 @@ func (s *AntidoteScheduler) handleRequestMODIFY(newRequest *LessonScheduleReques
 	}
 }
 
-func (s *AntidoteScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestBOOP(newRequest services.LessonScheduleRequest) {
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
 	err := s.boopNamespace(nsName)
@@ -169,7 +161,7 @@ func (s *AntidoteScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest)
 
 // handleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
-func (s *AntidoteScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestDELETE(newRequest services.LessonScheduleRequest) {
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 	err := s.deleteNamespace(nsName)
 	if err != nil {
@@ -185,7 +177,7 @@ func (s *AntidoteScheduler) handleRequestDELETE(newRequest *LessonScheduleReques
 // createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
 // of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
 // lesson are all created as part of this workflow.
-func (s *AntidoteScheduler) createK8sStuff(req *LessonScheduleRequest) error {
+func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) error {
 
 	ns, err := s.createNamespace(req)
 	if err != nil {

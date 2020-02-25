@@ -12,7 +12,7 @@ import (
 )
 
 // ListLessons returns a list of Lessons present in the data store
-func (s *SyringeAPIServer) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
+func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
 
 	lessons := []*pb.Lesson{}
 
@@ -33,7 +33,7 @@ func (s *SyringeAPIServer) ListLessons(ctx context.Context, filter *pb.LessonFil
 
 // GetAllLessonPrereqs examines the entire tree of depedencies that a given lesson might have, and returns
 // it as a flattened, de-duplicated list. Used for the advisor's learning path tool in antidote-web
-func (s *SyringeAPIServer) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.LessonPrereqs, error) {
+func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.LessonPrereqs, error) {
 
 	// Preload the requested lesson ID so we can strip it before returning
 	pr := s.getPrereqs(lessonSlug.Slug, []string{lessonSlug.Slug})
@@ -45,7 +45,7 @@ func (s *SyringeAPIServer) GetAllLessonPrereqs(ctx context.Context, lessonSlug *
 	}, nil
 }
 
-func (s *SyringeAPIServer) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
+func (s *AntidoteAPI) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
 
 	// Return if lesson slug doesn't exist
 	lesson, err := s.Db.GetLesson(lessonSlug)
@@ -82,7 +82,7 @@ func isAlreadyInSlice(lessonSlug string, currentPrereqs []string) bool {
 }
 
 // GetLesson retrieves a single Lesson from the data store by Slug
-func (s *SyringeAPIServer) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
+func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
 
 	dbLesson, err := s.Db.GetLesson(lessonSlug.Slug)
 	if err != nil {

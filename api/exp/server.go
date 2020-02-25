@@ -14,13 +14,13 @@ import (
 	swag "github.com/nre-learning/syringe/api/exp/swagger"
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/db"
+	"github.com/nre-learning/syringe/services"
 
 	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
 
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/syringe/api/exp/generated"
-	scheduler "github.com/nre-learning/syringe/scheduler"
 	assetfs "github.com/philips/go-bindata-assetfs"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
@@ -28,17 +28,17 @@ import (
 	gw "github.com/nre-learning/syringe/api/exp/generated"
 )
 
-type SyringeAPIServer struct {
+// AntidoteAPI handles incoming requests from antidote-web, or other gRPC clients
+type AntidoteAPI struct {
 	Db     db.DataManager
-	Config *config.AntidoteConfig
+	Config config.AntidoteConfig
 
-	Requests  chan *scheduler.LessonScheduleRequest
-	Results   chan *scheduler.LessonScheduleResult
+	Requests  chan services.LessonScheduleRequest
 	BuildInfo map[string]string
 }
 
 // Start runs the API server. Meant to be executed in a goroutine, as it will block indefinitely
-func (apiServer *SyringeAPIServer) Start(buildInfo map[string]string) error {
+func (apiServer *AntidoteAPI) Start() error {
 
 	grpcPort := apiServer.Config.GRPCPort
 	httpPort := apiServer.Config.HTTPPort
@@ -120,20 +120,11 @@ func (apiServer *SyringeAPIServer) Start(buildInfo map[string]string) error {
 		"HTTP Port": httpPort,
 	}).Info("Syringe API started.")
 
-	// Begin periodically exporting metrics to TSDB
-	if apiServer.Config.Stats.Enabled {
-		go apiServer.startTSDBExport()
-	}
+	// Wait forever
+	ch := make(chan struct{})
+	<-ch
 
-	// Handle results from scheduler asynchronously
-	// TODO(mierdin): This is almost deprecated, so we simplified this and sent this directly to the only
-	// remaining handler function. When this gets removed, please remember to put some other blocking code at the
-	// end of this function so the api server stays alive.
-	for {
-		result := <-apiServer.Results
-		apiServer.handleResultCREATE(result)
-	}
-	// return nil
+	return nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC

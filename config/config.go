@@ -3,15 +3,17 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 // TODO(mierdin): Consider renaming this package to "services", and placing all services related code in here, including
 // interface to define an Antidote service, the pub/sub code, and this config stuff
 
 type AntidoteConfig struct {
-	InstanceID string `yaml:"instanceID"`
+	InstanceID string `yaml:"instanceId"`
 
 	Tier          string `yaml:"tier"`
 	Domain        string `yaml:"domain"`
@@ -21,7 +23,6 @@ type AntidoteConfig struct {
 	LiveLessonTTL int    `yaml:"liveLessonTTL"`
 
 	Stats struct {
-		Enabled  bool   `yaml:"enabled"`
 		URL      string `yaml:"url"`
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
@@ -38,46 +39,64 @@ type AntidoteConfig struct {
 	EnabledServices []string `yaml:"enabledServices"`
 }
 
-func LoadConfig() (*AntidoteConfig, error) {
+func LoadConfig() (AntidoteConfig, error) {
 
 	// Set a new config with defaults set where relevant
 	config := AntidoteConfig{
-		Tier:          "prod",
-		Domain:        "localhost",
-		ImageOrg:      "antidotelabs",
-		GRPCPort:      50099,
-		HTTPPort:      8086,
-		LiveLessonTTL: 30,
-		AlwaysPull:    false,
-		// PrivilegedImages: []string{ // TODO(mierdin): Shouldn't be needed now that we have images metadata
-		// 	"antidotelabs/vqfx-snap1",
-		// 	"antidotelabs/vqfx-snap2",
-		// 	"antidotelabs/vqfx-snap3",
-		// 	"antidotelabs/cvx",
-		// 	"antidotelabs/frr",
-		// 	"antidotelabs/pjsua-lindsey",
-		// 	"antidotelabs/asterisk",
-		// },
+		Tier:              "prod",
+		Domain:            "localhost",
+		ImageOrg:          "antidotelabs",
+		GRPCPort:          50099,
+		HTTPPort:          8086,
+		LiveLessonTTL:     30,
+		AlwaysPull:        false,
 		AllowEgress:       false,
 		CertLocation:      "prod/tls-cert",
 		CurriculumVersion: "latest",
-		EnabledServices:   []string{},
+		EnabledServices: []string{
+			"scheduler",
+			"api",
+			"stats",
+		},
+	}
+
+	// TODO(mierdin): Load config from filesystem
+
+	file := "/home/mierdin/Code/GO/src/github.com/nre-learning/syringe/antidote-config.yaml"
+	yamlDef, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Errorf("Encountered problem %v", err)
+	}
+	err = yaml.Unmarshal([]byte(yamlDef), &config)
+	if err != nil {
+		log.Errorf("Failed to import %s: %v", file, err)
 	}
 
 	if config.InstanceID == "" {
-		return nil, errors.New("InstanceID has no default and must be provided")
+		return AntidoteConfig{}, errors.New("InstanceID has no default and must be provided")
 	}
 	if config.CurriculumDir == "" {
-		return nil, errors.New("CurriculumDir has no default and must be provided")
+		return AntidoteConfig{}, errors.New("CurriculumDir has no default and must be provided")
 	}
 
 	log.Debugf("Antidote config: %s", config.JSON())
 
-	return &config, nil
+	return config, nil
 
 }
 
 func (c *AntidoteConfig) JSON() string {
 	configJson, _ := json.Marshal(c)
 	return string(configJson)
+}
+
+// IsServiceEnabled checks the config for a given service name, and if included,
+// returns true. Otherwise, returns false.
+func (c *AntidoteConfig) IsServiceEnabled(serviceName string) bool {
+	for _, name := range c.EnabledServices {
+		if name == serviceName {
+			return true
+		}
+	}
+	return false
 }

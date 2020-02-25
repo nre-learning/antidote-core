@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
@@ -100,7 +101,7 @@ func (s *AntidoteScheduler) deleteNamespace(name string) error {
 	return errors.New(errorMsg)
 }
 
-func (s *AntidoteScheduler) createNamespace(req *LessonScheduleRequest) (*corev1.Namespace, error) {
+func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) (*corev1.Namespace, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 

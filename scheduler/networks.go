@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/nre-learning/syringe/db/models"
+	"github.com/nre-learning/syringe/services"
 
 	// Custom Network CRD Types
 	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -132,7 +133,7 @@ func (s *AntidoteScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPo
 }
 
 // createNetwork
-func (s *AntidoteScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+func (s *AntidoteScheduler) createNetwork(netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)

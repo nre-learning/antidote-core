@@ -12,7 +12,7 @@ import (
 )
 
 // ListCollections returns a list of Collections present in the data store
-func (s *SyringeAPIServer) ListCollections(ctx context.Context, _ *pb.CollectionFilter) (*pb.Collections, error) {
+func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilter) (*pb.Collections, error) {
 
 	collections := []*pb.Collection{}
 
@@ -32,7 +32,7 @@ func (s *SyringeAPIServer) ListCollections(ctx context.Context, _ *pb.Collection
 }
 
 // GetCollection retrieves a single Collection from the data store by Slug
-func (s *SyringeAPIServer) GetCollection(ctx context.Context, collectionSlug *pb.CollectionSlug) (*pb.Collection, error) {
+func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.CollectionSlug) (*pb.Collection, error) {
 
 	dbCollection, err := s.Db.GetCollection(collectionSlug.Slug)
 	if err != nil {

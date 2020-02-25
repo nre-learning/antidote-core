@@ -10,7 +10,7 @@ import (
 	pb "github.com/nre-learning/syringe/api/exp/generated"
 	db "github.com/nre-learning/syringe/db"
 	models "github.com/nre-learning/syringe/db/models"
-	scheduler "github.com/nre-learning/syringe/scheduler"
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,7 +22,7 @@ import (
 // - Request that a livelesson is created, such as when you initially load a lesson
 // - Modify an existing livelesson - such as moving to a different stage ID
 // - Refreshing the lastUsed timestamp on the livelesson, which lets the back-end know it's still in use.
-func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
+func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
 
 	// TODO(mierdin) look up session ID in DB first
 	if lp.SessionId == "" {
@@ -92,8 +92,8 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 			s.Db.UpdateLiveLesson(existingLL)
 
 			// Request the schedule move forward with stage change activities
-			req := &scheduler.LessonScheduleRequest{
-				Operation:     scheduler.OperationType_MODIFY,
+			req := services.LessonScheduleRequest{
+				Operation:     services.OperationType_MODIFY,
 				Stage:         lp.LessonStage,
 				LessonSlug:    lp.LessonSlug,
 				LiveSessionID: lp.SessionId,
@@ -104,8 +104,8 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 		} else {
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
-			req := &scheduler.LessonScheduleRequest{
-				Operation:     scheduler.OperationType_BOOP,
+			req := services.LessonScheduleRequest{
+				Operation:     services.OperationType_BOOP,
 				LiveLessonID:  existingLL.ID,
 				LessonSlug:    lp.LessonSlug,
 				LiveSessionID: lp.SessionId,
@@ -129,8 +129,8 @@ func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LiveLes
 		// CreatedTime:   time.Now(),
 	})
 
-	req := &scheduler.LessonScheduleRequest{
-		Operation:     scheduler.OperationType_CREATE,
+	req := services.LessonScheduleRequest{
+		Operation:     services.OperationType_CREATE,
 		Stage:         lp.LessonStage,
 		LessonSlug:    lp.LessonSlug,
 		LiveLessonID:  newID,
@@ -196,12 +196,12 @@ func unique(intSlice []int32) []int32 {
 }
 
 // HealthCheck provides an endpoint for retuning 200K for load balancer health checks
-func (s *SyringeAPIServer) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHealthCheckResponse, error) {
+func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHealthCheckResponse, error) {
 	return &pb.LBHealthCheckResponse{}, nil
 }
 
 // GetLiveLesson retrieves a single LiveLesson via ID
-func (s *SyringeAPIServer) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
+func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
 
 	if llID.Id == "" {
 		msg := "LiveLesson ID cannot be empty"
@@ -222,13 +222,13 @@ func (s *SyringeAPIServer) GetLiveLesson(ctx context.Context, llID *pb.LiveLesso
 }
 
 // ListLiveLessons returns a list of LiveLessons present in the data store
-func (s *SyringeAPIServer) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
+func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
 	return &pb.LiveLessons{}, nil
 }
 
 // KillLiveLesson allows a client to request that a livelesson is killed, meaning the underlying
 // resources (like kubernetes namespace) are deleted, and local state is cleaned up appropriately
-func (s *SyringeAPIServer) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.KillLiveLessonStatus, error) {
+func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.KillLiveLessonStatus, error) {
 
 	ll, err := s.Db.GetLiveLesson(llID.Id)
 	if err != nil {
@@ -237,8 +237,8 @@ func (s *SyringeAPIServer) KillLiveLesson(ctx context.Context, llID *pb.LiveLess
 
 	// Send deletion request to scheduler. It will take care of sending the appropriate delete commands to
 	// kubernetes, and if successful, removing the livelesson state.
-	s.Requests <- &scheduler.LessonScheduleRequest{
-		Operation:    scheduler.OperationType_DELETE,
+	s.Requests <- services.LessonScheduleRequest{
+		Operation:    services.OperationType_DELETE,
 		LiveLessonID: ll.ID,
 	}
 

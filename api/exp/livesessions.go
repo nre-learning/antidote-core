@@ -12,7 +12,7 @@ import (
 
 // RequestLiveSession generates a new session ID, performs basic security functions, installs the new session
 // in state management, and returns the ID to the client
-func (s *SyringeAPIServer) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
+func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
 
 	// TODO(mierdin): need to perform some basic security checks here, like checking to see if this IP registered
 	// a bunch of sessions already
@@ -27,8 +27,8 @@ func (s *SyringeAPIServer) RequestLiveSession(ctx context.Context, _ *empty.Empt
 		sessionID := db.RandomID(10)
 		_, err := adb.GetLiveSession(sessionID)
 		if err == nil {
-			continue
 			i++
+			continue
 		}
 		break
 	}

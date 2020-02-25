@@ -1,0 +1,7 @@
+---
+curriculumDir: /home/mierdin/Code/GO/src/github.com/nre-learning/nrelabs-curriculum
+instanceId: test-dev
+enabledServices:
+- api
+# - stats
+# - scheduler

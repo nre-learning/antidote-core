@@ -10,7 +10,7 @@ import (
 
 // GetCurriculumInfo is designed to only get high-level information about the loaded Curriculum. Specifics on lessons, collections, and more
 // are given their own first-level API endpoint elsewhere, but will be pulled from the loaded Curriculum struct being described here.
-func (s *SyringeAPIServer) GetCurriculumInfo(ctx context.Context, filter *pb.CurriculumFilter) (*pb.CurriculumInfo, error) {
+func (s *AntidoteAPI) GetCurriculumInfo(ctx context.Context, filter *pb.CurriculumFilter) (*pb.CurriculumInfo, error) {
 
 	curriculum, err := s.Db.GetCurriculum()
 	if err != nil {

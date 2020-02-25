@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	models "github.com/nre-learning/syringe/db/models"
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes Types
@@ -18,7 +19,7 @@ import (
 
 // createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
 // into a Kubernetes pod object, and attempts to create it.
-func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
+func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 

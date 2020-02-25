@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
@@ -12,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
+func (s *AntidoteScheduler) createService(pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)

@@ -1,16 +1,18 @@
 package main
 
 import (
+	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
-	rest "k8s.io/client-go/rest"
+	"k8s.io/client-go/rest"
 
 	api "github.com/nre-learning/syringe/api/exp"
 	config "github.com/nre-learning/syringe/config"
 	db "github.com/nre-learning/syringe/db"
-	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 	"github.com/nre-learning/syringe/scheduler"
+	"github.com/nre-learning/syringe/services"
+	stats "github.com/nre-learning/syringe/stats"
 )
 
 func init() {
@@ -24,7 +26,7 @@ func main() {
 
 	config, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Invalid configuration. Please re-run Antidote with appropriate env variables - %v", err)
+		log.Fatalf("Invalid configuration - %v", err)
 	}
 
 	// TODO(mierdin): This provides the loaded version of the curriculum via syringeinfo, primarily
@@ -34,88 +36,84 @@ func main() {
 	// Initialize DataManager
 	adb := db.NewADMInMem()
 
-	// TODO(mierdin): Ingest resources automatically here
+	// Because channels are synchronous, and one-to-one, we need one channel for each unique
+	// communication path. Hopefully we can revisit this soon and have more of a true one-to-many solution
+	// that doesn't require an external server like NATS, but for now this works.
+	eb := services.NewEventBus()
+	// This channel allows the API service to send requests to the scheduler
+	apiToScheduler := make(chan services.LessonScheduleRequest)
+	eb.Subscribe("lesson.requested", apiToScheduler)
+	// This channel allows the scheduler service to send updates to the stats service
+	schedulerToStats := make(chan services.LessonScheduleRequest)
+	eb.Subscribe("lesson.started", schedulerToStats)
 
-	// TODO(mierdin): In the future, also initialize here a pub/sub system that will replace the current channels.
-	// This, and the new DataManager will form the two resources that all services will share.
-	// Then, you can get to a place in the config where you pick and choose which services you want to run, and all
-	// services are simply spawned as goroutines and passed mostly the same stuff (comms, db, etc)
-
-	var kubeConfig *rest.Config
-	// if !config.DisableScheduler {
-
-	// TODO(mierdin): Only if scheduler is in enabledservices
-	kubeConfig, err = rest.InClusterConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// } else {
-	// 	kubeConfig = &rest.Config{}
-	// }
-
-	// Build comms channels
-	req := make(chan *scheduler.LessonScheduleRequest)
-	res := make(chan *scheduler.LessonScheduleResult)
-
-	// Start scheduler
-	scheduler := scheduler.AntidoteScheduler{
-		KubeConfig:    kubeConfig,
-		Requests:      req,
-		Results:       res,
-		Config:        config,
-		Db:            adb,
-		BuildInfo:     buildInfo,
-		HealthChecker: &scheduler.LessonHealthCheck{},
-	}
-
-	// CREATION OF CLIENTS
-	//
-	// Client for working with standard kubernetes resources
-	cs, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		log.Fatalf("Unable to create new kubernetes client - %v", err)
-	}
-	scheduler.Client = cs
-
-	// Client for creating new CRD definitions
-	csExt, err := kubernetesExt.NewForConfig(kubeConfig)
-	if err != nil {
-		log.Fatalf("Unable to create new kubernetes ext client - %v", err)
-	}
-	scheduler.ClientExt = csExt
-
-	// Client for creating instances of the network CRD
-	clientCrd, err := crdclient.NewForConfig(kubeConfig)
-	if err != nil {
-		log.Fatalf("Unable to create new kubernetes crd client - %v", err)
-	}
-	scheduler.ClientCrd = clientCrd
-
-	// if !syringeConfig.DisableScheduler {
-	// TODO(mierdin): Only if scheduler is in enabledservices
-	go func() {
-		err = scheduler.Start()
+	if config.IsServiceEnabled("scheduler") {
+		var kubeConfig *rest.Config
+		kubeConfig, err = rest.InClusterConfig()
 		if err != nil {
-			log.Fatalf("Problem starting lesson scheduler: %s", err)
+			log.Fatal(err)
 		}
-	}()
-	// } else {
-	// 	log.Info("Skipping scheduler start due to configuration")
-	// }
-
-	apiServer := &api.SyringeAPIServer{
-		BuildInfo: buildInfo,
-		Db:        adb,
-		Config:    config,
-		Requests:  req,
-		Results:   res,
-	}
-	go func() {
-		err = apiServer.Start(buildInfo)
+		cs, err := kubernetes.NewForConfig(kubeConfig) // Client for working with standard kubernetes resources
 		if err != nil {
-			log.Fatalf("Problem starting API: %s", err)
+			log.Fatalf("Unable to create new kubernetes client - %v", err)
 		}
-	}()
+		csExt, err := kubernetesExt.NewForConfig(kubeConfig) // Client for creating new CRD definitions
+		if err != nil {
+			log.Fatalf("Unable to create new kubernetes ext client - %v", err)
+		}
+		clientCrd, err := crdclient.NewForConfig(kubeConfig) // Client for creating instances of the network CRD
+		if err != nil {
+			log.Fatalf("Unable to create new kubernetes crd client - %v", err)
+		}
+		// Start scheduler
+		scheduler := scheduler.AntidoteScheduler{
+			KubeConfig:    kubeConfig,
+			KubeClient:    cs,
+			KubeClientExt: csExt,
+			KubeClientCrd: clientCrd,
+			Requests:      apiToScheduler,
+			Results:       schedulerToStats,
+			Config:        config,
+			Db:            adb,
+			BuildInfo:     buildInfo,
+			HealthChecker: &scheduler.LessonHealthCheck{},
+		}
+		go func() {
+			err = scheduler.Start()
+			if err != nil {
+				log.Fatalf("Problem starting lesson scheduler: %s", err)
+			}
+		}()
+	}
+
+	if config.IsServiceEnabled("api") {
+		apiServer := &api.AntidoteAPI{
+			BuildInfo: buildInfo,
+			Db:        adb,
+			Config:    config,
+			Requests:  apiToScheduler,
+		}
+		go func() {
+			err = apiServer.Start()
+			if err != nil {
+				log.Fatalf("Problem starting API: %s", err)
+			}
+		}()
+	}
+
+	if config.IsServiceEnabled("stats") {
+		stats := &stats.AntidoteStats{
+			Reqs:   schedulerToStats,
+			Config: config,
+			Db:     adb,
+		}
+		go func() {
+			err = stats.Start()
+			if err != nil {
+				log.Fatalf("Problem starting Stats: %s", err)
+			}
+		}()
+	}
 
 	// Wait forever
 	ch := make(chan struct{})

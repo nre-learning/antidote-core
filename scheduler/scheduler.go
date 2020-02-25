@@ -1,4 +1,3 @@
-// Responsible for creating all resources for a lab. Pods, services, networks, etc.
 package scheduler
 
 import (
@@ -17,6 +16,7 @@ import (
 	config "github.com/nre-learning/syringe/config"
 	"github.com/nre-learning/syringe/db"
 	models "github.com/nre-learning/syringe/db/models"
+	"github.com/nre-learning/syringe/services"
 
 	// Custom Network CRD Types
 	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
@@ -27,19 +27,10 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	// Kubernetes clients
+	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
-)
-
-type OperationType int32
-
-var (
-	OperationType_CREATE OperationType = 1
-	OperationType_DELETE OperationType = 2
-	OperationType_MODIFY OperationType = 3
-	OperationType_BOOP   OperationType = 4
-	defaultGitFileMode   int32         = 0755
 )
 
 // NetworkCrdClient is an interface for the client for our custom
@@ -57,15 +48,18 @@ type NetworkCrdClient interface {
 // moving existing livelessons to a different stage, deleting old lessons, etc.
 type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
-	Requests      chan *LessonScheduleRequest
-	Results       chan *LessonScheduleResult
-	Config        *config.AntidoteConfig
+	KubeClient    *kubernetes.Clientset
+	KubeClientExt *kubernetesExt.Clientset
+	KubeClientCrd *crdclient.Clientset
+	Requests      chan services.LessonScheduleRequest
+	Results       chan services.LessonScheduleRequest
+	Config        config.AntidoteConfig
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
 
 	// Allows us to disable GC for testing. Production code should leave this at
 	// false
-	DisableGC bool
+	// DisableGC bool
 
 	// Client for interacting with normal Kubernetes resources
 	Client kubernetes.Interface
@@ -94,35 +88,33 @@ func (s *AntidoteScheduler) Start() error {
 	// our configured ID.
 
 	// Garbage collection
-	if !s.DisableGC {
-		go func() {
-			for {
+	go func() {
+		for {
 
-				// Clean up any old lesson namespaces
-				llToDelete, err := s.PurgeOldLessons()
-				if err != nil {
-					log.Error("Problem with GCing lessons")
-				}
-
-				// Clean up local state based on purge results
-				for i := range llToDelete {
-					err := s.Db.DeleteLiveLesson(llToDelete[i])
-					if err != nil {
-						log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
-					}
-				}
-				time.Sleep(1 * time.Minute)
-
+			// Clean up any old lesson namespaces
+			llToDelete, err := s.PurgeOldLessons()
+			if err != nil {
+				log.Error("Problem with GCing lessons")
 			}
-		}()
-	}
+
+			// Clean up local state based on purge results
+			for i := range llToDelete {
+				err := s.Db.DeleteLiveLesson(llToDelete[i])
+				if err != nil {
+					log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
+				}
+			}
+			time.Sleep(1 * time.Minute)
+
+		}
+	}()
 
 	// Handle incoming requests asynchronously
-	var handlers = map[OperationType]interface{}{
-		OperationType_CREATE: s.handleRequestCREATE,
-		OperationType_DELETE: s.handleRequestDELETE,
-		OperationType_MODIFY: s.handleRequestMODIFY,
-		OperationType_BOOP:   s.handleRequestBOOP,
+	var handlers = map[services.OperationType]interface{}{
+		services.OperationType_CREATE: s.handleRequestCREATE,
+		services.OperationType_DELETE: s.handleRequestDELETE,
+		services.OperationType_MODIFY: s.handleRequestMODIFY,
+		services.OperationType_BOOP:   s.handleRequestBOOP,
 	}
 	for {
 		newRequest := <-s.Requests
@@ -134,13 +126,13 @@ func (s *AntidoteScheduler) Start() error {
 		}).Debug("Scheduler received new request. Sending to handle function.")
 
 		go func() {
-			handlers[newRequest.Operation].(func(*LessonScheduleRequest))(newRequest)
+			handlers[newRequest.Operation].(func(services.LessonScheduleRequest))(newRequest)
 		}()
 	}
 	return nil
 }
 
-func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest *LessonScheduleRequest) error {
+func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
 
 	s.killAllJobs(nsName, "config")
 
@@ -385,6 +377,7 @@ type LessonHealthChecker interface {
 	tcpTest(string, int) bool
 }
 
+// LessonHealthCheck performs network tests to determine health of endpoints within a running lesson
 type LessonHealthCheck struct{}
 
 func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {

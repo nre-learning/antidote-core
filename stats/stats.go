@@ -7,11 +7,32 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	influx "github.com/influxdata/influxdb/client/v2"
-	scheduler "github.com/nre-learning/syringe/scheduler"
+	"github.com/nre-learning/syringe/config"
+	"github.com/nre-learning/syringe/db"
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleResult) error {
+// AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
+type AntidoteStats struct {
+	Reqs   chan services.LessonScheduleRequest
+	Config config.AntidoteConfig
+	Db     db.DataManager
+}
+
+// Start starts the AntidoteStats service
+func (s *AntidoteStats) Start() error {
+	// Begin periodically exporting metrics to TSDB
+	go s.startTSDBExport()
+
+	// Listen for finished lessons and export provisioned time
+	for {
+		req := <-s.Reqs
+		s.recordProvisioningTime(req)
+	}
+}
+
+func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleRequest) error {
 
 	lesson, err := s.Db.GetLesson(res.LessonSlug)
 	if err != nil {
@@ -59,7 +80,7 @@ func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleR
 
 	fields := map[string]interface{}{
 		"lessonSlug":       res.LessonSlug,
-		"provisioningTime": res.ProvisioningTime,
+		"provisioningTime": int(time.Since(res.Created).Seconds()),
 		"lessonName":       lesson.Name,
 		"lessonSlugName":   fmt.Sprintf("%s - %s", res.LessonSlug, lesson.Name),
 	}
@@ -82,7 +103,7 @@ func (s *SyringeAPIServer) recordProvisioningTime(res *scheduler.LessonScheduleR
 	return nil
 }
 
-func (s *SyringeAPIServer) startTSDBExport() error {
+func (s *AntidoteStats) startTSDBExport() error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -167,11 +188,9 @@ func (s *SyringeAPIServer) startTSDBExport() error {
 			continue
 		}
 	}
-
-	return nil
 }
 
-func (s *SyringeAPIServer) getCountAndDuration(lessonSlug string) (int64, int64) {
+func (s *AntidoteStats) getCountAndDuration(lessonSlug string) (int64, int64) {
 
 	count := 0
 

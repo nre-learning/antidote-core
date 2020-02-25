@@ -8,6 +8,7 @@ import (
 	"time"
 
 	models "github.com/nre-learning/syringe/db/models"
+	"github.com/nre-learning/syringe/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
@@ -55,7 +56,7 @@ func (s *AntidoteScheduler) killAllJobs(nsName, jobType string) error {
 	return nil
 }
 
-func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
+func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req services.LessonScheduleRequest) (bool, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -88,7 +89,7 @@ func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleReq
 
 }
 
-func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
 
 	log.Debugf("Configuring endpoint %s", ep.Name)
 
@@ -206,7 +207,7 @@ func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req *Less
 	return result, err
 }
 
-func (s *AntidoteScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleRequest) (finished bool, err error) {
+func (s *AntidoteScheduler) verifyStatus(job *batchv1.Job, req services.LessonScheduleRequest) (finished bool, err error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
