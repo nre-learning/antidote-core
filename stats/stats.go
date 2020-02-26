@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	influx "github.com/influxdata/influxdb/client/v2"
-	"github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/db"
-	"github.com/nre-learning/syringe/services"
+	"github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -207,13 +206,7 @@ func (s *AntidoteStats) getCountAndDuration(lessonSlug string) (int64, int64) {
 		}
 
 		count = count + 1
-
-		tts, err := ptypes.Timestamp(liveLesson.CreatedTime)
-		if err != nil {
-			log.Errorf("Problem converting timestamp: %v", err)
-			log.Error(liveLesson.CreatedTime)
-		}
-		durations = append(durations, int64(time.Since(tts)*time.Second))
+		durations = append(durations, int64(time.Since(liveLesson.CreatedTime)*time.Second))
 	}
 
 	total := int64(0)

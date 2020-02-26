@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // Common validation errors for Lesson ingestion

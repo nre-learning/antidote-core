@@ -15,11 +15,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	config "github.com/nre-learning/antidote-core/config"
 
 	// Fake clients
-	kubernetesCrdFake "github.com/nre-learning/syringe/pkg/client/clientset/versioned/fake"
+	kubernetesCrdFake "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/fake"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	testclient "k8s.io/client-go/kubernetes/fake"
 )

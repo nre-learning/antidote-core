@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // DataManager enforces the set of functions required by the rest of the Antidote codebase for

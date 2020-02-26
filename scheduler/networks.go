@@ -5,11 +5,11 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	models "github.com/nre-learning/syringe/db/models"
-	"github.com/nre-learning/syringe/services"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 
 	// Custom Network CRD Types
-	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	networkcrd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"

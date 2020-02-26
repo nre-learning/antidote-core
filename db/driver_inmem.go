@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
+	log "github.com/sirupsen/logrus"
 )
 
 // NewADMInMem produces an initialized instance of ADMInMem ready to be used
@@ -201,6 +202,8 @@ func (a *ADMInMem) CreateLiveLesson(ll *models.LiveLesson) error {
 	a.liveLessonsMu.Lock()
 	defer a.liveLessonsMu.Unlock()
 	a.liveLessons[ll.ID] = ll
+
+	log.Infof("Created livelesson %s", ll.ID)
 	return nil
 }
 
@@ -210,6 +213,8 @@ func (a *ADMInMem) ListLiveLessons() (map[string]models.LiveLesson, error) {
 	for id, ll := range a.liveLessons {
 		liveLessons[id] = *ll
 	}
+
+	log.Info("Retrieving all livelessons")
 	return liveLessons, nil
 
 }

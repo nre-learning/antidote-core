@@ -4,10 +4,6 @@ TARGET_VERSION ?= latest
 
 all: compile
 
-clean:
-	rm -f $(GOPATH)/bin/syringed
-	rm -f $(GOPATH)/bin/syrctl
-
 compile:
 
 	@echo "Generating protobuf code..."
@@ -19,6 +15,9 @@ compile:
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 	@./compile-proto.sh
 
+	@#https://stackoverflow.com/questions/34716238/golang-protobuf-remove-omitempty-tag-from-generated-json-tags/37335452#37335452
+	@ls api/exp/generated/*.pb.go | xargs -n1 -IX bash -c 'sed s/,omitempty// X > X.tmp && mv X{.tmp,}'
+
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/
 	@hack/build-ui.sh
@@ -26,7 +25,7 @@ compile:
 	@echo "Generating build info file..."
 	@hack/gen-build-info.sh
 
-	@echo "Compiling syringe binaries..."
+	@echo "Compiling antidote binaries..."
 
 	@# It doesn't seem like we need this. TODO(mierdin): Verify
 	@#go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
@@ -34,8 +33,8 @@ compile:
 	@go install ./cmd/...
 
 docker:
-	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
-	docker push antidotelabs/syringe:$(TARGET_VERSION)
+	docker build -t antidotelabs/antidote:$(TARGET_VERSION) .
+	docker push antidotelabs/antidote:$(TARGET_VERSION)
 
 test:
 	@#This will run tests on all but the pkg package, if you want to limit this in the future.
@@ -54,8 +53,8 @@ gengo:
 	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
 	
 	vendor/k8s.io/code-generator/generate-groups.sh all \
-	github.com/nre-learning/syringe/pkg/client \
-	github.com/nre-learning/syringe/pkg/apis \
+	github.com/nre-learning/antidote-core/pkg/client \
+	github.com/nre-learning/antidote-core/pkg/apis \
 	k8s.cni.cncf.io:v1
 
 	@# We need to play doctor on some of these files. Haven't figured out yet how to ensure hyphens are preserved in the

@@ -1,5 +1,5 @@
 syntax = "proto3";
-package syringe.api.exp;
+package antidote.api.exp;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";

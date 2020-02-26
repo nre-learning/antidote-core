@@ -19,8 +19,8 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
-	"github.com/nre-learning/syringe/pkg/client/clientset/versioned/scheme"
+	v1 "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
+	"github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )

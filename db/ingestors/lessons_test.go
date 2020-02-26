@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // assert fails the test if the condition is false.
@@ -167,8 +167,8 @@ func TestMissingPresentationPort(t *testing.T) {
 // 	"path/filepath"
 // 	"testing"
 
-// 	pb "github.com/nre-learning/syringe/api/exp/generated"
-// 	"github.com/nre-learning/syringe/config"
+// 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+// 	"github.com/nre-learning/antidote-core/config"
 // 	log "github.com/sirupsen/logrus"
 // 	yaml "gopkg.in/yaml.v2"
 // )

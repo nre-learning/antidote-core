@@ -11,21 +11,21 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	swag "github.com/nre-learning/syringe/api/exp/swagger"
-	config "github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/db"
-	"github.com/nre-learning/syringe/services"
+	swag "github.com/nre-learning/antidote-core/api/exp/swagger"
+	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+	"github.com/nre-learning/antidote-core/services"
 
-	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
+	"github.com/nre-learning/antidote-core/pkg/ui/data/swagger"
 
 	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	assetfs "github.com/philips/go-bindata-assetfs"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
 
-	gw "github.com/nre-learning/syringe/api/exp/generated"
+	gw "github.com/nre-learning/antidote-core/api/exp/generated"
 )
 
 // AntidoteAPI handles incoming requests from antidote-web, or other gRPC clients
@@ -53,7 +53,7 @@ func (apiServer *AntidoteAPI) Start() error {
 	pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
 	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
-	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
+	pb.RegisterAntidoteInfoServiceServer(grpcServer, apiServer)
 	defer grpcServer.Stop()
 
 	// Start grpc server
@@ -76,7 +76,7 @@ func (apiServer *AntidoteAPI) Start() error {
 	if err != nil {
 		return err
 	}
-	err = gw.RegisterSyringeInfoServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	err = gw.RegisterAntidoteInfoServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -98,8 +98,8 @@ func (apiServer *AntidoteAPI) Start() error {
 	mux.HandleFunc("/lesson.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Lesson))
 	})
-	mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
-		io.Copy(w, strings.NewReader(swag.Syringeinfo))
+	mux.HandleFunc("/antidoteinfo.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Antidoteinfo))
 	})
 	mux.HandleFunc("/collection.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Collection))
@@ -118,7 +118,7 @@ func (apiServer *AntidoteAPI) Start() error {
 	log.WithFields(log.Fields{
 		"gRPC Port": grpcPort,
 		"HTTP Port": httpPort,
-	}).Info("Syringe API started.")
+	}).Info("Antidote API started.")
 
 	// Wait forever
 	ch := make(chan struct{})

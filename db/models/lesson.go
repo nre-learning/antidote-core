@@ -25,7 +25,7 @@ type Lesson struct {
 	Diagram     string              `json:"Diagram" yaml:"diagram" jsonschema:"description=URL to lesson diagram"`
 	Video       string              `json:"Video" yaml:"video" jsonschema:"description=URL to lesson video"`
 	Tier        string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
-	Prereqs     []string            `json:"Prereqs,omitempty" yaml:"prereqs"`
+	Prereqs     []string            `json:"Prereqs" yaml:"prereqs"`
 	Tags        []string            `json:"Tags" yaml:"tags"`
 	Collection  string              `json:"Collection" yaml:"collection"`
 	Description string              `json:"Description" yaml:"description" jsonschema:"required,description=Description of this lesson"`
@@ -83,10 +83,10 @@ func (l Lesson) JSValidate() bool {
 type LessonStage struct {
 	Description   string          `json:"Description" yaml:"description"`
 	GuideType     LessonGuideType `json:"GuideType" yaml:"guideType" jsonschema:"required,pattern=jupyter|markdown"`
-	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
+	GuideContents string          `json:"GuideContents" jsonschema:"-"`
 
 	// TODO(mierdin): Implementing this later
-	// Objectives    []*LessonStageObjective `json:"Objectives,omitempty" yaml:"objectives"`
+	// Objectives    []*LessonStageObjective `json:"Objectives" yaml:"objectives"`
 }
 
 type LessonGuideType string
@@ -98,7 +98,7 @@ const (
 
 // TODO(mierdin): Implementing this later
 // type LessonStageObjective struct {
-// 	ID            int32               `json:"ID,omitempty"`
+// 	ID            int32               `json:"ID"`
 // 	Description string `json:"Description" yaml:"description" jsonschema:"required"`
 // }
 
@@ -109,11 +109,11 @@ type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
 	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/-]*$"`
 
-	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType" jsonschema:"pattern=napalm-.*|python|ansible"`
+	ConfigurationType string `json:"ConfigurationType" yaml:"configurationType" jsonschema:"pattern=napalm-.*|python|ansible"`
 
-	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
+	AdditionalPorts []int32 `json:"AdditionalPorts" yaml:"additionalPorts" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
 
-	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations"`
+	Presentations []*LessonPresentation `json:"Presentations" yaml:"presentations"`
 }
 
 // LessonPresentation is a particular view into a LessonEndpoint. It's a way of specifying how an endpoint

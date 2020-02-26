@@ -1,6 +1,58 @@
 package swagger 
 
 const (
+Antidoteinfo = `{
+  "swagger": "2.0",
+  "info": {
+    "title": "antidoteinfo.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/antidoteinfo": {
+      "get": {
+        "operationId": "GetAntidoteInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expAntidoteInfo"
+            }
+          }
+        },
+        "tags": [
+          "AntidoteInfoService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expAntidoteInfo": {
+      "type": "object",
+      "properties": {
+        "buildSha": {
+          "type": "string"
+        },
+        "antidoteSha": {
+          "type": "string"
+        },
+        "imageVersion": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+`
 Collection = `{
   "swagger": "2.0",
   "info": {
@@ -582,36 +634,6 @@ Livelesson = `{
     }
   },
   "definitions": {
-    "expEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "ConfigurationType": {
-          "type": "string"
-        },
-        "AdditionalPorts": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "Presentations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expPresentation"
-          }
-        },
-        "Host": {
-          "type": "string"
-        }
-      }
-    },
     "expKillLiveLessonStatus": {
       "type": "object",
       "properties": {
@@ -624,10 +646,37 @@ Livelesson = `{
     "expLBHealthCheckResponse": {
       "type": "object"
     },
+    "expLiveEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "LivePresentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLivePresentation"
+          }
+        },
+        "Host": {
+          "type": "string"
+        }
+      }
+    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
-        "Id": {
+        "ID": {
           "type": "string"
         },
         "LessonSlug": {
@@ -636,7 +685,7 @@ Livelesson = `{
         "LiveEndpoints": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expEndpoint"
+            "$ref": "#/definitions/expLiveEndpoint"
           }
         },
         "LessonStage": {
@@ -650,12 +699,8 @@ Livelesson = `{
           "type": "boolean",
           "format": "boolean"
         },
-        "LiveLessonStatus": {
-          "$ref": "#/definitions/expStatus"
-        },
-        "createdTime": {
-          "type": "string",
-          "format": "date-time"
+        "Status": {
+          "type": "string"
         },
         "LessonDiagram": {
           "type": "string"
@@ -703,7 +748,7 @@ Livelesson = `{
     "expLiveLessons": {
       "type": "object",
       "properties": {
-        "items": {
+        "LiveLessons": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
@@ -711,7 +756,7 @@ Livelesson = `{
         }
       }
     },
-    "expPresentation": {
+    "expLivePresentation": {
       "type": "object",
       "properties": {
         "Name": {
@@ -725,16 +770,6 @@ Livelesson = `{
           "type": "string"
         }
       }
-    },
-    "expStatus": {
-      "type": "string",
-      "enum": [
-        "DONOTUSE",
-        "INITIAL_BOOT",
-        "CONFIGURATION",
-        "READY"
-      ],
-      "default": "DONOTUSE"
     }
   }
 }
@@ -801,58 +836,6 @@ Livesession = `{
           "additionalProperties": {
             "$ref": "#/definitions/expLiveSession"
           }
-        }
-      }
-    }
-  }
-}
-`
-Syringeinfo = `{
-  "swagger": "2.0",
-  "info": {
-    "title": "syringeinfo.proto",
-    "version": "version not set"
-  },
-  "schemes": [
-    "http",
-    "https"
-  ],
-  "consumes": [
-    "application/json"
-  ],
-  "produces": [
-    "application/json"
-  ],
-  "paths": {
-    "/exp/syringeinfo": {
-      "get": {
-        "operationId": "GetSyringeInfo",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expSyringeInfo"
-            }
-          }
-        },
-        "tags": [
-          "SyringeInfoService"
-        ]
-      }
-    }
-  },
-  "definitions": {
-    "expSyringeInfo": {
-      "type": "object",
-      "properties": {
-        "buildSha": {
-          "type": "string"
-        },
-        "antidoteSha": {
-          "type": "string"
-        },
-        "imageVersion": {
-          "type": "string"
         }
       }
     }

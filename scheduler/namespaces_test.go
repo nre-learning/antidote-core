@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	config "github.com/nre-learning/syringe/config"
+	config "github.com/nre-learning/antidote-core/config"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

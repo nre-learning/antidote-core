@@ -28,8 +28,7 @@ type AntidoteConfig struct {
 		Password string `yaml:"password"`
 	} `yaml:"stats"`
 
-	AlwaysPull bool `yaml:"alwaysPull"`
-	// PrivilegedImages []string `yaml:"privilegedImages"`
+	AlwaysPull  bool `yaml:"alwaysPull"`
 	AllowEgress bool `yaml:"allowEgress"`
 
 	CertLocation      string `yaml:"certLocation"`
@@ -62,7 +61,7 @@ func LoadConfig() (AntidoteConfig, error) {
 
 	// TODO(mierdin): Load config from filesystem
 
-	file := "/home/mierdin/Code/GO/src/github.com/nre-learning/syringe/antidote-config.yaml"
+	file := "/home/mierdin/Code/GO/src/github.com/nre-learning/antidote-core/antidote-config.yaml"
 	yamlDef, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Errorf("Encountered problem %v", err)

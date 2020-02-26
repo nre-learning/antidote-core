@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	db "github.com/nre-learning/syringe/db"
-	models "github.com/nre-learning/syringe/db/models"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	db "github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // RequestLiveSession generates a new session ID, performs basic security functions, installs the new session

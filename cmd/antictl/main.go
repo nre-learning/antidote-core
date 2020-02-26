@@ -1,9 +1,17 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"os"
 
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+
+	"github.com/golang/protobuf/ptypes/empty"
 	cli "github.com/urfave/cli"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -13,20 +21,21 @@ func main() {
 	app.Version = buildInfo["buildVersion"]
 	app.Usage = "Command-line tool to interact with the Antidote platform and database"
 
-	// global flags
-	var dbuser, dbpassword string
+	var host, port string
+
+	// global level flags
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:        "H, db-username",
-			Usage:       "Database username",
-			Value:       "postgres",
-			Destination: &dbuser,
+			Name:        "H, host",
+			Usage:       "antidoted hostname",
+			Value:       "127.0.0.1",
+			Destination: &host,
 		},
 		cli.StringFlag{
-			Name:        "P, db-password",
-			Usage:       "Database password",
-			Value:       "docker",
-			Destination: &dbpassword,
+			Name:        "P, port",
+			Usage:       "antidoted grpc port",
+			Value:       "50099",
+			Destination: &port,
 		},
 	}
 
@@ -169,13 +178,64 @@ func main() {
 					Name:  "list",
 					Usage: "List all livelessons",
 					Action: func(c *cli.Context) {
-						return // TODO
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						liveLessons, err := client.ListLiveLessons(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						llJSON, _ := json.Marshal(liveLessons)
+						fmt.Println(string(llJSON))
+
 					},
 				},
 				{
-					Name:  "get",
-					Usage: "Get details for a specific livelessons",
+					Name:  "create",
+					Usage: "Create a livelesson (THIS IS FOR TESTING PURPOSES ONLY)",
 					Action: func(c *cli.Context) {
+
+						lldef, err := ioutil.ReadFile(c.Args().First())
+						if err != nil {
+							fmt.Printf("Encountered problem %v\n", err)
+							os.Exit(1)
+						}
+
+						var ll pb.LiveLesson
+
+						err = json.Unmarshal([]byte(lldef), &ll)
+						if err != nil {
+							fmt.Printf("Failed to import %s: %v\n", c.Args().First(), err)
+							os.Exit(1)
+						}
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						_, err = client.CreateLiveLesson(context.Background(), &ll)
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Println("OK")
+
+						//
 						return // TODO
 					},
 				},

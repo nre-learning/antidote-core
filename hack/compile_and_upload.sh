@@ -24,10 +24,10 @@ upload() {
 }
 
 mkdir -p $GOPATH/src/github.com/nre-learning
-git clone --branch $RELEASE_VERSION https://github.com/nre-learning/syringe $GOPATH/src/github.com/nre-learning/syringe
+git clone --branch $RELEASE_VERSION https://github.com/nre-learning/antidote-core $GOPATH/src/github.com/nre-learning/antidote-core
 
 # Make sure things compile and pass tests
-cd $GOPATH/src/github.com/nre-learning/syringe
+cd $GOPATH/src/github.com/nre-learning/antidote-core
 make
 
 if [ $? -ne 0 ]; then
@@ -44,7 +44,7 @@ fi
 
 cd -
 
-packages=("github.com/nre-learning/syringe/cmd/syringed" "github.com/nre-learning/syringe/cmd/syrctl")
+packages=("github.com/nre-learning/antidote-core/cmd/syringed" "github.com/nre-learning/antidote-core/cmd/syrctl")
 
 # https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 platforms=("windows/amd64" "windows/386" "darwin/amd64" "linux/amd64")

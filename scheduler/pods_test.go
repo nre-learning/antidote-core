@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	config "github.com/nre-learning/antidote-core/config"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

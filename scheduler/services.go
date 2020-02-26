@@ -3,7 +3,7 @@ package scheduler
 import (
 	"fmt"
 
-	"github.com/nre-learning/syringe/services"
+	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	config "github.com/nre-learning/syringe/config"
-	kubernetesCrdFake "github.com/nre-learning/syringe/pkg/client/clientset/versioned/fake"
+	config "github.com/nre-learning/antidote-core/config"
+	kubernetesCrdFake "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/fake"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

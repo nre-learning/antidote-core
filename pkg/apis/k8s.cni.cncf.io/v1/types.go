@@ -107,7 +107,7 @@ type NetworkList struct {
 	Items            []NetworkAttachmentDefinition `json:"items"`
 }
 
-// +k8s:deepcopy-gen:interfaces=github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1/v1.K8sV1Interfacez
+// +k8s:deepcopy-gen:interfaces=github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1/v1.K8sV1Interfacez
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // type K8sV1Interface struct{}

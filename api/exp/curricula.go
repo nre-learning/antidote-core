@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	log "github.com/sirupsen/logrus"
 )
 

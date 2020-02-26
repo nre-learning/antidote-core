@@ -1,18 +1,18 @@
 package main
 
 import (
-	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
+	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	api "github.com/nre-learning/syringe/api/exp"
-	config "github.com/nre-learning/syringe/config"
-	db "github.com/nre-learning/syringe/db"
-	"github.com/nre-learning/syringe/scheduler"
-	"github.com/nre-learning/syringe/services"
-	stats "github.com/nre-learning/syringe/stats"
+	api "github.com/nre-learning/antidote-core/api/exp"
+	config "github.com/nre-learning/antidote-core/config"
+	db "github.com/nre-learning/antidote-core/db"
+	"github.com/nre-learning/antidote-core/scheduler"
+	"github.com/nre-learning/antidote-core/services"
+	stats "github.com/nre-learning/antidote-core/stats"
 )
 
 func init() {

@@ -85,36 +85,6 @@
     }
   },
   "definitions": {
-    "expEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "ConfigurationType": {
-          "type": "string"
-        },
-        "AdditionalPorts": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "Presentations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expPresentation"
-          }
-        },
-        "Host": {
-          "type": "string"
-        }
-      }
-    },
     "expKillLiveLessonStatus": {
       "type": "object",
       "properties": {
@@ -127,10 +97,37 @@
     "expLBHealthCheckResponse": {
       "type": "object"
     },
+    "expLiveEndpoint": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "LivePresentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLivePresentation"
+          }
+        },
+        "Host": {
+          "type": "string"
+        }
+      }
+    },
     "expLiveLesson": {
       "type": "object",
       "properties": {
-        "Id": {
+        "ID": {
           "type": "string"
         },
         "LessonSlug": {
@@ -139,7 +136,7 @@
         "LiveEndpoints": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expEndpoint"
+            "$ref": "#/definitions/expLiveEndpoint"
           }
         },
         "LessonStage": {
@@ -153,12 +150,8 @@
           "type": "boolean",
           "format": "boolean"
         },
-        "LiveLessonStatus": {
-          "$ref": "#/definitions/expStatus"
-        },
-        "createdTime": {
-          "type": "string",
-          "format": "date-time"
+        "Status": {
+          "type": "string"
         },
         "LessonDiagram": {
           "type": "string"
@@ -206,7 +199,7 @@
     "expLiveLessons": {
       "type": "object",
       "properties": {
-        "items": {
+        "LiveLessons": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
@@ -214,7 +207,7 @@
         }
       }
     },
-    "expPresentation": {
+    "expLivePresentation": {
       "type": "object",
       "properties": {
         "Name": {
@@ -228,16 +221,6 @@
           "type": "string"
         }
       }
-    },
-    "expStatus": {
-      "type": "string",
-      "enum": [
-        "DONOTUSE",
-        "INITIAL_BOOT",
-        "CONFIGURATION",
-        "READY"
-      ],
-      "default": "DONOTUSE"
     }
   }
 }

@@ -1,19 +1,19 @@
 syntax = "proto3";
-package syringe.api.exp;
+package antidote.api.exp;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
-service SyringeInfoService {
+service AntidoteInfoService {
 
-  rpc GetSyringeInfo(google.protobuf.Empty) returns (SyringeInfo) {
+  rpc GetAntidoteInfo(google.protobuf.Empty) returns (AntidoteInfo) {
     option (google.api.http) = {
-        get: "/exp/syringeinfo"
+        get: "/exp/antidoteinfo"
       };
   }
 }
 
-message SyringeInfo {
+message AntidoteInfo {
   string buildSha = 1;
   string antidoteSha = 2;
   string imageVersion = 3;

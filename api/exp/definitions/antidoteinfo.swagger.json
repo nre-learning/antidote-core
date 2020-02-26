@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "syringeinfo.proto",
+    "title": "antidoteinfo.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -15,25 +15,25 @@
     "application/json"
   ],
   "paths": {
-    "/exp/syringeinfo": {
+    "/exp/antidoteinfo": {
       "get": {
-        "operationId": "GetSyringeInfo",
+        "operationId": "GetAntidoteInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expSyringeInfo"
+              "$ref": "#/definitions/expAntidoteInfo"
             }
           }
         },
         "tags": [
-          "SyringeInfoService"
+          "AntidoteInfoService"
         ]
       }
     }
   },
   "definitions": {
-    "expSyringeInfo": {
+    "expAntidoteInfo": {
       "type": "object",
       "properties": {
         "buildSha": {

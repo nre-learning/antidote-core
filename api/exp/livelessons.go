@@ -7,10 +7,10 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	copier "github.com/jinzhu/copier"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	db "github.com/nre-learning/syringe/db"
-	models "github.com/nre-learning/syringe/db/models"
-	"github.com/nre-learning/syringe/services"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	db "github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -126,7 +126,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LessonStage:   lp.LessonStage,
 		Busy:          true,
 		Status:        models.Status_INITIALIZED,
-		// CreatedTime:   time.Now(),
+		CreatedTime:   time.Now(),
 	})
 
 	req := services.LessonScheduleRequest{
@@ -135,15 +135,15 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LessonSlug:    lp.LessonSlug,
 		LiveLessonID:  newID,
 		LiveSessionID: lp.SessionId,
-		Created:       time.Now(),
+		Created:       time.Now(), // TODO(mierdin): Currently a lot of stuff uses this but you should probably remove it and point everything to the livelesson field
 	}
 	s.Requests <- req
 
 	return &pb.LiveLessonId{Id: newID}, nil
 }
 
-func initializeLiveEndpoints(lesson *models.Lesson) []*models.LiveEndpoint {
-	liveEps := []*models.LiveEndpoint{}
+func initializeLiveEndpoints(lesson *models.Lesson) map[string]*models.LiveEndpoint {
+	liveEps := map[string]*models.LiveEndpoint{}
 
 	for i := range lesson.Endpoints {
 		ep := lesson.Endpoints[i]
@@ -173,7 +173,7 @@ func initializeLiveEndpoints(lesson *models.Lesson) []*models.LiveEndpoint {
 
 		lep.Ports = unique(lep.Ports)
 
-		liveEps = append(liveEps, lep)
+		liveEps[lep.Name] = lep
 
 		// the flattened "Ports" property will be used by the scheduler to know what ports to open
 		// in the kubernetes service. Once it does this, the scheduler will update the "Host" property with
@@ -200,6 +200,18 @@ func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHe
 	return &pb.LBHealthCheckResponse{}, nil
 }
 
+// CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly for debugging
+// or test purposes. Use this at your own peril.
+func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
+
+	llDB := liveLessonAPIToDB(ll)
+
+	s.Db.CreateLiveLesson(llDB)
+
+	// the protobuf version doesn't have a timestamp so be sure to set this here on the db side.
+	return &empty.Empty{}, nil
+}
+
 // GetLiveLesson retrieves a single LiveLesson via ID
 func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
 
@@ -214,8 +226,9 @@ func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) 
 		return nil, errors.New("livelesson not found")
 	}
 
+	// TODO(mierdin): Is this the right thing to do?
 	if llDb.Error {
-		return nil, errors.New("Livelesson encountered errors during provisioning. See syringe logs")
+		return nil, errors.New("Livelesson encountered errors during provisioning. See antidote logs")
 	}
 
 	return liveLessonDBToAPI(llDb), nil
@@ -223,7 +236,19 @@ func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) 
 
 // ListLiveLessons returns a list of LiveLessons present in the data store
 func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
-	return &pb.LiveLessons{}, nil
+
+	lls, err := s.Db.ListLiveLessons()
+	if err != nil {
+		return nil, errors.New("Unable to list livelessons")
+	}
+
+	pblls := map[string]*pb.LiveLesson{}
+
+	for _, ll := range lls {
+		pblls[ll.ID] = liveLessonDBToAPI(&ll)
+	}
+
+	return &pb.LiveLessons{LiveLessons: pblls}, nil
 }
 
 // KillLiveLesson allows a client to request that a livelesson is killed, meaning the underlying
@@ -249,10 +274,38 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 
 // liveLessonDBToAPI translates a single LiveLesson from the `db` package models into the
 // api package's equivalent
-func liveLessonDBToAPI(dbLiveLesson *models.LiveLesson) *pb.LiveLesson {
-	liveLessonAPI := &pb.LiveLesson{}
-	copier.Copy(&liveLessonAPI, dbLiveLesson)
-	return liveLessonAPI
+func liveLessonDBToAPI(dbLL *models.LiveLesson) *pb.LiveLesson {
+
+	// Copy the majority of like-named fields
+	var llAPI pb.LiveLesson
+	copier.Copy(&llAPI, dbLL)
+
+	// Handle the one-offs
+	llAPI.Status = string(dbLL.Status)
+
+	eps := map[string]*pb.LiveEndpoint{}
+
+	for k, v := range dbLL.LiveEndpoints {
+		var lep pb.LiveEndpoint
+		copier.Copy(&lep, v)
+
+		for _, c := range v.Presentations {
+
+			var lp pb.LivePresentation
+
+			lp.Name = c.Name
+			lp.Type = string(c.Type)
+			lp.Port = c.Port
+
+			lep.LivePresentations = append(lep.LivePresentations, &lp)
+		}
+
+		eps[k] = &lep
+	}
+
+	llAPI.LiveEndpoints = eps
+
+	return &llAPI
 }
 
 // liveLessonAPIToDB translates a single LiveLesson from the `api` package models into the

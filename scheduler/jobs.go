@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	models "github.com/nre-learning/syringe/db/models"
-	"github.com/nre-learning/syringe/services"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types

@@ -1,10 +1,9 @@
 syntax = "proto3";
-package syringe.api.exp;
+package antidote.api.exp;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "lesson.proto";
 
 service LiveLessonsService {
 
@@ -32,6 +31,8 @@ service LiveLessonsService {
   // THESE ARE SENSITIVE - do not expose via REST
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {}
   rpc KillLiveLesson(LiveLessonId) returns (KillLiveLessonStatus) {}
+  rpc CreateLiveLesson(LiveLesson) returns (google.protobuf.Empty) {}
+
 }
 
 message LBHealthCheckResponse {}
@@ -40,35 +41,49 @@ message Session {
   string id = 1;
 }
 
-enum Status {
-  DONOTUSE = 0;   // Protobuf doesn't encode the default value. Throwing this one away.
-  INITIAL_BOOT = 1;
-  CONFIGURATION = 2;
-  READY = 3;
+// enum Status {
+//   DONOTUSE = 0;   // Protobuf doesn't encode the default value. Throwing this one away.
+//   INITIAL_BOOT = 1;
+//   CONFIGURATION = 2;
+//   READY = 3;
+// }
+
+message LiveEndpoint {
+  string Name = 1;
+  string Image = 2;
+  repeated int32 Ports = 4;
+  repeated LivePresentation LivePresentations = 5;
+  string Host = 6;
 }
 
+message LivePresentation {
+  string Name = 1;
+  int32 Port = 2;
+  string Type = 3;
+}
+
+
 message LiveLesson {
-  string Id = 1;
+  string ID = 1;
   string LessonSlug = 2;
 
-  map <string, Endpoint> LiveEndpoints  = 3;
+  map <string, LiveEndpoint> LiveEndpoints  = 3;
 
   int32 LessonStage = 5;
   string LabGuide = 6;
   bool JupyterLabGuide = 7;
 
-  Status LiveLessonStatus = 8;
+  string Status = 8;
 
-  google.protobuf.Timestamp createdTime = 9;
-  string LessonDiagram = 10;
-  string LessonVideo = 11;
-  bool Error = 12;
-  int32 HealthyTests = 13;
-  int32 TotalTests = 14;
+  string LessonDiagram = 9;
+  string LessonVideo = 10;
+  bool Error = 11;
+  int32 HealthyTests = 12;
+  int32 TotalTests = 13;
 }
 
 message LiveLessons {
-  map<string, LiveLesson> items = 1;
+  map<string, LiveLesson> LiveLessons = 1;
 }
 
 message LiveLessonRequest {

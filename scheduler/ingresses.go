@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 
 	// Kubernetes types
 	v1beta1 "k8s.io/api/extensions/v1beta1"

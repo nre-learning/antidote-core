@@ -6,8 +6,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	models "github.com/nre-learning/syringe/db/models"
-	"github.com/nre-learning/syringe/services"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 )
 
 // TODO(mierdin) This needs to be removed once the influx stuff is re-thought
@@ -207,7 +207,7 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 			Image: fmt.Sprintf("antidotelabs/jupyter:%s", s.BuildInfo["imageVersion"]),
 			Ports: []int32{8888},
 		}
-		ll.LiveEndpoints = append(ll.LiveEndpoints, jupyterEp)
+		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
 
 		_, err := s.createIngress(
 			ns.ObjectMeta.Name,

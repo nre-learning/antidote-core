@@ -7,8 +7,8 @@ import (
 	copier "github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	models "github.com/nre-learning/syringe/db/models"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // ListLessons returns a list of Lessons present in the data store

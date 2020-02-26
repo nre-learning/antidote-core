@@ -85,7 +85,7 @@ required = [
   name = "github.com/sirupsen/logrus"
   branch = "master"
 
-# github.com/nre-learning/syringe/vendor/google.golang.org/grpc/internal/channelz
+# github.com/nre-learning/antidote-core/vendor/google.golang.org/grpc/internal/channelz
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:41:15: undefined: unix.GetsockoptLinger
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:44:15: undefined: unix.GetsockoptTimeval
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:47:15: undefined: unix.GetsockoptTimeval

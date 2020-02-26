@@ -5,15 +5,15 @@ package db
 // as a home for all curriculum resources with strong relationships to that entity, and as a way of giving
 // more information for that entity.
 type Collection struct {
-	Slug             string   `json:"Id,omitempty" yaml:"id,omitempty"`
-	Title            string   `json:"Title,omitempty" yaml:"title,omitempty"`
-	Image            string   `json:"Image,omitempty" yaml:"image,omitempty"`
-	Website          string   `json:"Website,omitempty" yaml:"website,omitempty"`
-	ContactEmail     string   `json:"ContactEmail,omitempty" yaml:"contactEmail,omitempty"`
-	BriefDescription string   `json:"BriefDescription,omitempty" yaml:"briefDescription,omitempty"`
-	LongDescription  string   `json:"LongDescription,omitempty" yaml:"longDescription,omitempty"`
-	Type             string   `json:"Type,omitempty" yaml:"type,omitempty"`
-	Tier             string   `json:"Tier,omitempty" yaml:"tier,omitempty"`
-	CollectionFile   string   `json:"CollectionFile,omitempty" yaml:"collectionFile,omitempty"`
-	Lessons          []string `json:"Lessons,omitempty" yaml:"lessons,omitempty"`
+	Slug             string   `json:"Id" yaml:"id"`
+	Title            string   `json:"Title" yaml:"title"`
+	Image            string   `json:"Image" yaml:"image"`
+	Website          string   `json:"Website" yaml:"website"`
+	ContactEmail     string   `json:"ContactEmail" yaml:"contactEmail"`
+	BriefDescription string   `json:"BriefDescription" yaml:"briefDescription"`
+	LongDescription  string   `json:"LongDescription" yaml:"longDescription"`
+	Type             string   `json:"Type" yaml:"type"`
+	Tier             string   `json:"Tier" yaml:"tier"`
+	CollectionFile   string   `json:"CollectionFile" yaml:"collectionFile"`
+	Lessons          []string `json:"Lessons" yaml:"lessons"`
 }

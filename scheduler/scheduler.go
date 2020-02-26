@@ -13,13 +13,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
-	config "github.com/nre-learning/syringe/config"
-	"github.com/nre-learning/syringe/db"
-	models "github.com/nre-learning/syringe/db/models"
-	"github.com/nre-learning/syringe/services"
+	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 
 	// Custom Network CRD Types
-	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	networkcrd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
@@ -27,8 +27,8 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	// Kubernetes clients
-	crdclient "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
-	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
+	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
+	kubernetesCrd "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )

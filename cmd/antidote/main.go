@@ -7,8 +7,8 @@ import (
 	"github.com/fatih/color"
 	cli "github.com/urfave/cli"
 
-	ingestors "github.com/nre-learning/syringe/db/ingestors"
-	models "github.com/nre-learning/syringe/db/models"
+	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 func main() {

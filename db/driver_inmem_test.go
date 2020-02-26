@@ -3,7 +3,7 @@ package db
 import (
 	"testing"
 
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 func TestLessonsCRUD(t *testing.T) {

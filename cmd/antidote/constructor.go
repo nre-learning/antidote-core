@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	models "github.com/nre-learning/syringe/db/models"
+	models "github.com/nre-learning/antidote-core/db/models"
 	"gopkg.in/yaml.v2"
 )
 
