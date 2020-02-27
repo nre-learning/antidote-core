@@ -823,8 +823,15 @@ Livesession = `{
     "expLiveSession": {
       "type": "object",
       "properties": {
-        "Id": {
+        "ID": {
           "type": "string"
+        },
+        "SourceIP": {
+          "type": "string"
+        },
+        "Persistent": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },

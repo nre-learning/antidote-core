@@ -19,7 +19,9 @@ service LiveSessionsService {
 }
 
 message LiveSession {
-  string Id = 1;
+  string ID = 1;
+  string SourceIP = 2;
+  bool Persistent = 3;
 }
 
 message LiveSessions {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	influx "github.com/influxdata/influxdb/client/v2"
+	nats "github.com/nats-io/nats.go"
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	"github.com/nre-learning/antidote-core/services"
@@ -14,21 +15,26 @@ import (
 
 // AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
 type AntidoteStats struct {
-	Reqs   chan services.LessonScheduleRequest
+	NEC    *nats.EncodedConn
 	Config config.AntidoteConfig
 	Db     db.DataManager
 }
 
 // Start starts the AntidoteStats service
 func (s *AntidoteStats) Start() error {
+
 	// Begin periodically exporting metrics to TSDB
 	go s.startTSDBExport()
 
-	// Listen for finished lessons and export provisioned time
-	for {
-		req := <-s.Reqs
-		s.recordProvisioningTime(req)
-	}
+	s.NEC.Subscribe("antidote.lsr.completed", func(lsr services.LessonScheduleRequest) {
+		s.recordProvisioningTime(lsr)
+	})
+
+	// Wait forever
+	ch := make(chan struct{})
+	<-ch
+
+	return nil
 }
 
 func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleRequest) error {

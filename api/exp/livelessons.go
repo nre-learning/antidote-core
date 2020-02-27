@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -31,6 +32,13 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return nil, errors.New(msg)
 	}
 
+	_, err := s.Db.GetLiveSession(lp.SessionId)
+	if err != nil {
+		msg := fmt.Sprintf("Invalid session ID %s", lp.SessionId)
+		log.Error(msg)
+		return nil, errors.New(msg)
+	}
+
 	if lp.LessonSlug == "" {
 		msg := "Lesson Slug cannot be nil"
 		log.Error(msg)
@@ -45,7 +53,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 	lesson, err := s.Db.GetLesson(lp.LessonSlug)
 	if err != nil {
-		log.Errorf("Couldn't find lesson slug %d", lp.LessonSlug)
+		log.Errorf("Couldn't find lesson slug '%s'", lp.LessonSlug)
 		return nil, errors.New("Failed to find referenced lesson slug")
 	}
 
@@ -99,7 +107,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 				LiveSessionID: lp.SessionId,
 				LiveLessonID:  existingLL.ID,
 			}
-			s.Requests <- req
+			s.NEC.Publish("antidote.lsr.incoming", req)
 
 		} else {
 
@@ -110,7 +118,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 				LessonSlug:    lp.LessonSlug,
 				LiveSessionID: lp.SessionId,
 			}
-			s.Requests <- req
+			s.NEC.Publish("antidote.lsr.incoming", req)
 		}
 
 		return &pb.LiveLessonId{Id: existingLL.ID}, nil
@@ -137,7 +145,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LiveSessionID: lp.SessionId,
 		Created:       time.Now(), // TODO(mierdin): Currently a lot of stuff uses this but you should probably remove it and point everything to the livelesson field
 	}
-	s.Requests <- req
+	s.NEC.Publish("antidote.lsr.incoming", req)
 
 	return &pb.LiveLessonId{Id: newID}, nil
 }
@@ -262,10 +270,10 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 
 	// Send deletion request to scheduler. It will take care of sending the appropriate delete commands to
 	// kubernetes, and if successful, removing the livelesson state.
-	s.Requests <- services.LessonScheduleRequest{
+	s.NEC.Publish("antidote.lsr.incoming", services.LessonScheduleRequest{
 		Operation:    services.OperationType_DELETE,
 		LiveLessonID: ll.ID,
-	}
+	})
 
 	// TODO(mierdin): May want to clarify that this is a successful receipt of the kill command - not
 	//that it was actually killed.

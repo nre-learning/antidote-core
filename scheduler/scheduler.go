@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
+	nats "github.com/nats-io/nats.go"
 	config "github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -51,8 +52,7 @@ type AntidoteScheduler struct {
 	KubeClient    *kubernetes.Clientset
 	KubeClientExt *kubernetesExt.Clientset
 	KubeClientCrd *crdclient.Clientset
-	Requests      chan services.LessonScheduleRequest
-	Results       chan services.LessonScheduleRequest
+	NEC           *nats.EncodedConn
 	Config        config.AntidoteConfig
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
@@ -116,19 +116,26 @@ func (s *AntidoteScheduler) Start() error {
 		services.OperationType_MODIFY: s.handleRequestMODIFY,
 		services.OperationType_BOOP:   s.handleRequestBOOP,
 	}
-	for {
-		newRequest := <-s.Requests
 
+	// Handling incoming LSRs
+	s.NEC.Subscribe("antidote.lsr.incoming", func(lsr services.LessonScheduleRequest) {
 		log.WithFields(log.Fields{
-			"Operation":  newRequest.Operation,
-			"LiveLesson": newRequest.LiveLessonID,
-			"Stage":      newRequest.Stage,
+			"Operation":  lsr.Operation,
+			"LiveLesson": lsr.LiveLessonID,
+			"Stage":      lsr.Stage,
 		}).Debug("Scheduler received new request. Sending to handle function.")
 
-		go func() {
-			handlers[newRequest.Operation].(func(services.LessonScheduleRequest))(newRequest)
-		}()
-	}
+		// TODO(mierdin): I **believe** this function already runs async, so there's no need to run
+		// the below in a goroutine, but should verify this.
+		// go func() {
+		handlers[lsr.Operation].(func(services.LessonScheduleRequest))(lsr)
+		// }()
+	})
+
+	// Wait forever
+	ch := make(chan struct{})
+	<-ch
+
 	return nil
 }
 

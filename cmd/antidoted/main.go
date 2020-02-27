@@ -7,11 +7,12 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	nats "github.com/nats-io/nats.go"
 	api "github.com/nre-learning/antidote-core/api/exp"
 	config "github.com/nre-learning/antidote-core/config"
 	db "github.com/nre-learning/antidote-core/db"
+	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	"github.com/nre-learning/antidote-core/scheduler"
-	"github.com/nre-learning/antidote-core/services"
 	stats "github.com/nre-learning/antidote-core/stats"
 )
 
@@ -35,17 +36,17 @@ func main() {
 
 	// Initialize DataManager
 	adb := db.NewADMInMem()
+	ingestors.ImportCurriculum(adb, config)
 
-	// Because channels are synchronous, and one-to-one, we need one channel for each unique
-	// communication path. Hopefully we can revisit this soon and have more of a true one-to-many solution
-	// that doesn't require an external server like NATS, but for now this works.
-	eb := services.NewEventBus()
-	// This channel allows the API service to send requests to the scheduler
-	apiToScheduler := make(chan services.LessonScheduleRequest)
-	eb.Subscribe("lesson.requested", apiToScheduler)
-	// This channel allows the scheduler service to send updates to the stats service
-	schedulerToStats := make(chan services.LessonScheduleRequest)
-	eb.Subscribe("lesson.started", schedulerToStats)
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		panic(err)
+	}
+	ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
+	if err != nil {
+		panic(err)
+	}
+	defer ec.Close()
 
 	if config.IsServiceEnabled("scheduler") {
 		var kubeConfig *rest.Config
@@ -71,8 +72,7 @@ func main() {
 			KubeClient:    cs,
 			KubeClientExt: csExt,
 			KubeClientCrd: clientCrd,
-			Requests:      apiToScheduler,
-			Results:       schedulerToStats,
+			NEC:           ec,
 			Config:        config,
 			Db:            adb,
 			BuildInfo:     buildInfo,
@@ -90,8 +90,8 @@ func main() {
 		apiServer := &api.AntidoteAPI{
 			BuildInfo: buildInfo,
 			Db:        adb,
+			NEC:       ec,
 			Config:    config,
-			Requests:  apiToScheduler,
 		}
 		go func() {
 			err = apiServer.Start()
@@ -103,9 +103,9 @@ func main() {
 
 	if config.IsServiceEnabled("stats") {
 		stats := &stats.AntidoteStats{
-			Reqs:   schedulerToStats,
 			Config: config,
 			Db:     adb,
+			NEC:    ec,
 		}
 		go func() {
 			err = stats.Start()

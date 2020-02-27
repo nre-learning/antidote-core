@@ -120,6 +120,8 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	if err != nil {
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
+
+	s.NEC.Publish("antidote.lsr.completed", newRequest)
 }
 
 func (s *AntidoteScheduler) handleRequestMODIFY(newRequest services.LessonScheduleRequest) {

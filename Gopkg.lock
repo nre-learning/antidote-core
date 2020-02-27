@@ -29,14 +29,6 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:743f8008a7fed04ef0d52261aef346766bbd5b3e360b90296d85289f8ef5c2e2"
-  name = "github.com/envoyproxy/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "UT"
-  revision = "9eff07ddfcb4001aa1aab280648153f46e1a8ddc"
-  version = "v0.1.0"
-
-[[projects]]
   digest = "1:ac425d784b13d49b37a5bbed3ce022677f8f3073b216f05d6adcb9303e27fa0f"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
@@ -265,6 +257,42 @@
   pruneopts = "UT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:9b8ee267e79a1730cde2e326cc53035913fce52ceef48142c24f3a15e3c65cb3"
+  name = "github.com/nats-io/jwt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0c3fc7aed8bb2534e7bfdf0968a75890402d48cd"
+  version = "v0.3.2"
+
+[[projects]]
+  digest = "1:fabb58b7de2951b05fbe8e1f7c98e449f650883ac15763aeb54ab9afe7be20de"
+  name = "github.com/nats-io/nats.go"
+  packages = [
+    ".",
+    "encoders/builtin",
+    "util",
+  ]
+  pruneopts = "UT"
+  revision = "6063d679d23ae5b3edb4030d5e89a6e30ea53bc6"
+  version = "v1.9.1"
+
+[[projects]]
+  digest = "1:229998a2544a3cc03959600ac0869eb2e0b6c2ec7a8999ff8dd98e5aa6d35d62"
+  name = "github.com/nats-io/nkeys"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f1930e19b436412202ab130a733187cc6f40ba7e"
+  version = "v0.1.3"
+
+[[projects]]
+  digest = "1:599f3202ce0a754144ddc4be4c6df9c6ab27b1d722a63ede6b2e0c3a2cc338a8"
+  name = "github.com/nats-io/nuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4b96681fa6d28dd0ab5fe79bac63b3a493d9ee94"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
@@ -832,24 +860,20 @@
   input-imports = [
     "github.com/alecthomas/jsonschema",
     "github.com/cpuguy83/go-md2man",
-    "github.com/envoyproxy/protoc-gen-validate/validate",
     "github.com/fatih/color",
     "github.com/ghodss/yaml",
     "github.com/go-pg/pg",
     "github.com/go-pg/pg/orm",
     "github.com/golang/glog",
     "github.com/golang/protobuf/descriptor",
-    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
-    "github.com/golang/protobuf/protoc-gen-go/descriptor",
-    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/empty",
-    "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/gorilla/handlers",
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
     "github.com/jinzhu/copier",
+    "github.com/nats-io/nats.go",
     "github.com/philips/go-bindata-assetfs",
     "github.com/russross/blackfriday",
     "github.com/sirupsen/logrus",

@@ -1,24 +1,25 @@
 package db
 
-// ImportCurriculum provides a single function for anything within Syringe to load a Curriculum
-// into memory. It goes through the logic of importing and validating everything within a curriculum,
-// including lessons, collections, etc. This allows both syrctl and the syringe scheduler to simply
-// load things exactly the same way every time.
-// func ImportCurriculum(config *config.SyringeConfig) (*pb.Curriculum, error) {
+import (
+	"github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+)
 
-// 	curriculum := &pb.Curriculum{}
+// ImportCurriculum provides a single function for all curriculum resources to be imported and placed
+// within the backing data store
+func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 
-// 	collections, err := ImportCollections(config)
-// 	if err != nil {
-// 		log.Warn(err)
-// 	}
-// 	curriculum.Collections = collections
+	// collections, err := ReadCollections(config.CurriculumDir)
+	// if err != nil {
+	// 	// log.Warn(err)
+	// }
+	// dm.InsertCollections(collections)
 
-// 	lessons, err := ImportLessons(config)
-// 	if err != nil {
-// 		log.Warn(err)
-// 	}
-// 	curriculum.Lessons = lessons
+	lessons, err := ReadLessons(config.CurriculumDir)
+	if err != nil {
+		// log.Warn(err)
+	}
+	dm.InsertLessons(lessons)
 
-// 	return curriculum, nil
-// }
+	return nil
+}

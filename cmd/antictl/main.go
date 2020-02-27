@@ -163,6 +163,38 @@ func main() {
 			},
 		},
 		{
+			Name:    "livesession",
+			Aliases: []string{"ll"},
+			Usage:   "Examine/modify running LiveSessions",
+			Subcommands: []cli.Command{
+				{
+					Name:  "list",
+					Usage: "List all LiveSessions",
+					Action: func(c *cli.Context) {
+
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						liveSessions, err := client.ListLiveSessions(context.Background(), &empty.Empty{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						llJSON, _ := json.Marshal(liveSessions)
+						fmt.Println(string(llJSON))
+
+					},
+				},
+			},
+		},
+		{
 			Name:    "livelesson",
 			Aliases: []string{"ll"},
 			Usage:   "Examine/modify running LiveLessons",

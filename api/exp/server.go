@@ -11,10 +11,10 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	nats "github.com/nats-io/nats.go"
 	swag "github.com/nre-learning/antidote-core/api/exp/swagger"
 	config "github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
-	"github.com/nre-learning/antidote-core/services"
 
 	"github.com/nre-learning/antidote-core/pkg/ui/data/swagger"
 
@@ -32,8 +32,8 @@ import (
 type AntidoteAPI struct {
 	Db     db.DataManager
 	Config config.AntidoteConfig
+	NEC    *nats.EncodedConn
 
-	Requests  chan services.LessonScheduleRequest
 	BuildInfo map[string]string
 }
 
@@ -50,6 +50,7 @@ func (apiServer *AntidoteAPI) Start() error {
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
+	pb.RegisterLiveSessionsServiceServer(grpcServer, apiServer)
 	pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
 	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
@@ -69,6 +70,10 @@ func (apiServer *AntidoteAPI) Start() error {
 
 	// Register GRPC-gateway (HTTP) endpoints
 	err = gw.RegisterLiveLessonsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
+	err = gw.RegisterLiveSessionsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -93,6 +98,9 @@ func (apiServer *AntidoteAPI) Start() error {
 	mux := http.NewServeMux()
 	mux.Handle("/", gwmux)
 	mux.HandleFunc("/livelesson.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Livelesson))
+	})
+	mux.HandleFunc("/livesession.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Livelesson))
 	})
 	mux.HandleFunc("/lesson.json", func(w http.ResponseWriter, req *http.Request) {
