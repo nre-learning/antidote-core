@@ -183,6 +183,14 @@
   version = "v0.5.3"
 
 [[projects]]
+  digest = "1:78d28d5b84a26159c67ea51996a230da4bc07cac648adaae1dfb5fc0ec8e40d3"
+  name = "github.com/imdario/mergo"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "1afb36080aec31e0d1528973ebe6721b191b0369"
+  version = "v0.3.8"
+
+[[projects]]
   digest = "1:65b0a07f85f7b5cc019c26775efc278a155a5dea0a8aa617c980e8308d16bc55"
   name = "github.com/influxdata/influxdb"
   packages = [
@@ -693,7 +701,7 @@
   version = "kubernetes-1.13.3"
 
 [[projects]]
-  digest = "1:3673cd8225b27f1b7af128f3f821eccc5be6ef405d13195b4fad1180673faaf1"
+  digest = "1:92521c8ced8ca83a1e6be715c321ca4f814669a19d91b0ec83e2e3a039b098eb"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -773,8 +781,12 @@
     "rest",
     "rest/watch",
     "testing",
+    "tools/auth",
     "tools/cache",
+    "tools/clientcmd",
     "tools/clientcmd/api",
+    "tools/clientcmd/api/latest",
+    "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/pager",
     "tools/reference",
@@ -783,6 +795,7 @@
     "util/cert",
     "util/connrotation",
     "util/flowcontrol",
+    "util/homedir",
     "util/integer",
     "util/retry",
   ]
@@ -884,6 +897,7 @@
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
     "gopkg.in/yaml.v2",
     "k8s.io/api/batch/v1",
@@ -911,6 +925,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator/cmd/client-gen",
   ]

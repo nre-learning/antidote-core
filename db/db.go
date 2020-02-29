@@ -44,14 +44,30 @@ type DataManager interface {
 	CreateLiveLesson(*models.LiveLesson) error
 	ListLiveLessons() (map[string]models.LiveLesson, error)
 	GetLiveLesson(string) (*models.LiveLesson, error)
-	UpdateLiveLesson(*models.LiveLesson) error
+	/*
+		I started with a basic UpdateLiveLesson function, and then in the code, I'd first call GetLiveLesson,
+		make some modifications, and then run UpdateLiveLesson. The problem is, if there are any changes to the
+		livelesson between these two points in time, I'd overwrite those changes inadvertently.
+
+		So, I decided to try with these specific update functions that are designed to update a specific field.
+		This way you don't have to worry about the specific state, and you update only the field you intend.
+		I thought about maybe changing the update function to take in a field name by string but that felt
+		sinful in the face of strong typing, so I instead opted for the safe option and just created unique functions
+		for each field that fits a use case.
+
+		The first param is the livelesson ID, and the second is the appropriate value
+	*/
+	UpdateLiveLessonStage(string, int32) error
+	UpdateLiveLessonBusy(string, bool) error
+	UpdateLiveLessonStatus(string, models.LiveLessonStatus) error
+	UpdateLiveLessonError(string, bool) error
 	DeleteLiveLesson(string) error
 
 	// LiveSessions
 	CreateLiveSession(*models.LiveSession) error
 	ListLiveSessions() (map[string]models.LiveSession, error)
 	GetLiveSession(string) (*models.LiveSession, error)
-	UpdateLiveSession(*models.LiveSession) error
+	UpdateLiveSessionA(*models.LiveSession) error //TODO(mierdin): delete if unused
 	DeleteLiveSession(string) error
 }
 

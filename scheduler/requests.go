@@ -36,9 +36,8 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	}
 
 	log.Debugf("Bootstrap complete for livelesson %s. Moving into BOOTING status", newRequest.LiveLessonID)
-	ll.Status = models.Status_BOOTING
-	ll.LessonStage = newRequest.Stage
-	err = s.Db.UpdateLiveLesson(ll)
+	// ll.LessonStage = newRequest.Stage ??
+	err = s.Db.UpdateLiveLessonStatus(ll.ID, models.Status_BOOTING)
 	if err != nil {
 		log.Errorf("Error updating livelesson: %v", err)
 		return
@@ -80,8 +79,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 
 	if !success {
 		log.Errorf("Timeout waiting for livelesson to become reachable", ll.ID)
-		ll.Error = true
-		err = s.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLessonError(ll.ID, true)
 		if err != nil {
 			log.Errorf("Error updating livelesson: %v", err)
 		}
@@ -89,8 +87,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	}
 
 	log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.LiveLessonID)
-	ll.Status = models.Status_CONFIGURATION
-	err = s.Db.UpdateLiveLesson(ll)
+	err = s.Db.UpdateLiveLessonStatus(ll.ID, models.Status_CONFIGURATION)
 	if err != nil {
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
@@ -99,8 +96,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	err = s.configureStuff(nsName, ll, newRequest)
 	if err != nil {
 		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
-		ll.Error = true
-		err = s.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLessonError(ll.ID, true)
 		if err != nil {
 			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}
@@ -115,8 +111,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	}
 
 	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
-	ll.Status = models.Status_READY
-	err = s.Db.UpdateLiveLesson(ll)
+	err = s.Db.UpdateLiveLessonStatus(ll.ID, models.Status_READY)
 	if err != nil {
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
@@ -138,8 +133,7 @@ func (s *AntidoteScheduler) handleRequestMODIFY(newRequest services.LessonSchedu
 	err = s.configureStuff(nsName, ll, newRequest)
 	if err != nil {
 		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
-		ll.Error = true
-		err = s.Db.UpdateLiveLesson(ll)
+		err = s.Db.UpdateLiveLessonError(ll.ID, true)
 		if err != nil {
 			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 		}

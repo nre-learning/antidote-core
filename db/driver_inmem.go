@@ -227,14 +227,47 @@ func (a *ADMInMem) GetLiveLesson(id string) (*models.LiveLesson, error) {
 	return nil, fmt.Errorf("Unable to find liveLesson %s", id)
 }
 
-// UpdateLiveLesson updates an existing LiveLesson in-place within the in-memory data store, by ID
-func (a *ADMInMem) UpdateLiveLesson(ll *models.LiveLesson) error {
-	if _, ok := a.liveLessons[ll.ID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", ll.ID)
+// UpdateLiveLessonStage updates a livelesson's LessonStage property
+func (a *ADMInMem) UpdateLiveLessonStage(llID string, stage int32) error {
+	if _, ok := a.liveLessons[llID]; !ok {
+		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
 	}
 	a.liveLessonsMu.Lock()
 	defer a.liveLessonsMu.Unlock()
-	a.liveLessons[ll.ID] = ll
+	a.liveLessons[llID].CurrentStage = stage
+	return nil
+}
+
+// UpdateLiveLessonBusy updates a livelesson's Busy property
+func (a *ADMInMem) UpdateLiveLessonBusy(llID string, busy bool) error {
+	if _, ok := a.liveLessons[llID]; !ok {
+		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+	}
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	a.liveLessons[llID].Busy = busy
+	return nil
+}
+
+// UpdateLiveLessonStatus updates a livelesson's Status property
+func (a *ADMInMem) UpdateLiveLessonStatus(llID string, status models.LiveLessonStatus) error {
+	if _, ok := a.liveLessons[llID]; !ok {
+		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+	}
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	a.liveLessons[llID].Status = status
+	return nil
+}
+
+// UpdateLiveLessonError updates a livelesson's Error property
+func (a *ADMInMem) UpdateLiveLessonError(llID string, err bool) error {
+	if _, ok := a.liveLessons[llID]; !ok {
+		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+	}
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	a.liveLessons[llID].Error = err
 	return nil
 }
 
@@ -277,7 +310,7 @@ func (a *ADMInMem) GetLiveSession(id string) (*models.LiveSession, error) {
 }
 
 // UpdateLiveSession updates an existing LiveSession in-place within the in-memory data store, by ID
-func (a *ADMInMem) UpdateLiveSession(ls *models.LiveSession) error {
+func (a *ADMInMem) UpdateLiveSessionA(ls *models.LiveSession) error {
 	if _, ok := a.liveSessions[ls.ID]; !ok {
 		return fmt.Errorf("LiveSession %s doesn't exist; cannot update", ls.ID)
 	}

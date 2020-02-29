@@ -85,19 +85,19 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			return &pb.LiveLessonId{}, errors.New("Lesson is in errored state. Please try again later")
 		}
 
-		// TODO(mierdin): Is this the right place for this?
+		// TODO(mierdin): Is this the right place for this? And is this being un-set somewhere?
 		if existingLL.Busy {
 			return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy")
 		}
 
 		// If the incoming requested LessonStage is different from the current livelesson state,
 		// tell the scheduler to change the state
-		if existingLL.LessonStage != lp.LessonStage {
+		if existingLL.CurrentStage != lp.LessonStage {
 
 			// Update state
-			existingLL.LessonStage = lp.LessonStage
-			existingLL.Busy = true
-			s.Db.UpdateLiveLesson(existingLL)
+			// TODO(Mierdin): Handle errors here
+			s.Db.UpdateLiveLessonBusy(existingLL.ID, true)
+			s.Db.UpdateLiveLessonStage(existingLL.ID, lp.LessonStage)
 
 			// Request the schedule move forward with stage change activities
 			req := services.LessonScheduleRequest{
@@ -130,8 +130,9 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		ID:            newID,
 		SessionID:     lp.SessionId,
 		LessonSlug:    lp.LessonSlug,
+		GuideContents: lesson.Stages[lp.LessonStage].GuideContents,
 		LiveEndpoints: initializeLiveEndpoints(lesson),
-		LessonStage:   lp.LessonStage,
+		CurrentStage:  lp.LessonStage,
 		Busy:          true,
 		Status:        models.Status_INITIALIZED,
 		CreatedTime:   time.Now(),
@@ -211,12 +212,11 @@ func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHe
 // CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly for debugging
 // or test purposes. Use this at your own peril.
 func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
-
-	llDB := liveLessonAPIToDB(ll)
-
-	s.Db.CreateLiveLesson(llDB)
-
-	// the protobuf version doesn't have a timestamp so be sure to set this here on the db side.
+	err := s.Db.CreateLiveLesson(liveLessonAPIToDB(ll))
+	if err != nil {
+		return nil, err
+	}
+	// TODO(mierdin) the protobuf version doesn't have a timestamp so be sure to set this here on the db side.
 	return &empty.Empty{}, nil
 }
 
@@ -320,6 +320,25 @@ func liveLessonDBToAPI(dbLL *models.LiveLesson) *pb.LiveLesson {
 // `db` package's equivalent
 func liveLessonAPIToDB(pbLiveLesson *pb.LiveLesson) *models.LiveLesson {
 	liveLessonDB := &models.LiveLesson{}
-	copier.Copy(&pbLiveLesson, liveLessonDB)
+	copier.Copy(&liveLessonDB, pbLiveLesson)
+
+	liveLessonDB.LiveEndpoints = map[string]*models.LiveEndpoint{}
+
+	for _, lep := range pbLiveLesson.LiveEndpoints {
+
+		lepDB := &models.LiveEndpoint{}
+
+		copier.Copy(&lepDB, lep)
+
+		for _, lp := range lep.LivePresentations {
+			lpDB := &models.LivePresentation{}
+			copier.Copy(&lpDB, lp)
+			lepDB.Presentations = append(lepDB.Presentations, lpDB)
+		}
+
+		liveLessonDB.LiveEndpoints[lep.Name] = lepDB
+
+	}
+
 	return liveLessonDB
 }

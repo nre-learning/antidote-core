@@ -63,21 +63,24 @@ message LivePresentation {
 
 message LiveLesson {
   string ID = 1;
-  string LessonSlug = 2;
+  string SessionID = 2;
+  string LessonSlug = 3;
 
-  map <string, LiveEndpoint> LiveEndpoints  = 3;
+  map <string, LiveEndpoint> LiveEndpoints  = 4;
 
-  int32 LessonStage = 5;
-  string LabGuide = 6;
-  bool JupyterLabGuide = 7;
+  int32 CurrentStage = 5;
+  string GuideContents = 6;
+  string GuideType = 7;
 
   string Status = 8;
 
-  string LessonDiagram = 9;
-  string LessonVideo = 10;
-  bool Error = 11;
-  int32 HealthyTests = 12;
-  int32 TotalTests = 13;
+  bool Error = 9;
+  int32 HealthyTests = 10;
+  int32 TotalTests = 11;
+
+  string Diagram = 12;
+  string Video = 13;
+  string StageVideo = 14;
 }
 
 message LiveLessons {

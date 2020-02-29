@@ -21,5 +21,11 @@ func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 	}
 	dm.InsertLessons(lessons)
 
+	images, err := ReadImages(config.CurriculumDir)
+	if err != nil {
+		// log.Warn(err)
+	}
+	dm.InsertImages(images)
+
 	return nil
 }

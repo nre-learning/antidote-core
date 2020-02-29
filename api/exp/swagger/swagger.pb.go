@@ -422,7 +422,7 @@ Lesson = `{
             "$ref": "#/definitions/expLessonStage"
           }
         },
-        "LessonName": {
+        "Name": {
           "type": "string"
         },
         "Endpoints": {
@@ -440,10 +440,10 @@ Lesson = `{
         "Category": {
           "type": "string"
         },
-        "LessonDiagram": {
+        "Diagram": {
           "type": "string"
         },
-        "LessonVideo": {
+        "Video": {
           "type": "string"
         },
         "Tier": {
@@ -495,25 +495,13 @@ Lesson = `{
     "expLessonStage": {
       "type": "object",
       "properties": {
-        "Id": {
-          "type": "integer",
-          "format": "int32"
-        },
         "Description": {
           "type": "string"
         },
-        "LabGuide": {
+        "GuideType": {
           "type": "string"
         },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyCompleteness": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyObjective": {
+        "StageVideo": {
           "type": "string"
         }
       }
@@ -679,6 +667,9 @@ Livelesson = `{
         "ID": {
           "type": "string"
         },
+        "SessionID": {
+          "type": "string"
+        },
         "LessonSlug": {
           "type": "string"
         },
@@ -688,24 +679,17 @@ Livelesson = `{
             "$ref": "#/definitions/expLiveEndpoint"
           }
         },
-        "LessonStage": {
+        "CurrentStage": {
           "type": "integer",
           "format": "int32"
         },
-        "LabGuide": {
+        "GuideContents": {
           "type": "string"
         },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
+        "GuideType": {
+          "type": "string"
         },
         "Status": {
-          "type": "string"
-        },
-        "LessonDiagram": {
-          "type": "string"
-        },
-        "LessonVideo": {
           "type": "string"
         },
         "Error": {
@@ -719,6 +703,15 @@ Livelesson = `{
         "TotalTests": {
           "type": "integer",
           "format": "int32"
+        },
+        "Diagram": {
+          "type": "string"
+        },
+        "Video": {
+          "type": "string"
+        },
+        "StageVideo": {
+          "type": "string"
         }
       }
     },

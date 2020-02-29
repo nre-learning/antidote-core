@@ -130,6 +130,9 @@
         "ID": {
           "type": "string"
         },
+        "SessionID": {
+          "type": "string"
+        },
         "LessonSlug": {
           "type": "string"
         },
@@ -139,24 +142,17 @@
             "$ref": "#/definitions/expLiveEndpoint"
           }
         },
-        "LessonStage": {
+        "CurrentStage": {
           "type": "integer",
           "format": "int32"
         },
-        "LabGuide": {
+        "GuideContents": {
           "type": "string"
         },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
+        "GuideType": {
+          "type": "string"
         },
         "Status": {
-          "type": "string"
-        },
-        "LessonDiagram": {
-          "type": "string"
-        },
-        "LessonVideo": {
           "type": "string"
         },
         "Error": {
@@ -170,6 +166,15 @@
         "TotalTests": {
           "type": "integer",
           "format": "int32"
+        },
+        "Diagram": {
+          "type": "string"
+        },
+        "Video": {
+          "type": "string"
+        },
+        "StageVideo": {
+          "type": "string"
         }
       }
     },

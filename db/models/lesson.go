@@ -13,22 +13,22 @@ import (
 // and deserialized quickly upon retrieval.
 type Lesson struct {
 
-	// Used as an identifier today, but slug may be used in the future.
-	ID string `json:"ID" yaml:"id" jsonschema:"description=Unique id number to identify this lesson"`
+	// ID string `json:"ID" yaml:"id" jsonschema:"description=Unique id number to identify this lesson"`
 
-	Slug        string              `json:"Slug" yaml:"slug" jsonschema:"description=Unique slug to identify this lesson"`
-	Stages      []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
-	Name        string              `json:"Name" yaml:"name" jsonschema:"required,description=Name of the lesson"`
-	Endpoints   []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"required,minItems=1"`
-	Connections []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty"`
-	Category    string              `json:"Category" yaml:"category" jsonschema:"required,description=Category for the lesson"`
-	Diagram     string              `json:"Diagram" yaml:"diagram" jsonschema:"description=URL to lesson diagram"`
-	Video       string              `json:"Video" yaml:"video" jsonschema:"description=URL to lesson video"`
-	Tier        string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
-	Prereqs     []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty"`
-	Tags        []string            `json:"Tags,omitempty" yaml:"tags,omitempty"`
-	Collection  string              `json:"Collection,omitempty" yaml:"collection,omitempty"`
-	Description string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"required,description=Description of this lesson"`
+	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"description=Unique slug to identify this lesson"`
+	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
+	Name             string              `json:"Name" yaml:"name" jsonschema:"required,description=Name of the lesson"`
+	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"required,minItems=1"`
+	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty"`
+	Category         string              `json:"Category" yaml:"category" jsonschema:"required,description=Category for the lesson"`
+	Diagram          string              `json:"Diagram" yaml:"diagram" jsonschema:"description=URL to lesson diagram"`
+	Video            string              `json:"Video" yaml:"video" jsonschema:"description=URL to lesson video"`
+	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
+	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty"`
+	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty"`
+	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty"`
+	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"required,description=Description of this lesson"`
+	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"required,description=Short description of this lesson"`
 
 	// TODO(mierdin): Figure out if these are needed anymore.
 	LessonFile string `json:"-" jsonschema:"-"`
@@ -84,6 +84,7 @@ type LessonStage struct {
 	Description   string          `json:"Description,omitempty" yaml:"description,omitempty"`
 	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,pattern=jupyter|markdown"`
 	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
+	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
 
 	// TODO(mierdin): Implementing this later
 	// Objectives    []*LessonStageObjective `json:"Objectives" yaml:"objectives"`
@@ -107,7 +108,7 @@ const (
 // that you want to have running in a lesson for educational purposes
 type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
-	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9/-]*$"`
+	Image string `json:"Image" yaml:"image" jsonschema:"description=Container image reference for the endpoint,pattern=^[A-Za-z0-9-]*$"`
 
 	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"pattern=napalm-.*|python|ansible"`
 

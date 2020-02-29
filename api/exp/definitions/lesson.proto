@@ -44,12 +44,12 @@ message LessonSlug {
 message Lesson {
   string Slug = 1;
   repeated LessonStage Stages = 2;
-  string LessonName = 3;
+  string Name = 3;
   repeated Endpoint Endpoints = 4;
   repeated Connection Connections = 8;
   string Category = 9;
-  string LessonDiagram = 10;
-  string LessonVideo = 11;
+  string Diagram = 10;
+  string Video = 11;
   string Tier = 12;
   repeated int32 Prereqs = 13;
   repeated string Tags = 14;
@@ -67,12 +67,9 @@ message LessonFilter {
 }
 
 message LessonStage {
-  int32 Id = 1;
-  string Description = 2;
-  string LabGuide = 3;
-  bool JupyterLabGuide = 4;
-  bool VerifyCompleteness = 5;
-  string VerifyObjective = 6;
+  string Description = 1;
+  string GuideType = 2;
+  string StageVideo = 3;
 }
 
 message Endpoint {

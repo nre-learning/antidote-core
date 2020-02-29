@@ -5,7 +5,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	nats "github.com/nats-io/nats.go"
 	api "github.com/nre-learning/antidote-core/api/exp"
@@ -14,6 +13,7 @@ import (
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	"github.com/nre-learning/antidote-core/scheduler"
 	stats "github.com/nre-learning/antidote-core/stats"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func init() {
@@ -49,11 +49,19 @@ func main() {
 	defer ec.Close()
 
 	if config.IsServiceEnabled("scheduler") {
-		var kubeConfig *rest.Config
-		kubeConfig, err = rest.InClusterConfig()
+
+		// OUT OF CLUSTER CONFIG FOR TESTING
+		kubeConfig, err := clientcmd.BuildConfigFromFlags("", "/home/mierdin/.kube/selfmedicateconfig")
 		if err != nil {
-			log.Fatal(err)
+			panic(err.Error())
 		}
+
+		// var kubeConfig *rest.Config
+		// kubeConfig, err = rest.InClusterConfig()
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
 		cs, err := kubernetes.NewForConfig(kubeConfig) // Client for working with standard kubernetes resources
 		if err != nil {
 			log.Fatalf("Unable to create new kubernetes client - %v", err)
@@ -69,9 +77,9 @@ func main() {
 		// Start scheduler
 		scheduler := scheduler.AntidoteScheduler{
 			KubeConfig:    kubeConfig,
-			KubeClient:    cs,
-			KubeClientExt: csExt,
-			KubeClientCrd: clientCrd,
+			Client:        cs,
+			ClientExt:     csExt,
+			ClientCrd:     clientCrd,
 			NEC:           ec,
 			Config:        config,
 			Db:            adb,

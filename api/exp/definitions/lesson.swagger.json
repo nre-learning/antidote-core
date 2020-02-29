@@ -144,7 +144,7 @@
             "$ref": "#/definitions/expLessonStage"
           }
         },
-        "LessonName": {
+        "Name": {
           "type": "string"
         },
         "Endpoints": {
@@ -162,10 +162,10 @@
         "Category": {
           "type": "string"
         },
-        "LessonDiagram": {
+        "Diagram": {
           "type": "string"
         },
-        "LessonVideo": {
+        "Video": {
           "type": "string"
         },
         "Tier": {
@@ -217,25 +217,13 @@
     "expLessonStage": {
       "type": "object",
       "properties": {
-        "Id": {
-          "type": "integer",
-          "format": "int32"
-        },
         "Description": {
           "type": "string"
         },
-        "LabGuide": {
+        "GuideType": {
           "type": "string"
         },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyCompleteness": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "VerifyObjective": {
+        "StageVideo": {
           "type": "string"
         }
       }

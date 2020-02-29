@@ -28,7 +28,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	// Kubernetes clients
-	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
+
 	kubernetesCrd "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
@@ -49,9 +49,6 @@ type NetworkCrdClient interface {
 // moving existing livelessons to a different stage, deleting old lessons, etc.
 type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
-	KubeClient    *kubernetes.Clientset
-	KubeClientExt *kubernetesExt.Clientset
-	KubeClientCrd *crdclient.Clientset
 	NEC           *nats.EncodedConn
 	Config        config.AntidoteConfig
 	Db            db.DataManager

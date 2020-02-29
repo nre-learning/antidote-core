@@ -32,8 +32,6 @@ func (s *AntidoteScheduler) boopNamespace(nsName string) error {
 		return err
 	}
 
-	// "syringeManaged": "yes",
-
 	return nil
 }
 

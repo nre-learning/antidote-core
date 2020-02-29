@@ -17,9 +17,9 @@ import (
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "antidote"
+	app.Name = "antictl"
 	app.Version = buildInfo["buildVersion"]
-	app.Usage = "Command-line tool to interact with the Antidote platform and database"
+	app.Usage = "Admin/debug tool for the Antidote platform"
 
 	var host, port string
 
@@ -39,66 +39,7 @@ func main() {
 		},
 	}
 
-	// Consider build your own template that groups commands neatly
-	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
-	// cli.AppHelpTemplate is where you do this, and cli.Command.Category can be used to organize
-
-	// var curriculumDir string
-
 	app.Commands = []cli.Command{
-		{
-			Name:    "import",
-			Aliases: []string{},
-			Usage:   "(db) Re-imports a full curriculum from disk",
-			Action: func(c *cli.Context) {
-
-				// color.Red("WARNING - This will DROP ALL DATA in the Antidote database.")
-				// fmt.Println("Are you sure you want to re-import a curriculum? (yes/no)")
-
-				// if !askForConfirmation() {
-				// 	os.Exit(0)
-				// }
-
-				// adb := db.AntidoteData{
-				// 	User:            dbuser,
-				// 	Password:        dbpassword,
-				// 	Database:        "antidote",
-				// 	AntidoteVersion: buildInfo["buildVersion"],
-				// 	// Connect:         prodConnect(),
-				// 	SyringeConfig: &config.SyringeConfig{
-				// 		// TODO(mierdin) Use a real syringeconfig
-				// 		Tier:          "local",
-				// 		CurriculumDir: c.Args().First(),
-				// 	},
-				// }
-
-				// // Initialize database
-				// err := adb.Initialize()
-				// if err != nil {
-				// 	color.Red("Failed to initialize Antidote database.")
-				// 	fmt.Println(err)
-				// 	os.Exit(1)
-				// }
-
-				// // TODO(mierdin): Add collections, curriculum, meta
-				// // Collections should be first, so we can check that the collection exists in lesson import
-
-				// lessons, err := adb.ReadLessons()
-				// if err != nil {
-				// 	color.Red("Some curriculum resources failed to validate.")
-				// 	os.Exit(1)
-				// }
-
-				// err = adb.InsertLessons(lessons)
-				// if err != nil {
-				// 	color.Red("Problem inserting lessons into the database: %v", err)
-				// 	os.Exit(1)
-				// }
-
-				// color.Green("All detected curriculum resources imported successfully.")
-				// os.Exit(0)
-			},
-		},
 		{
 			Name:    "lesson",
 			Aliases: []string{},
@@ -109,62 +50,31 @@ func main() {
 					Usage: "Retrieve all lessons and display in a table",
 					Action: func(c *cli.Context) {
 
-						// w := new(tabwriter.Writer)
+						// TODO(mierdin): Add security options
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLessonServiceClient(conn)
 
-						// // Format in tab-separated columns with a tab stop of 8.
+						lessons, err := client.ListLessons(context.Background(), &pb.LessonFilter{})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
 
-						// w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+						lJSON, _ := json.Marshal(lessons)
+						fmt.Println(string(lJSON))
 
-						// fmt.Fprintln(w, "NAME\tSLUG\tCATEGORY\tTIER\t")
-
-						// for i := range lessons {
-						// 	l := lessons[i]
-						// 	fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t", l.Name, l.Slug, l.Category, l.Tier))
-						// }
-						// fmt.Fprintln(w)
-
-						// w.Flush()
-					},
-				},
-				{
-					Name:  "get",
-					Usage: "Show details of a specific lesson",
-					Action: func(c *cli.Context) {
-
-						// adb := db.AntidoteData{
-						// 	User:            dbuser,
-						// 	Password:        dbpassword,
-						// 	Database:        "antidote",
-						// 	AntidoteVersion: buildInfo["buildVersion"],
-						// 	SyringeConfig:   &config.SyringeConfig{},
-						// }
-
-						// err := adb.Preflight()
-						// if err != nil {
-						// 	color.Red("Failed pre-flight.")
-						// 	fmt.Println(err)
-						// 	os.Exit(1)
-						// }
-
-						// lesson, err := adb.GetLesson(c.Args().First())
-						// if err != nil {
-						// 	color.Red("Problem retrieving lesson: %v", err)
-						// 	os.Exit(1)
-						// }
-
-						// b, err := json.Marshal(lesson)
-						// if err != nil {
-						// 	color.Red("Unable to print lesson details.")
-						// 	fmt.Println(err)
-						// }
-						// fmt.Println(string(b))
 					},
 				},
 			},
 		},
 		{
 			Name:    "livesession",
-			Aliases: []string{"ll"},
+			Aliases: []string{"ls"},
 			Usage:   "Examine/modify running LiveSessions",
 			Subcommands: []cli.Command{
 				{
@@ -187,8 +97,8 @@ func main() {
 							os.Exit(1)
 						}
 
-						llJSON, _ := json.Marshal(liveSessions)
-						fmt.Println(string(llJSON))
+						lsJSON, _ := json.Marshal(liveSessions)
+						fmt.Println(string(lsJSON))
 
 					},
 				},
@@ -233,7 +143,7 @@ func main() {
 				},
 				{
 					Name:  "create",
-					Usage: "Create a livelesson (THIS IS FOR TESTING PURPOSES ONLY)",
+					Usage: "Create livelesson(s) from file (TESTING ONLY)",
 					Action: func(c *cli.Context) {
 
 						lldef, err := ioutil.ReadFile(c.Args().First())
@@ -242,9 +152,9 @@ func main() {
 							os.Exit(1)
 						}
 
-						var ll pb.LiveLesson
+						var lls []pb.LiveLesson
 
-						err = json.Unmarshal([]byte(lldef), &ll)
+						err = json.Unmarshal([]byte(lldef), &lls)
 						if err != nil {
 							fmt.Printf("Failed to import %s: %v\n", c.Args().First(), err)
 							os.Exit(1)
@@ -259,16 +169,24 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveLessonsServiceClient(conn)
 
-						_, err = client.CreateLiveLesson(context.Background(), &ll)
-						if err != nil {
-							fmt.Println(err)
-							os.Exit(1)
+						for _, ll := range lls {
+
+							// This command is not meant for production, only testing, and YMMV, but we can at least do a basic
+							// sanity check to ensure that the ID field is populated; a sign that the incoming file is at least
+							// formatted somewhat correctly
+							if ll.ID == "" {
+								fmt.Println("Format of incoming file not correct.")
+							}
+
+							_, err = client.CreateLiveLesson(context.Background(), &ll)
+							if err != nil {
+								fmt.Println(err)
+								os.Exit(1)
+							}
 						}
 
 						fmt.Println("OK")
-
-						//
-						return // TODO
+						return
 					},
 				},
 			},
