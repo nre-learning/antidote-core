@@ -163,17 +163,16 @@ func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.Liv
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < 120; i++ {
+			for i := 0; i < 600; i++ {
 				completed, err := s.isCompleted(job, newRequest)
 				if err != nil {
 					allGood = false
 					return
 				}
-
-				time.Sleep(5 * time.Second)
 				if completed {
 					return
 				}
+				time.Sleep(1 * time.Second)
 			}
 			allGood = false
 			return
