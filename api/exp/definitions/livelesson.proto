@@ -64,23 +64,24 @@ message LivePresentation {
 message LiveLesson {
   string ID = 1;
   string SessionID = 2;
-  string LessonSlug = 3;
+  string AntidoteID = 3;
+  string LessonSlug = 4;
 
-  map <string, LiveEndpoint> LiveEndpoints  = 4;
+  map <string, LiveEndpoint> LiveEndpoints  = 5;
 
-  int32 CurrentStage = 5;
-  string GuideContents = 6;
-  string GuideType = 7;
+  int32 CurrentStage = 6;
+  string GuideContents = 7;
+  string GuideType = 8;
 
-  string Status = 8;
+  string Status = 9;
 
-  bool Error = 9;
-  int32 HealthyTests = 10;
-  int32 TotalTests = 11;
+  bool Error = 10;
+  int32 HealthyTests = 11;
+  int32 TotalTests = 12;
 
-  string Diagram = 12;
-  string Video = 13;
-  string StageVideo = 14;
+  string Diagram = 13;
+  string Video = 14;
+  string StageVideo = 15;
 }
 
 message LiveLessons {

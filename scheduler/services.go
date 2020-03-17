@@ -26,15 +26,15 @@ func (s *AntidoteScheduler) createService(pod *corev1.Pod, req services.LessonSc
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
-				"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
-				"syringeManaged": "yes",
+				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+				"antidoteManaged": "yes",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"liveLesson":  fmt.Sprintf("%d", req.LiveLessonID),
-				"liveSession": fmt.Sprintf("%d", req.LiveSessionID),
+				"liveLesson":  fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession": fmt.Sprintf("%s", req.LiveSessionID),
 				"podName":     pod.ObjectMeta.Name,
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below

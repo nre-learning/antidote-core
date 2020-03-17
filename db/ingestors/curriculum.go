@@ -9,11 +9,15 @@ import (
 // within the backing data store
 func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 
-	// collections, err := ReadCollections(config.CurriculumDir)
-	// if err != nil {
-	// 	// log.Warn(err)
-	// }
-	// dm.InsertCollections(collections)
+	// TODO(mierdin): Add step to read in curriculum meta and make sure the calling code
+	// (BOTH antidote validate and antidoted import functions)
+	// checks that the values are correct, including the targeted antidote version
+
+	collections, err := ReadCollections(config.CurriculumDir)
+	if err != nil {
+		// log.Warn(err)
+	}
+	dm.InsertCollections(collections)
 
 	lessons, err := ReadLessons(config.CurriculumDir)
 	if err != nil {

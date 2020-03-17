@@ -139,9 +139,9 @@ func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req servi
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"syringeManaged": "yes",
-				"jobType":        "config",
-				"stageId":        strconv.Itoa(int(req.Stage)),
+				"antidoteManaged": "yes",
+				"jobType":         "config",
+				"stageId":         strconv.Itoa(int(req.Stage)),
 			},
 		},
 
@@ -152,9 +152,9 @@ func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req servi
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"syringeManaged": "yes",
-						"configPod":      "yes",
-						"stageId":        strconv.Itoa(int(req.Stage)),
+						"antidoteManaged": "yes",
+						"configPod":       "yes",
+						"stageId":         strconv.Itoa(int(req.Stage)),
 					},
 				},
 				Spec: corev1.PodSpec{

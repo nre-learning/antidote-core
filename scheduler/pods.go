@@ -17,8 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
-// into a Kubernetes pod object, and attempts to create it.
 func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
@@ -71,10 +69,10 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 			Name:      ep.Name,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
-				"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
-				"podName":        ep.Name,
-				"syringeManaged": "yes",
+				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+				"podName":         ep.Name,
+				"antidoteManaged": "yes",
 			},
 			Annotations: map[string]string{
 				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJSON),
@@ -82,7 +80,7 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 		},
 		Spec: corev1.PodSpec{
 
-			// All syringe-created pods are assigned to the same host for a given namespace. This keeps things much simplier, since each
+			// All antidote-created pods are assigned to the same host for a given namespace. This keeps things much simplier, since each
 			// network just uses linux bridges local to that host. Multi-host networking is a bit hit-or-miss when used with multus, so
 			// this just keeps things simpler.
 			// https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
@@ -92,9 +90,9 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"liveLesson":     fmt.Sprintf("%d", req.LiveLessonID),
-									"liveSession":    fmt.Sprintf("%d", req.LiveSessionID),
-									"syringeManaged": "yes",
+									"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+									"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+									"antidoteManaged": "yes",
 								},
 							},
 							Namespaces: []string{

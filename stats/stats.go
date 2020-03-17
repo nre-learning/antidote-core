@@ -60,14 +60,14 @@ func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleReques
 	}
 	defer c.Close()
 
-	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
+	q := influx.NewQuery("CREATE DATABASE antidote_metrics", "", "")
 	if response, err := c.Query(q); err == nil && response.Error() == nil {
 		//
 	}
 
 	// Create a new point batch
 	bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
-		Database:  "syringe_metrics",
+		Database:  "antidote_metrics",
 		Precision: "s",
 	})
 	if err != nil {
@@ -77,10 +77,10 @@ func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleReques
 
 	// Create a point and add to batch
 	tags := map[string]string{
-		"lessonSlug":  res.LessonSlug,
-		"lessonName":  lesson.Name,
-		"syringeTier": s.Config.Tier,
-		"syringeId":   s.Config.InstanceID,
+		"lessonSlug":   res.LessonSlug,
+		"lessonName":   lesson.Name,
+		"antidoteTier": s.Config.Tier,
+		"antidoteId":   s.Config.InstanceID,
 	}
 
 	fields := map[string]interface{}{
@@ -127,7 +127,7 @@ func (s *AntidoteStats) startTSDBExport() error {
 	}
 	defer c.Close()
 
-	q := influx.NewQuery("CREATE DATABASE syringe_metrics", "", "")
+	q := influx.NewQuery("CREATE DATABASE antidote_metrics", "", "")
 	if response, err := c.Query(q); err == nil && response.Error() == nil {
 		//
 	}
@@ -139,7 +139,7 @@ func (s *AntidoteStats) startTSDBExport() error {
 
 		// Create a new point batch
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
-			Database:  "syringe_metrics",
+			Database:  "antidote_metrics",
 			Precision: "s",
 		})
 		if err != nil {
@@ -159,8 +159,8 @@ func (s *AntidoteStats) startTSDBExport() error {
 
 			tags["lessonSlug"] = lesson.Slug
 			tags["lessonName"] = lesson.Name
-			tags["syringeTier"] = s.Config.Tier
-			tags["syringeId"] = s.Config.InstanceID
+			tags["antidoteTier"] = s.Config.Tier
+			tags["antidoteId"] = s.Config.InstanceID
 
 			count, duration := s.getCountAndDuration(lesson.Slug)
 			fields["lessonName"] = lesson.Name

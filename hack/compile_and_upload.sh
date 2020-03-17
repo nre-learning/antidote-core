@@ -15,7 +15,7 @@ upload() {
     FILE=$1
 
     # Determine UPLOAD_URL
-    UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/nre-learning/syringe/releases/tags/$RELEASE_VERSION | jq .upload_url | sed -n 's/"\(.*\){.*/\1/p')
+    UPLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/nre-learning/antidote-core/releases/tags/$RELEASE_VERSION | jq .upload_url | sed -n 's/"\(.*\){.*/\1/p')
 
     # Upload asset
     echo "UPLOADING - $FILE"
@@ -44,7 +44,11 @@ fi
 
 cd -
 
-packages=("github.com/nre-learning/antidote-core/cmd/syringed" "github.com/nre-learning/antidote-core/cmd/syrctl")
+packages=(
+    "github.com/nre-learning/antidote-core/cmd/antidoted"
+    "github.com/nre-learning/antidote-core/cmd/antictl"
+    "github.com/nre-learning/antidote-core/cmd/antidote"
+)
 
 # https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 platforms=("windows/amd64" "windows/386" "darwin/amd64" "linux/amd64")
@@ -55,7 +59,7 @@ do
     platform_split=(${platform//\// })
     GOOS=${platform_split[0]}
     GOARCH=${platform_split[1]}
-    archive_name='syringe-'$GOOS'-'$GOARCH
+    archive_name='antidote-'$GOOS'-'$GOARCH
 
     for package in "${packages[@]}"
     do
@@ -64,7 +68,7 @@ do
         package_split=(${package//\// })
         package_name=${package_split[-1]}
 
-        directory_name='release_assets/syringe-'$GOOS'-'$GOARCH
+        directory_name='release_assets/antidote-'$GOOS'-'$GOARCH
         output_name=$package_name
         if [ $GOOS = "windows" ]; then
             output_name+='.exe'

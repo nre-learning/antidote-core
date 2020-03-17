@@ -10,15 +10,6 @@ import (
 	"github.com/nre-learning/antidote-core/services"
 )
 
-// TODO(mierdin) This needs to be removed once the influx stuff is re-thought
-// currently, that's the only thing that is using this.
-// type LessonScheduleResult struct {
-// 	LessonSlug       string
-// 	LiveLessonID     string
-// 	LiveSessionID    string
-// 	ProvisioningTime int
-// }
-
 func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonScheduleRequest) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
@@ -36,7 +27,6 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	}
 
 	log.Debugf("Bootstrap complete for livelesson %s. Moving into BOOTING status", newRequest.LiveLessonID)
-	// ll.LessonStage = newRequest.Stage ??
 	err = s.Db.UpdateLiveLessonStatus(ll.ID, models.Status_BOOTING)
 	if err != nil {
 		log.Errorf("Error updating livelesson: %v", err)
@@ -140,6 +130,12 @@ func (s *AntidoteScheduler) handleRequestMODIFY(newRequest services.LessonSchedu
 		return
 	}
 
+	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
+	err = s.Db.UpdateLiveLessonStatus(ll.ID, models.Status_READY)
+	if err != nil {
+		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
+	}
+
 	err = s.boopNamespace(nsName)
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
@@ -182,7 +178,7 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 
 	err = s.syncSecret(ns.ObjectMeta.Name)
 	if err != nil {
-		log.Error("Unable to sync secret into this namespace. Ingress-based resources (like iframes) may not work.")
+		log.Errorf("Unable to sync secret into this namespace. Ingress-based resources (like http presentations or jupyter notebooks) may not work: %v", err)
 	}
 
 	lesson, err := s.Db.GetLesson(req.LessonSlug)
@@ -245,7 +241,7 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 
 		// Expose via service if needed
 		if len(newPod.Spec.Containers[0].Ports) > 0 {
-			_, err := s.createService(
+			svc, err := s.createService(
 				newPod,
 				req,
 			)
@@ -254,9 +250,11 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 				return err
 			}
 
-			// TODO(mierdin): Update livelesson liveendpoint with details here:
-			// From kubelab.go
-			// endpoint.Host = kl.Services[s].Spec.ClusterIP
+			// Update livelesson liveendpoint with cluster IP
+			s.Db.UpdateLiveLessonEndpointIP(ll.ID, ep.Name, svc.Spec.ClusterIP)
+			if err != nil {
+				log.Error("Unable to update livelesson endpoint with clusterIP")
+			}
 
 		}
 

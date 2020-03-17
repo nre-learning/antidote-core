@@ -1,94 +1,87 @@
 package db
 
-// func ImportCollections(syringeConfig *config.SyringeConfig) (map[int32]*pb.Collection, error) {
+import (
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
-// 	fileList := []string{}
-// 	collectionDir := fmt.Sprintf("%s/collections", syringeConfig.CurriculumDir)
-// 	log.Debugf("Searching %s for collection definitions", collectionDir)
-// 	err := filepath.Walk(collectionDir, func(path string, f os.FileInfo, err error) error {
-// 		syringeFileLocation := fmt.Sprintf("%s/collection.meta.yaml", path)
-// 		if _, err := os.Stat(syringeFileLocation); err == nil {
-// 			log.Debugf("Found collection definition at: %s", syringeFileLocation)
-// 			fileList = append(fileList, syringeFileLocation)
-// 		}
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	models "github.com/nre-learning/antidote-core/db/models"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+)
 
-// 	retCollections := map[int32]*pb.Collection{}
+// ReadCollections reads collection definitions from the filesystem, validates them, and returns them
+// in a slice.
+func ReadCollections(curriculumDir string) ([]*models.Collection, error) {
 
-// 	for f := range fileList {
+	fileList := []string{}
+	collectionDir := fmt.Sprintf("%s/collections", curriculumDir)
+	log.Debugf("Searching %s for collection definitions", collectionDir)
+	err := filepath.Walk(collectionDir, func(path string, f os.FileInfo, err error) error {
+		colFile := fmt.Sprintf("%s/collection.meta.yaml", path)
+		if _, err := os.Stat(colFile); err == nil {
+			log.Debugf("Found collection definition at: %s", colFile)
+			fileList = append(fileList, colFile)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 
-// 		file := fileList[f]
+	retCollections := []*models.Collection{}
 
-// 		yamlDef, err := ioutil.ReadFile(file)
-// 		if err != nil {
-// 			log.Errorf("Encountered problem %s", err)
-// 			continue
-// 		}
+	for f := range fileList {
 
-// 		var collection pb.Collection
-// 		err = yaml.Unmarshal([]byte(yamlDef), &collection)
-// 		if err != nil {
-// 			log.Errorf("Failed to import %s: %s", file, err)
-// 		}
-// 		collection.CollectionFile = file
+		file := fileList[f]
 
-// 		if _, ok := retCollections[collection.Id]; ok {
-// 			log.Errorf("Failed to import %s: Collection ID %d already exists in another collection definition.", file, collection.Id)
-// 			continue
-// 		}
+		yamlDef, err := ioutil.ReadFile(file)
+		if err != nil {
+			log.Errorf("Encountered problem %s", err)
+			continue
+		}
 
-// 		err = validateCollection(syringeConfig, &collection)
-// 		if err != nil {
-// 			continue
-// 		}
-// 		log.Infof("Successfully imported collection %d: %s", collection.Id, collection.Title)
+		var collection models.Collection
+		err = yaml.Unmarshal([]byte(yamlDef), &collection)
+		if err != nil {
+			log.Errorf("Failed to import %s: %s", file, err)
+		}
+		collection.CollectionFile = file
 
-// 		retCollections[collection.Id] = &collection
-// 	}
+		err = validateCollection(&collection)
+		if err != nil {
+			continue
+		}
+		log.Infof("Successfully imported collection %s: %s", collection.Slug, collection.Title)
 
-// 	if len(fileList) == len(retCollections) {
-// 		log.Infof("Imported %d collection definitions.", len(retCollections))
-// 		return retCollections, nil
-// 	} else {
-// 		log.Warnf("Imported %d collection definitions with errors.", len(retCollections))
-// 		return retCollections, errors.New("Not all collection definitions were imported")
-// 	}
+		retCollections = append(retCollections, &collection)
+	}
 
-// }
+	if len(fileList) == len(retCollections) {
+		log.Infof("Imported %d collection definitions.", len(retCollections))
+		return retCollections, nil
+	} else {
+		log.Warnf("Imported %d collection definitions with errors.", len(retCollections))
+		return retCollections, errors.New("Not all collection definitions were imported")
+	}
 
-// // validateCollection validates a single collection, returning a simple error if the collection fails
-// // to validate.
-// func validateCollection(syringeConfig *config.SyringeConfig, collection *pb.Collection) error {
+	return retCollections, nil
 
-// 	// TODO(mierdin): In the future, you should consider putting unique error messages for
-// 	// each violation. This will make this function more testable.
-// 	fail := errors.New("failed to validate collection definition")
+}
 
-// 	file := collection.CollectionFile
+// validateCollection validates a single collection, returning a simple error if the collection fails
+// to validate.
+func validateCollection(collection *models.Collection) error {
 
-// 	// Basic validation from protobuf tags
-// 	err := collection.Validate()
-// 	if err != nil {
-// 		log.Errorf("Basic validation failed on %s: %s", file, err)
-// 		return fail
-// 	}
+	file := collection.CollectionFile
 
-// 	// More advanced validation
-// 	if syringeConfig.Tier == "prod" {
-// 		if collection.Tier != "prod" {
-// 			log.Errorf("Skipping %s: lower tier than configured", file)
-// 			return fail
-// 		}
-// 	} else if syringeConfig.Tier == "ptr" {
-// 		if collection.Tier != "prod" && collection.Tier != "ptr" {
-// 			log.Errorf("Skipping %s: lower tier than configured", file)
-// 			return fail
-// 		}
-// 	}
+	// Basic validation from jsonschema
+	if !collection.JSValidate() {
+		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
+		return BasicValidationError
+	}
 
-// 	return nil
-// }
+	return nil
+}

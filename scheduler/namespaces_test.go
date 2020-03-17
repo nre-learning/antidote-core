@@ -20,7 +20,7 @@ func TestNamespaces(t *testing.T) {
 	nsName := "100-foobar-ns"
 	syringeConfig := &config.SyringeConfig{
 		CurriculumDir: "/antidote",
-		SyringeID:     "syringe-testing",
+		antidoteId:    "syringe-testing",
 		Domain:        "localhost",
 		Tier:          "prod",
 	}
@@ -40,12 +40,12 @@ func TestNamespaces(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nsName,
 					Labels: map[string]string{
-						"lessonId":       "100",
-						"syringeManaged": "yes",
-						"name":           nsName,
-						"syringeId":      lessonScheduler.SyringeConfig.SyringeID,
-						"lastAccessed":   strconv.Itoa(int(anHourAgo.Unix())),
-						"created":        strconv.Itoa(int(anHourAgo.Unix())),
+						"lessonId":        "100",
+						"antidoteManaged": "yes",
+						"name":            nsName,
+						"antidoteId":      lessonScheduler.SyringeConfig.antidoteId,
+						"lastAccessed":    strconv.Itoa(int(anHourAgo.Unix())),
+						"created":         strconv.Itoa(int(anHourAgo.Unix())),
 					},
 				},
 			},

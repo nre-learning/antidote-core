@@ -13,6 +13,8 @@ import (
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 // RequestLiveLesson allows the client to get a handle on a livelesson when they only know their session ID
@@ -25,6 +27,11 @@ import (
 // - Refreshing the lastUsed timestamp on the livelesson, which lets the back-end know it's still in use.
 func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
 
+	// TODO(mierdin): RequestLiveSession stores the incoming IP address into the session data model. However,
+	// this function (as well as RequestLiveSession) should also include incoming IP addresses when exporting traces
+	// to jaeger. This way we can see incoming requests of all kinds, even those that don't necessarily result in a new
+	// livesession or livelesson.
+
 	// TODO(mierdin) look up session ID in DB first
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
@@ -34,9 +41,13 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 	_, err := s.Db.GetLiveSession(lp.SessionId)
 	if err != nil {
+		// WARNING - the front-end relies on this string (minus the actual ID) to identify
+		// if a new session ID should be requested. If you want to change this message, make sure
+		// to change the front-end as well! Otherwise, the front-end won't know to request a valid
+		// session ID before retrying the livelesson request
 		msg := fmt.Sprintf("Invalid session ID %s", lp.SessionId)
 		log.Error(msg)
-		return nil, errors.New(msg)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
 	if lp.LessonSlug == "" {
@@ -45,11 +56,12 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return nil, errors.New(msg)
 	}
 
-	if lp.LessonStage == 0 {
-		msg := "Stage ID cannot be nil"
-		log.Error(msg)
-		return nil, errors.New(msg)
-	}
+	// TODO(mierdin): Ensure this works before removing entirely
+	// if lp.LessonStage == 0 {
+	// 	msg := "Stage ID cannot be nil"
+	// 	log.Error(msg)
+	// 	return nil, errors.New(msg)
+	// }
 
 	lesson, err := s.Db.GetLesson(lp.LessonSlug)
 	if err != nil {
@@ -86,8 +98,11 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		}
 
 		// TODO(mierdin): Is this the right place for this? And is this being un-set somewhere?
-		if existingLL.Busy {
-			return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy")
+		// Probably only return this if the user is trying to CHANGE to a new stage or something.
+		// If they're not, just send them the existing livelesson state as if they refreshed the page.
+		// if existingLL.Busy {   <---- getting rid of this, status is a suitable busy indicator
+		if existingLL.Status != models.Status_READY {
+			return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy. Can't make changes yet. Try later")
 		}
 
 		// If the incoming requested LessonStage is different from the current livelesson state,
@@ -96,8 +111,9 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 			// Update state
 			// TODO(Mierdin): Handle errors here
-			s.Db.UpdateLiveLessonBusy(existingLL.ID, true)
+			s.Db.UpdateLiveLessonStatus(existingLL.ID, models.Status_CONFIGURATION)
 			s.Db.UpdateLiveLessonStage(existingLL.ID, lp.LessonStage)
+			s.Db.UpdateLiveLessonGuide(existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
 
 			// Request the schedule move forward with stage change activities
 			req := services.LessonScheduleRequest{
@@ -126,17 +142,24 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 	// Initialize new LiveLesson
 	newID := db.RandomID(10)
-	s.Db.CreateLiveLesson(&models.LiveLesson{
+
+	newLL := &models.LiveLesson{
 		ID:            newID,
 		SessionID:     lp.SessionId,
+		AntidoteID:    s.Config.InstanceID,
 		LessonSlug:    lp.LessonSlug,
-		GuideContents: lesson.Stages[lp.LessonStage].GuideContents,
+		GuideType:     string(lesson.Stages[lp.LessonStage].GuideType),
 		LiveEndpoints: initializeLiveEndpoints(lesson),
 		CurrentStage:  lp.LessonStage,
-		Busy:          true,
 		Status:        models.Status_INITIALIZED,
 		CreatedTime:   time.Now(),
-	})
+	}
+
+	if newLL.GuideType == "markdown" {
+		newLL.GuideContents = lesson.Stages[lp.LessonStage].GuideContents
+	}
+
+	s.Db.CreateLiveLesson(newLL)
 
 	req := services.LessonScheduleRequest{
 		Operation:     services.OperationType_CREATE,

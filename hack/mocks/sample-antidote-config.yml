@@ -1,0 +1,8 @@
+---
+instanceId: "foobar"
+tier: "prod"
+domain: "nrelabs.io"
+imageOrg: "antidotelabs" 
+curriculumDir:     "/usr/bin/curriculum" 
+enabledServices:
+- "foobarsvc" 

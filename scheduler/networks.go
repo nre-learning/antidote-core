@@ -48,14 +48,14 @@ func (s *AntidoteScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPo
 			Name:      "stoneage",
 			Namespace: nsName,
 			Labels: map[string]string{
-				"syringeManaged": "yes",
+				"antidoteManaged": "yes",
 			},
 		},
 		Spec: netv1.NetworkPolicySpec{
 			PodSelector: meta_v1.LabelSelector{
 				MatchExpressions: []meta_v1.LabelSelectorRequirement{
 					{
-						Key:      "syringeManaged",
+						Key:      "antidoteManaged",
 						Operator: meta_v1.LabelSelectorOpIn,
 						Values: []string{
 							"yes",
@@ -143,13 +143,13 @@ func (s *AntidoteScheduler) createNetwork(netIndex int, netName string, req serv
 	if len(livelesson) > 6 {
 		livelesson = livelesson[0:6]
 	}
-	syringeID := s.Config.InstanceID
-	if len(syringeID) > 6 {
-		syringeID = syringeID[0:6]
+	antidoteId := s.Config.InstanceID
+	if len(antidoteId) > 6 {
+		antidoteId = antidoteId[0:6]
 	}
 	// Combined, these use no more than 12 characters. This leaves three digits for the netIndex, which
 	// should be way more than enough.
-	bridgeName := fmt.Sprintf("%d%s%s", netIndex, syringeID, livelesson)
+	bridgeName := fmt.Sprintf("%d%s%s", netIndex, antidoteId, livelesson)
 
 	// NOTE that this is just a placeholder, not necessarily the actual subnet in use on this segment.
 	// We have to put SOMETHING here, but because we're using the bridge plugin, this isn't actually
@@ -178,7 +178,7 @@ func (s *AntidoteScheduler) createNetwork(netIndex int, netName string, req serv
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"syringeManaged": "yes",
+				"antidoteManaged": "yes",
 			},
 		},
 		Kind: "NetworkAttachmentDefinition",

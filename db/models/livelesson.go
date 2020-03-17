@@ -18,6 +18,7 @@ import "time"
 type LiveLesson struct {
 	ID            string                   `json:"LiveLessonId"`
 	SessionID     string                   `json:"SessionId"`
+	AntidoteID    string                   `json:"AntidoteID"`
 	LessonSlug    string                   `json:"LessonSlug"`
 	LiveEndpoints map[string]*LiveEndpoint `json:"LiveEndpoints"`
 	CurrentStage  int32                    `json:"LessonStage"`
@@ -31,7 +32,7 @@ type LiveLesson struct {
 	Diagram       string                   `json:"Diagram"`
 	Video         string                   `json:"Video"`
 	StageVideo    string                   `json:"StageVideo"`
-	Busy          bool                     `json:"Busy"`
+	// Busy          bool                     `json:"Busy"`
 }
 
 // LiveEndpoint is a running instance of a LessonEndpoint, with additional details

@@ -670,6 +670,9 @@ Livelesson = `{
         "SessionID": {
           "type": "string"
         },
+        "AntidoteID": {
+          "type": "string"
+        },
         "LessonSlug": {
           "type": "string"
         },

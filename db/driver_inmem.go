@@ -238,14 +238,26 @@ func (a *ADMInMem) UpdateLiveLessonStage(llID string, stage int32) error {
 	return nil
 }
 
-// UpdateLiveLessonBusy updates a livelesson's Busy property
-func (a *ADMInMem) UpdateLiveLessonBusy(llID string, busy bool) error {
+// // UpdateLiveLessonBusy updates a livelesson's Busy property
+// func (a *ADMInMem) UpdateLiveLessonBusy(llID string, busy bool) error {
+// 	if _, ok := a.liveLessons[llID]; !ok {
+// 		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+// 	}
+// 	a.liveLessonsMu.Lock()
+// 	defer a.liveLessonsMu.Unlock()
+// 	a.liveLessons[llID].Busy = busy
+// 	return nil
+// }
+
+// UpdateLiveLessonGuide updates a LiveLesson's guide properties
+func (a *ADMInMem) UpdateLiveLessonGuide(llID, guideType, guideContents string) error {
 	if _, ok := a.liveLessons[llID]; !ok {
 		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
 	}
 	a.liveLessonsMu.Lock()
 	defer a.liveLessonsMu.Unlock()
-	a.liveLessons[llID].Busy = busy
+	a.liveLessons[llID].GuideContents = guideContents
+	a.liveLessons[llID].GuideType = guideType
 	return nil
 }
 
@@ -268,6 +280,22 @@ func (a *ADMInMem) UpdateLiveLessonError(llID string, err bool) error {
 	a.liveLessonsMu.Lock()
 	defer a.liveLessonsMu.Unlock()
 	a.liveLessons[llID].Error = err
+	return nil
+}
+
+// UpdateLiveLessonEndpointIP updates a livelesson's Host property
+func (a *ADMInMem) UpdateLiveLessonEndpointIP(llID, epName, IP string) error {
+	if _, ok := a.liveLessons[llID]; !ok {
+		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+	}
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	for name := range a.liveLessons[llID].LiveEndpoints {
+		if name == epName {
+			a.liveLessons[llID].LiveEndpoints[name].Host = IP
+			break
+		}
+	}
 	return nil
 }
 

@@ -31,7 +31,7 @@ func (s *AntidoteScheduler) createIngress(nsName string, ep *models.LiveEndpoint
 			Name:      fmt.Sprintf("%s-%s", ep.Name, p.Name),
 			Namespace: nsName,
 			Labels: map[string]string{
-				"syringeManaged": "yes",
+				"antidoteManaged": "yes",
 			},
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/ingress.class": "nginx",
@@ -61,8 +61,6 @@ func (s *AntidoteScheduler) createIngress(nsName string, ep *models.LiveEndpoint
 			Rules: []v1beta1.IngressRule{
 				{
 					Host: ingressDomain,
-
-					// TODO(mierdin): need to build this based on incoming protocol from syringefile. Might need to be HTTPS
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{

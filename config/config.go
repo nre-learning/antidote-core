@@ -38,7 +38,7 @@ type AntidoteConfig struct {
 	EnabledServices []string `yaml:"enabledServices"`
 }
 
-func LoadConfig() (AntidoteConfig, error) {
+func LoadConfig(configFile string) (AntidoteConfig, error) {
 
 	// Set a new config with defaults set where relevant
 	config := AntidoteConfig{
@@ -50,7 +50,7 @@ func LoadConfig() (AntidoteConfig, error) {
 		LiveLessonTTL:     30,
 		AlwaysPull:        false,
 		AllowEgress:       false,
-		CertLocation:      "prod/tls-cert",
+		CertLocation:      "prod/tls-certificate",
 		CurriculumVersion: "latest",
 		EnabledServices: []string{
 			"scheduler",
@@ -59,16 +59,13 @@ func LoadConfig() (AntidoteConfig, error) {
 		},
 	}
 
-	// TODO(mierdin): Load config from filesystem
-
-	file := "/home/mierdin/Code/GO/src/github.com/nre-learning/antidote-core/antidote-config.yaml"
-	yamlDef, err := ioutil.ReadFile(file)
+	yamlDef, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Errorf("Encountered problem %v", err)
+		return AntidoteConfig{}, err
 	}
 	err = yaml.Unmarshal([]byte(yamlDef), &config)
 	if err != nil {
-		log.Errorf("Failed to import %s: %v", file, err)
+		return AntidoteConfig{}, err
 	}
 
 	if config.InstanceID == "" {

@@ -42,7 +42,7 @@ func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", s.Config.InstanceID),
+		LabelSelector: fmt.Sprintf("antidoteManaged=yes,antidoteId=%s", s.Config.InstanceID),
 	})
 	if err != nil {
 		return err
@@ -50,11 +50,11 @@ func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
 
 	// No need to nuke if no syringe namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Info("No namespaces with our syringeId found. Starting normally.")
+		log.Info("No namespaces with our antidoteId found. Starting normally.")
 		return nil
 	}
 
-	log.Warnf("Nuking all namespaces with a syringeId of %s", s.Config.InstanceID)
+	log.Warnf("Nuking all namespaces with an antidoteId of %s", s.Config.InstanceID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
@@ -114,13 +114,13 @@ func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
-				"liveLesson":     fmt.Sprintf("%s", req.LiveLessonID),
-				"liveSession":    fmt.Sprintf("%s", req.LiveSessionID),
-				"lessonSlug":     fmt.Sprintf("%s", ll.LessonSlug),
-				"syringeManaged": "yes",
-				"syringeId":      s.Config.InstanceID,
-				"lastAccessed":   strconv.Itoa(int(req.Created.Unix())),
-				"created":        strconv.Itoa(int(req.Created.Unix())),
+				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+				"lessonSlug":      fmt.Sprintf("%s", ll.LessonSlug),
+				"antidoteManaged": "yes",
+				"antidoteId":      s.Config.InstanceID,
+				"lastAccessed":    strconv.Itoa(int(req.Created.Unix())),
+				"created":         strconv.Itoa(int(req.Created.Unix())),
 			},
 		},
 	}
@@ -130,9 +130,6 @@ func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) 
 		log.Infof("Created namespace: %s", result.ObjectMeta.Name)
 	} else if apierrors.IsAlreadyExists(err) {
 		log.Warnf("Namespace %s already exists.", nsName)
-
-		// In this case we are returning what we tried to create. This means that when this lesson is cleaned up,
-		// syringe will delete the pod that already existed.
 		return namespace, err
 	} else {
 		log.Errorf("Problem creating namespace %s: %s", nsName, err)
@@ -141,7 +138,7 @@ func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) 
 	return result, err
 }
 
-// PurgeOldLessons identifies any kubernetes namespaces that are operating with our syringeId,
+// PurgeOldLessons identifies any kubernetes namespaces that are operating with our antidoteId,
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
@@ -149,7 +146,7 @@ func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
-		LabelSelector: fmt.Sprintf("syringeManaged=yes,syringeId=%s", s.Config.InstanceID),
+		LabelSelector: fmt.Sprintf("antidoteManaged=yes,antidoteId=%s", s.Config.InstanceID),
 	})
 	if err != nil {
 		return nil, err
@@ -214,6 +211,6 @@ func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 
 // generateNamespaceName is a helper function for determining the name of our kubernetes
 // namespaces, so we don't have to do this all over the codebase and maybe get it wrong.
-func generateNamespaceName(syringeID, liveLessonID string) string {
-	return fmt.Sprintf("%s-%s", syringeID, liveLessonID)
+func generateNamespaceName(antidoteId, liveLessonID string) string {
+	return fmt.Sprintf("%s-%s", antidoteId, liveLessonID)
 }

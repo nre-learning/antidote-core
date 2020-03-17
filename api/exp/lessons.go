@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"time"
 
 	copier "github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -84,6 +85,7 @@ func isAlreadyInSlice(lessonSlug string, currentPrereqs []string) bool {
 // GetLesson retrieves a single Lesson from the data store by Slug
 func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
 
+	time.Sleep(2 * time.Second)
 	dbLesson, err := s.Db.GetLesson(lessonSlug.Slug)
 	if err != nil {
 		log.Error(err)
