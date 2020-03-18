@@ -38,7 +38,7 @@ func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.Le
 
 	// Preload the requested lesson ID so we can strip it before returning
 	pr := s.getPrereqs(lessonSlug.Slug, []string{lessonSlug.Slug})
-	log.Debugf("Getting prerequisites for Lesson %d: %d", lessonSlug.Slug, pr)
+	log.Debugf("Getting prerequisites for Lesson %s: %s", lessonSlug.Slug, pr)
 
 	return &pb.LessonPrereqs{
 		// Remove first item from slice - this is the lesson being requested

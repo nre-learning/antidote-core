@@ -42,10 +42,10 @@ func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
 	lessonDir := fmt.Sprintf("%s/lessons", curriculumDir)
 	log.Debugf("Searching %s for lesson definitions", lessonDir)
 	err := filepath.Walk(lessonDir, func(path string, f os.FileInfo, err error) error {
-		syringeFileLocation := fmt.Sprintf("%s/lesson.meta.yaml", path)
-		if _, err := os.Stat(syringeFileLocation); err == nil {
-			log.Debugf("Found lesson definition at: %s", syringeFileLocation)
-			fileList = append(fileList, syringeFileLocation)
+		lessonDefFile := fmt.Sprintf("%s/lesson.meta.yaml", path)
+		if _, err := os.Stat(lessonDefFile); err == nil {
+			log.Debugf("Found lesson definition at: %s", lessonDefFile)
+			fileList = append(fileList, lessonDefFile)
 		}
 		return nil
 	})

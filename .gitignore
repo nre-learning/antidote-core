@@ -14,3 +14,5 @@ api/exp/generated/
 release_assets/
 cover.html
 *.tbd
+test-api.py
+venv/

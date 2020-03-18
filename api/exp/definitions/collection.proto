@@ -30,9 +30,9 @@ message CollectionSlug {
 }
 
 message LessonSummary {
-  string lessonSlug = 1;
-  string lessonName = 2;
-  string lessonDescription = 3;
+  string Slug = 1;
+  string Name = 2;
+  string Description = 3;
 }
 
 message Collection {

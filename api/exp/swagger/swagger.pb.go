@@ -169,13 +169,13 @@ Collection = `{
     "expLessonSummary": {
       "type": "object",
       "properties": {
-        "lessonSlug": {
+        "Slug": {
           "type": "string"
         },
-        "lessonName": {
+        "Name": {
           "type": "string"
         },
-        "lessonDescription": {
+        "Description": {
           "type": "string"
         }
       }

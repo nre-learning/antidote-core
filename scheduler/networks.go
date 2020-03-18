@@ -71,11 +71,9 @@ func (s *AntidoteScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPo
 				},
 			},
 			PolicyTypes: []netv1.PolicyType{
-				// Apply only egress policy here. We want to permit all ingress traffic,
-				// so that Syringe and Guacamole can reach these endpoints unhindered.
-				//
 				// We really only care about restricting what the pods can access, especially
-				// the internet.
+				// the internet. Everything else should be able to access into the namespace
+				// unrestricted. Thus, applying only in the egress direction.
 				"Egress",
 			},
 			Egress: []netv1.NetworkPolicyEgressRule{

@@ -35,9 +35,9 @@ func (s *AntidoteScheduler) boopNamespace(nsName string) error {
 	return nil
 }
 
-// cleanOrphanedNamespaces seeks out all syringe-managed namespaces, and deletes them.
+// cleanOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
-// in place, but no running lessons. Syringe doesn't manage itself, or any other Antidote services.
+// in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
 func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -48,7 +48,7 @@ func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
 		return err
 	}
 
-	// No need to nuke if no syringe namespaces exist
+	// No need to nuke if no namespaces exist with our ID
 	if len(nameSpaces.Items) == 0 {
 		log.Info("No namespaces with our antidoteId found. Starting normally.")
 		return nil

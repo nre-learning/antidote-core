@@ -32,6 +32,9 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// to jaeger. This way we can see incoming requests of all kinds, even those that don't necessarily result in a new
 	// livesession or livelesson.
 
+	// maybe respond with an error if antidote is still starting (and nuking, for instance).
+	// will require some understanding of scheduler state
+
 	// TODO(mierdin) look up session ID in DB first
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"

@@ -13,7 +13,7 @@ import (
 // as a home for all curriculum resources with strong relationships to that entity, and as a way of giving
 // more information for that entity.
 type Collection struct {
-	Slug             string `json:"Id" yaml:"id"`
+	Slug             string `json:"Slug" yaml:"slug"`
 	Title            string `json:"Title" yaml:"title"`
 	Image            string `json:"Image" yaml:"image"`
 	Website          string `json:"Website" yaml:"website"`

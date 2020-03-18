@@ -51,9 +51,9 @@ func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.Coll
 	for lessonSlug, lesson := range lessons {
 		if lesson.Collection == collectionSlug.Slug {
 			collection.Lessons = append(collection.Lessons, &pb.LessonSummary{
-				LessonSlug:        lessonSlug,
-				LessonDescription: lesson.Description,
-				LessonName:        lesson.Name,
+				Slug:        lessonSlug,
+				Description: lesson.Description,
+				Name:        lesson.Name,
 			})
 		}
 	}
