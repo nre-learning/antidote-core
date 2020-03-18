@@ -337,17 +337,6 @@ func (a *ADMInMem) GetLiveSession(id string) (*models.LiveSession, error) {
 	return nil, fmt.Errorf("Unable to find liveSession %s", id)
 }
 
-// UpdateLiveSession updates an existing LiveSession in-place within the in-memory data store, by ID
-func (a *ADMInMem) UpdateLiveSessionA(ls *models.LiveSession) error {
-	if _, ok := a.liveSessions[ls.ID]; !ok {
-		return fmt.Errorf("LiveSession %s doesn't exist; cannot update", ls.ID)
-	}
-	a.liveSessionsMu.Lock()
-	defer a.liveSessionsMu.Unlock()
-	a.liveSessions[ls.ID] = ls
-	return nil
-}
-
 // DeleteLiveSession deletes an existing LiveSession from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveSession(id string) error {
 	a.liveSessionsMu.Lock()

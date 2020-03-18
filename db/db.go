@@ -69,7 +69,6 @@ type DataManager interface {
 	CreateLiveSession(*models.LiveSession) error
 	ListLiveSessions() (map[string]models.LiveSession, error)
 	GetLiveSession(string) (*models.LiveSession, error)
-	UpdateLiveSessionA(*models.LiveSession) error //TODO(mierdin): delete if unused
 	DeleteLiveSession(string) error
 }
 

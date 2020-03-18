@@ -58,7 +58,7 @@ func getValidLesson() models.Lesson {
 		Endpoints: []*models.LessonEndpoint{
 			{
 				Name:              "foobar1",
-				Image:             "antidotelabs/utility",
+				Image:             "utility",
 				ConfigurationType: "napalm-junos",
 				Presentations: []*models.LessonPresentation{
 					{
@@ -75,7 +75,7 @@ func getValidLesson() models.Lesson {
 			},
 			{
 				Name:              "foobar2",
-				Image:             "antidotelabs/utility",
+				Image:             "utility",
 				ConfigurationType: "python",
 				Presentations: []*models.LessonPresentation{
 					{
@@ -92,7 +92,7 @@ func getValidLesson() models.Lesson {
 			},
 			{
 				Name:              "foobar3",
-				Image:             "antidotelabs/utility",
+				Image:             "utility",
 				ConfigurationType: "ansible",
 				Presentations: []*models.LessonPresentation{
 					{

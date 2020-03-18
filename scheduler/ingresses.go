@@ -35,19 +35,11 @@ func (s *AntidoteScheduler) createIngress(nsName string, ep *models.LiveEndpoint
 			},
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/ingress.class": "nginx",
-
 				// https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/ssl-services
 				// We only need this if the endpoint requires HTTPS termination.
-				"ingress.kubernetes.io/ssl-services": ep.Name,
-
+				"ingress.kubernetes.io/ssl-services":       ep.Name,
 				"ingress.kubernetes.io/ssl-redirect":       redir,
 				"ingress.kubernetes.io/force-ssl-redirect": redir,
-				// "ingress.kubernetes.io/rewrite-target":          "/",
-				// "nginx.ingress.kubernetes.io/rewrite-target":    "/",
-				// "nginx.ingress.kubernetes.io/limit-connections": "10",
-				// "nginx.ingress.kubernetes.io/limit-rps":         "5",
-				// "nginx.ingress.kubernetes.io/add-base-url":      "true",
-				// "nginx.ingress.kubernetes.io/app-root":          "/13-jjtigg867ghr3gye-ns-jupyter/",
 			},
 		},
 

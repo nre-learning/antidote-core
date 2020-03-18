@@ -156,20 +156,20 @@ func TestLiveLessonCRUD(t *testing.T) {
 
 	liveLessons := []*models.LiveLesson{
 		{
-			ID:          "10-abcdef",
-			SessionID:   "abcdef",
-			LessonID:    10,
-			LessonStage: 1,
+			ID:           "10-abcdef",
+			SessionID:    "abcdef",
+			LessonSlug:   "foobar-10",
+			CurrentStage: 0,
 		}, {
-			ID:          "11-abcdef",
-			SessionID:   "abcdef",
-			LessonID:    11,
-			LessonStage: 1,
+			ID:           "11-abcdef",
+			SessionID:    "abcdef",
+			LessonSlug:   "foobar-11",
+			CurrentStage: 0,
 		}, {
-			ID:          "10-ghijk",
-			SessionID:   "ghijk",
-			LessonID:    10,
-			LessonStage: 1,
+			ID:           "10-ghijk",
+			SessionID:    "ghijk",
+			LessonSlug:   "foobar-10",
+			CurrentStage: 1,
 		},
 	}
 
@@ -181,9 +181,9 @@ func TestLiveLessonCRUD(t *testing.T) {
 	}
 
 	err := adb.CreateLiveLesson(&models.LiveLesson{
-		ID:        "10-ghijk",
-		SessionID: "ghijk",
-		LessonID:  10,
+		ID:         "10-ghijk",
+		SessionID:  "ghijk",
+		LessonSlug: "foobar-10",
 	})
 	if err == nil {
 		t.Fatal("Expected error creating LiveLesson but encountered none")
@@ -211,21 +211,15 @@ func TestLiveLessonCRUD(t *testing.T) {
 		t.Fatal("Error expected and was not produced in GetLiveLesson")
 	}
 
-	ll.LessonStage = 2
-	err = adb.UpdateLiveLesson(ll)
+	err = adb.UpdateLiveLessonStage(ll.ID, 1)
 	if err != nil {
 		t.Fatalf("Problem updating LiveLesson: %v", err)
 	}
-	newLl, err := adb.GetLiveLesson("10-abcdef")
+	newLl, err := adb.GetLiveLesson(ll.ID)
 	ok(t, err)
-	assert(t, newLl.LessonStage == 2, "update check failed")
+	assert(t, newLl.CurrentStage == 1, "update check failed")
 
-	err = adb.UpdateLiveLesson(&models.LiveLesson{
-		ID:          "10-foobardoesntexist",
-		SessionID:   "ghijk",
-		LessonID:    10,
-		LessonStage: 2,
-	})
+	err = adb.UpdateLiveLessonStage("10-foobardoesntexist", 2)
 	if err == nil {
 		t.Fatal("Error expected and was not produced in UpdateLiveLesson")
 	}
@@ -238,9 +232,9 @@ func TestLiveLessonCRUD(t *testing.T) {
 	finalLiveLessonsList, err := adb.ListLiveLessons()
 	ok(t, err)
 	assert(t, len(finalLiveLessonsList) == 2, "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList["10-abcdef"].LessonStage == 2, "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-abcdef"].CurrentStage == 1, "final livelesson assertion failed")
 	assert(t, finalLiveLessonsList["10-abcdef"].SessionID == "abcdef", "final livelesson assertion failed")
-	assert(t, finalLiveLessonsList["10-ghijk"].LessonStage == 1, "final livelesson assertion failed")
+	assert(t, finalLiveLessonsList["10-ghijk"].CurrentStage == 1, "final livelesson assertion failed")
 	assert(t, finalLiveLessonsList["10-ghijk"].SessionID == "ghijk", "final livelesson assertion failed")
 }
 
@@ -298,22 +292,6 @@ func TestLiveSessionCRUD(t *testing.T) {
 		t.Fatal("Error expected and was not produced in GetLiveSession")
 	}
 
-	ls.SourceIP = "123.123.123.123"
-	err = adb.UpdateLiveSession(ls)
-	if err != nil {
-		t.Fatalf("Problem updating LiveSession: %v", err)
-	}
-	newLs, _ := adb.GetLiveSession("abcdef")
-	assert(t, newLs.SourceIP == "123.123.123.123", "update check failed")
-
-	err = adb.UpdateLiveSession(&models.LiveSession{
-		ID:       "foobardoesntexist",
-		SourceIP: "111.222.111.222",
-	})
-	if err == nil {
-		t.Fatal("Error expected and was not produced in UpdateLiveSession")
-	}
-
 	err = adb.DeleteLiveSession("ghijkl")
 	if err != nil {
 		t.Fatalf("Problem deleting LiveSession: %v", err)
@@ -321,7 +299,7 @@ func TestLiveSessionCRUD(t *testing.T) {
 
 	finalLiveSessionsList, _ := adb.ListLiveSessions()
 	assert(t, len(finalLiveSessionsList) == 2, "final livesession assertion failed")
-	assert(t, finalLiveSessionsList["abcdef"].SourceIP == "123.123.123.123", "final livesession assertion failed")
+	assert(t, finalLiveSessionsList["abcdef"].SourceIP == "1.1.1.1", "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["abcdef"].ID == "abcdef", "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["mnopqr"].SourceIP == "3.3.3.3", "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["mnopqr"].ID == "mnopqr", "final livesession assertion failed")
