@@ -58,7 +58,6 @@ type DataManager interface {
 		The first param is the livelesson ID, and the second is the appropriate value
 	*/
 	UpdateLiveLessonStage(string, int32) error
-	// UpdateLiveLessonBusy(string, bool) error
 	UpdateLiveLessonGuide(string, string, string) error
 	UpdateLiveLessonStatus(string, models.LiveLessonStatus) error
 	UpdateLiveLessonError(string, bool) error
@@ -69,6 +68,7 @@ type DataManager interface {
 	CreateLiveSession(*models.LiveSession) error
 	ListLiveSessions() (map[string]models.LiveSession, error)
 	GetLiveSession(string) (*models.LiveSession, error)
+	UpdateLiveSessionPersistence(string, bool) error
 	DeleteLiveSession(string) error
 }
 

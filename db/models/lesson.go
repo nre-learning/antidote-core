@@ -85,9 +85,6 @@ type LessonStage struct {
 	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,pattern=jupyter|markdown"`
 	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
 	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
-
-	// TODO(mierdin): Implementing this later
-	// Objectives    []*LessonStageObjective `json:"Objectives" yaml:"objectives"`
 }
 
 type LessonGuideType string
@@ -96,12 +93,6 @@ const (
 	GuideMarkdown LessonGuideType = "markdown"
 	GuideJupyter  LessonGuideType = "jupyter"
 )
-
-// TODO(mierdin): Implementing this later
-// type LessonStageObjective struct {
-// 	ID            int32               `json:"ID"`
-// 	Description string `json:"Description" yaml:"description" jsonschema:"required"`
-// }
 
 // LessonEndpoint is typically a container that runs some software in a Lesson. This can be a network device,
 // or a simple container with some Python libraries installed - it doesn't really matter. It's just some software
@@ -132,9 +123,14 @@ type LessonConnection struct {
 	B string `json:"B" yaml:"b" jsonschema:"required"`
 }
 
+// PresentationType is backed by a set of possible const values for presentation types below
 type PresentationType string
 
 const (
+
+	// PresentationType_http is for presentations that use iframes to present a web front-end to the user
 	PresentationType_http PresentationType = "http"
-	PresentationType_ssh  PresentationType = "ssh"
+
+	// PresentationType_ssh is for presentations that provide an interactive terminal
+	PresentationType_ssh PresentationType = "ssh"
 )

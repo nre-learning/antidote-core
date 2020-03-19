@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	config "github.com/nre-learning/antidote-core/config"
+	models "github.com/nre-learning/antidote-core/db/models"
+	services "github.com/nre-learning/antidote-core/services"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +19,7 @@ func TestPods(t *testing.T) {
 
 	// SETUP
 	nsName := "1-foobar-ns"
-	syringeConfig := &config.SyringeConfig{
+	cfg := config.AntidoteConfig{
 		CurriculumDir: "/antidote",
 		Domain:        "localhost",
 	}
@@ -28,10 +29,10 @@ func TestPods(t *testing.T) {
 			Namespace: nsName,
 		},
 	}
-	lessonScheduler := LessonScheduler{
-		SyringeConfig: syringeConfig,
-		Client:        testclient.NewSimpleClientset(namespace),
-		ClientExt:     kubernetesExtFake.NewSimpleClientset(),
+	lessonScheduler := AntidoteScheduler{
+		Config:    cfg,
+		Client:    testclient.NewSimpleClientset(namespace),
+		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 	}
 	uuid := "1-abcdef"
 	// END SETUP
@@ -40,19 +41,16 @@ func TestPods(t *testing.T) {
 	t.Run("A=1", func(t *testing.T) {
 
 		pod, err := lessonScheduler.createPod(
-			&pb.Endpoint{
+			&models.LiveEndpoint{
 				Name:  "linux1",
 				Image: "antidotelabs/utility",
-				Presentations: []*pb.Presentation{
+				Presentations: []*models.LivePresentation{
 					{Name: "cli", Type: "ssh", Port: 22},
 				},
 			},
 			[]string{"1", "2", "3"},
-			&LessonScheduleRequest{
-				Uuid: uuid,
-				Lesson: &pb.Lesson{
-					LessonId: 1,
-				},
+			services.LessonScheduleRequest{
+				LiveLessonID: "asdf",
 			},
 		)
 

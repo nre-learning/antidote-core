@@ -165,7 +165,7 @@ func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 		// lastAccessed =
 		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
 		if err != nil {
-			return nil, err
+			return []string{}, err
 		}
 		lastAccessed := time.Unix(i, 0)
 
@@ -173,9 +173,11 @@ func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 			continue
 		}
 
-		ls, err := s.Db.GetLiveSession(nameSpaces.Items[n].ObjectMeta.Labels["liveSession"])
+		// TODO(mierdin): Gracefully handle this
+		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
+		ls, err := s.Db.GetLiveSession(lsID)
 		if err != nil {
-			return nil, err
+			return []string{}, err
 		}
 		if ls.Persistent {
 			log.Debugf("Skipping GC of expired namespace %s because its sessionId %s is marked as persistent.", nameSpaces.Items[n].Name, ls.ID)

@@ -68,7 +68,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(newRequest services.LessonSchedu
 	}
 
 	if !success {
-		log.Errorf("Timeout waiting for livelesson to become reachable", ll.ID)
+		log.Errorf("Timeout waiting for livelesson %s to become reachable", ll.ID)
 		err = s.Db.UpdateLiveLessonError(ll.ID, true)
 		if err != nil {
 			log.Errorf("Error updating livelesson: %v", err)

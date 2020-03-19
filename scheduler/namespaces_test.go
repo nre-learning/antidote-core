@@ -6,6 +6,9 @@ import (
 	"time"
 
 	config "github.com/nre-learning/antidote-core/config"
+	db "github.com/nre-learning/antidote-core/db"
+	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
+	models "github.com/nre-learning/antidote-core/db/models"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,20 +21,33 @@ func TestNamespaces(t *testing.T) {
 
 	// SETUP
 	nsName := "100-foobar-ns"
-	syringeConfig := &config.SyringeConfig{
+	cfg := config.AntidoteConfig{
 		CurriculumDir: "/antidote",
-		antidoteId:    "syringe-testing",
+		InstanceID:    "antidote-testing-1",
 		Domain:        "localhost",
 		Tier:          "prod",
 	}
-	lessonScheduler := LessonScheduler{
-		SyringeConfig: syringeConfig,
-		Client:        testclient.NewSimpleClientset(),
-		ClientExt:     kubernetesExtFake.NewSimpleClientset(),
+
+	// Initialize DataManager
+	adb := db.NewADMInMem()
+	err := ingestors.ImportCurriculum(adb, cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	schedulerSvc := AntidoteScheduler{
+		Config:    cfg,
+		Db:        adb,
+		Client:    testclient.NewSimpleClientset(),
+		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 	}
 	// END SETUP
 
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
+
+	adb.CreateLiveSession(&models.LiveSession{
+		ID: "abcdef",
+	})
 
 	// Test basic namespace creation
 	t.Run("A=1", func(t *testing.T) {
@@ -42,8 +58,10 @@ func TestNamespaces(t *testing.T) {
 					Labels: map[string]string{
 						"lessonId":        "100",
 						"antidoteManaged": "yes",
+						"liveSession":     "abcdef",
+						"liveLesson":      "123456",
 						"name":            nsName,
-						"antidoteId":      lessonScheduler.SyringeConfig.antidoteId,
+						"antidoteId":      schedulerSvc.Config.InstanceID,
 						"lastAccessed":    strconv.Itoa(int(anHourAgo.Unix())),
 						"created":         strconv.Itoa(int(anHourAgo.Unix())),
 					},
@@ -52,7 +70,7 @@ func TestNamespaces(t *testing.T) {
 		}
 
 		for n := range namespaces {
-			ns, err := lessonScheduler.Client.CoreV1().Namespaces().Create(namespaces[n])
+			ns, err := schedulerSvc.Client.CoreV1().Namespaces().Create(namespaces[n])
 
 			// Assert namespace exists without error
 			ok(t, err)
@@ -62,7 +80,7 @@ func TestNamespaces(t *testing.T) {
 
 	// Test that namespaces are GC'd as expected.
 	t.Run("A=1", func(t *testing.T) {
-		cleaned, err := lessonScheduler.PurgeOldLessons()
+		cleaned, err := schedulerSvc.PurgeOldLessons()
 		ok(t, err)
 		assert(t, (len(cleaned) == 1), "")
 		assert(t, (cleaned[0] == "100-foobar-ns"), "")

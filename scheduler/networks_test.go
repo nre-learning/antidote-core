@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	kubernetesCrdFake "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/fake"
+	services "github.com/nre-learning/antidote-core/services"
 	corev1 "k8s.io/api/core/v1"
 	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +40,7 @@ func TestNetworks(t *testing.T) {
 
 	// SETUP
 	nsName := "1-foobar-ns"
-	syringeConfig := &config.SyringeConfig{
+	cfg := config.AntidoteConfig{
 		CurriculumDir: "/antidote",
 		Domain:        "localhost",
 	}
@@ -47,11 +50,20 @@ func TestNetworks(t *testing.T) {
 			Namespace: nsName,
 		},
 	}
-	lessonScheduler := LessonScheduler{
-		SyringeConfig: syringeConfig,
-		Client:        testclient.NewSimpleClientset(namespace),
-		ClientExt:     kubernetesExtFake.NewSimpleClientset(),
-		ClientCrd:     kubernetesCrdFake.NewSimpleClientset(),
+
+	// Initialize DataManager
+	adb := db.NewADMInMem()
+	err := ingestors.ImportCurriculum(adb, cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	lessonScheduler := AntidoteScheduler{
+		Config:    cfg,
+		Db:        adb,
+		Client:    testclient.NewSimpleClientset(namespace),
+		ClientExt: kubernetesExtFake.NewSimpleClientset(),
+		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
 	}
 	// END SETUP
 
@@ -60,7 +72,7 @@ func TestNetworks(t *testing.T) {
 		network, err := lessonScheduler.createNetwork(
 			0,
 			"vqfx1-vqfx2",
-			&LessonScheduleRequest{
+			services.LessonScheduleRequest{
 				LiveLessonID: "asdf",
 			},
 		)

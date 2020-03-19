@@ -4,19 +4,17 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sync"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	config "github.com/nre-learning/antidote-core/config"
+	db "github.com/nre-learning/antidote-core/db"
+	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 
 	// Fake clients
 	kubernetesCrdFake "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/fake"
@@ -59,88 +57,18 @@ type fakeHealthChecker struct{}
 func (lhc *fakeHealthChecker) sshTest(host string, port int) bool { return true }
 func (lhc *fakeHealthChecker) tcpTest(host string, port int) bool { return true }
 
-func createFakeScheduler() *LessonScheduler {
-	os.Setenv("SYRINGE_CURRICULUM", "foo")
-	os.Setenv("SYRINGE_ID", "syringe-testing")
-	os.Setenv("SYRINGE_DOMAIN", "bar")
-	syringeConfig, err := config.LoadConfigVars()
+func createFakeScheduler() *AntidoteScheduler {
+	cfg, err := config.LoadConfig("../hack/mock-config-1.yml")
 	if err != nil {
 		// t.Fatal(err)
 		panic(err)
 	}
 
-	var lessons = map[int32]*pb.Lesson{
-		1: &pb.Lesson{
-			LessonId: 1,
-			Stages: []*pb.LessonStage{
-				{
-					Id:          0,
-					Description: "",
-				},
-				{
-					Id:          1,
-					Description: "foobar",
-				},
-			},
-			LessonName: "Test Lesson",
-			Endpoints: []*pb.Endpoint{
-				{
-					Name:  "vqfx1",
-					Image: "antidotelabs/vqfx",
-					Presentations: []*pb.Presentation{
-						{Name: "cli", Type: "ssh", Port: 22},
-					},
-				},
-				{
-					Name:  "vqfx2",
-					Image: "antidotelabs/vqfx",
-					Presentations: []*pb.Presentation{
-						{Name: "cli", Type: "ssh", Port: 22},
-					},
-				},
-				{
-					Name:  "vqfx3",
-					Image: "antidotelabs/vqfx",
-					Presentations: []*pb.Presentation{
-						{Name: "cli", Type: "ssh", Port: 22},
-					},
-				},
-				{
-					Name:  "linux1",
-					Image: "antidotelabs/utility",
-					Presentations: []*pb.Presentation{
-						{Name: "cli", Type: "ssh", Port: 22},
-					},
-				},
-				{
-					Name:  "web1",
-					Image: "antidotelabs/webserver",
-					Presentations: []*pb.Presentation{
-						{Name: "webui", Type: "http", Port: 80},
-					},
-				},
-			},
-			Connections: []*pb.Connection{
-				{
-					A: "vqfx1",
-					B: "vqfx2",
-				},
-				{
-					A: "vqfx2",
-					B: "vqfx3",
-				},
-				{
-					A: "vqfx3",
-					B: "vqfx1",
-				},
-			},
-			Category: "fundamentals",
-			Tier:     "prod",
-		},
-	}
-
-	curriculum := &pb.Curriculum{
-		Lessons: lessons,
+	// Initialize DataManager
+	adb := db.NewADMInMem()
+	err = ingestors.ImportCurriculum(adb, cfg)
+	if err != nil {
+		panic(err)
 	}
 
 	nsName := "1-foobar-ns"
@@ -152,23 +80,14 @@ func createFakeScheduler() *LessonScheduler {
 	}
 
 	// Start lesson scheduler
-	lessonScheduler := LessonScheduler{
+	lessonScheduler := AntidoteScheduler{
 		// KubeConfig:    kubeConfig,
-		Requests:      make(chan *LessonScheduleRequest),
-		Results:       make(chan *LessonScheduleResult),
-		Curriculum:    curriculum,
-		SyringeConfig: syringeConfig,
-		GcWhiteList:   make(map[string]*pb.Session),
-		GcWhiteListMu: &sync.Mutex{},
-		KubeLabs:      make(map[string]*KubeLab),
-		KubeLabsMu:    &sync.Mutex{},
-
-		DisableGC: true,
-
+		Config:    cfg,
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
-
+		// NEC:       ec,
+		Db:            adb,
 		HealthChecker: &fakeHealthChecker{},
 	}
 
@@ -187,61 +106,11 @@ func TestSchedulerSetup(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		for {
-			result := <-lessonScheduler.Results
-			// log.Info(result)
-
-			if !result.Success && result.Operation == OperationType_CREATE {
-				t.Fatal("Received error from scheduler")
-			}
-		}
-	}()
-
-	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
-
-	numberKubeLabs := 5
-	for i := 1; i <= numberKubeLabs; i++ {
-		uuid, _ := newUUID()
-		req := &LessonScheduleRequest{
-			Lesson:    lessonScheduler.Curriculum.Lessons[1],
-			Operation: OperationType_CREATE,
-			Stage:     1,
-			Uuid:      uuid,
-			Created:   anHourAgo,
-		}
-		lessonScheduler.Requests <- req
-	}
-
-	time.Sleep(time.Second * 10)
-
-	for k := range lessonScheduler.KubeLabs {
-		kl := lessonScheduler.KubeLabs[k]
-
-		assert(t, (len(kl.Pods) == 5),
-			fmt.Sprintf("Pods count mismatch: %d", len(kl.Pods)))
-		assert(t, (len(kl.Services) == 5),
-			fmt.Sprintf("Services count mismatch: %d", len(kl.Services)))
-		assert(t, (len(kl.Ingresses) == 1),
-			fmt.Sprintf("Ingress count mismatch: %d", len(kl.Ingresses)))
-		netps, _ := lessonScheduler.Client.NetworkingV1().NetworkPolicies(fmt.Sprintf("%s-ns", kl.CreateRequest.Uuid)).List(metav1.ListOptions{})
-		assert(t, (len(netps.Items) == 1),
-			fmt.Sprintf("Must have a single networkpolicy - %s", fmt.Sprintf("%s-ns", kl.CreateRequest.Uuid)))
-	}
-
-	if len(lessonScheduler.KubeLabs) != numberKubeLabs {
-		t.Fatalf("Not the expected number of kubelabs (expected %d, got %d)", numberKubeLabs, len(lessonScheduler.KubeLabs))
-	}
-	// TODO(mierdin): Need to create a fake health check tester
-
-	cleaned, err := lessonScheduler.PurgeOldLessons()
-	ok(t, err)
-
-	// time.Sleep(time.Second * 5)
-
-	assert(t, (len(cleaned) == numberKubeLabs),
-		fmt.Sprintf("got %d cleaned lessons, expected %d", len(cleaned), numberKubeLabs))
-	// assert(t, (cleaned[0] == "100-foobar-ns"), "")
+	// TODO(mierdin): The previous edition for this test (pre rewrite) sent LSRs into the scheduler channel, and then
+	// made assertions about the kubelabs that were created and what state they were in (k8s objects)
+	// We could probably do the same thing post-rewrite but obviously kubelab is gone so likely what we'd have to do is
+	// call out to kube directly in these tests in order to make the same assertions.
+	// The final thing these tests did was perform garbage collection, and then make additional assertions accordingly.
 
 }
 

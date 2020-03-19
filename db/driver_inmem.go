@@ -337,6 +337,17 @@ func (a *ADMInMem) GetLiveSession(id string) (*models.LiveSession, error) {
 	return nil, fmt.Errorf("Unable to find liveSession %s", id)
 }
 
+// UpdateLiveSessionPersistence updates a livesession's persistent property
+func (a *ADMInMem) UpdateLiveSessionPersistence(lsID string, persistent bool) error {
+	if _, ok := a.liveSessions[lsID]; !ok {
+		return fmt.Errorf("Livesesson %s doesn't exist; cannot update", lsID)
+	}
+	a.liveSessionsMu.Lock()
+	defer a.liveSessionsMu.Unlock()
+	a.liveSessions[lsID].Persistent = persistent
+	return nil
+}
+
 // DeleteLiveSession deletes an existing LiveSession from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveSession(id string) error {
 	a.liveSessionsMu.Lock()
