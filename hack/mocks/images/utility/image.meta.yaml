@@ -1,0 +1,5 @@
+slug: utility
+description: A utility image
+privileged: false
+networkInterfaces:
+  - 'eth0'

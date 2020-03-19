@@ -5,47 +5,19 @@ import (
 	"testing"
 	"time"
 
-	config "github.com/nre-learning/antidote-core/config"
-	db "github.com/nre-learning/antidote-core/db"
-	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	models "github.com/nre-learning/antidote-core/db/models"
 	corev1 "k8s.io/api/core/v1"
-	kubernetesExtFake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 // TestNamespaces is responsible for ensuring kubernetes namespaces are created as expected, with expected
 // properties set based on Syringe-specific inputs.
 func TestNamespaces(t *testing.T) {
 
-	// SETUP
 	nsName := "100-foobar-ns"
-	cfg := config.AntidoteConfig{
-		CurriculumDir: "/antidote",
-		InstanceID:    "antidote-testing-1",
-		Domain:        "localhost",
-		Tier:          "prod",
-	}
-
-	// Initialize DataManager
-	adb := db.NewADMInMem()
-	err := ingestors.ImportCurriculum(adb, cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	schedulerSvc := AntidoteScheduler{
-		Config:    cfg,
-		Db:        adb,
-		Client:    testclient.NewSimpleClientset(),
-		ClientExt: kubernetesExtFake.NewSimpleClientset(),
-	}
-	// END SETUP
-
+	schedulerSvc := createFakeScheduler()
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
-
-	adb.CreateLiveSession(&models.LiveSession{
+	schedulerSvc.Db.CreateLiveSession(&models.LiveSession{
 		ID: "abcdef",
 	})
 
