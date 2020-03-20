@@ -15,8 +15,8 @@ service AntidoteInfoService {
 
 message AntidoteInfo {
   string buildSha = 1;
-  string antidoteSha = 2;
-  string imageVersion = 3;
+  string buildVersion = 2;
+  string curriculumVersion = 3;
 }
 
 

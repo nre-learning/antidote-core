@@ -42,10 +42,10 @@ Antidoteinfo = `{
         "buildSha": {
           "type": "string"
         },
-        "antidoteSha": {
+        "buildVersion": {
           "type": "string"
         },
-        "imageVersion": {
+        "curriculumVersion": {
           "type": "string"
         }
       }

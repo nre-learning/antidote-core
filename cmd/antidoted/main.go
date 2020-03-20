@@ -51,9 +51,7 @@ func main() {
 			log.Fatalf("Failed to read configuration: %v", err)
 		}
 
-		// TODO(mierdin): This provides the loaded version of the curriculum via the antidoteinfo endpoint, primarily
-		// for the PTR banner on the front-end. Should rename to something that makes sense
-		buildInfo["antidoteSha"] = config.CurriculumVersion
+		buildInfo["curriculumVersion"] = config.CurriculumVersion
 
 		// Initialize DataManager
 		adb := db.NewADMInMem()

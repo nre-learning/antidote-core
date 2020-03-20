@@ -16,15 +16,19 @@ func (s *AntidoteAPI) GetAntidoteInfo(ctx context.Context, _ *empty.Empty) (*pb.
 		return &pb.AntidoteInfo{}, errors.New("Build SHA not found")
 	}
 
-	if _, ok := s.BuildInfo["antidoteSha"]; !ok {
-		return &pb.AntidoteInfo{}, errors.New("Antidote SHA not found")
+	if _, ok := s.BuildInfo["buildVersion"]; !ok {
+		return &pb.AntidoteInfo{}, errors.New("Build Version not found")
 	}
 
-	si := pb.AntidoteInfo{
-		BuildSha:     s.BuildInfo["buildSha"],
-		AntidoteSha:  s.BuildInfo["antidoteSha"],
-		ImageVersion: s.BuildInfo["imageVersion"],
+	if _, ok := s.BuildInfo["curriculumVersion"]; !ok {
+		return &pb.AntidoteInfo{}, errors.New("Curriculum Version not found")
 	}
 
-	return &si, nil
+	ai := pb.AntidoteInfo{
+		BuildSha:          s.BuildInfo["buildSha"],
+		BuildVersion:      s.BuildInfo["buildVersion"],
+		CurriculumVersion: s.BuildInfo["curriculumVersion"],
+	}
+
+	return &ai, nil
 }

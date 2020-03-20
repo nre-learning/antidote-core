@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/fatih/color"
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -20,8 +21,30 @@ func main() {
 	app.Name = "antictl"
 	app.Version = buildInfo["buildVersion"]
 	app.Usage = "Admin/debug tool for the Antidote platform"
-
 	var host, port string
+
+	// Ensure the server/client versions are identical
+	app.Before = func(c *cli.Context) error {
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer conn.Close()
+		client := pb.NewAntidoteInfoServiceClient(conn)
+		info, err := client.GetAntidoteInfo(context.Background(), &empty.Empty{})
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if info.GetBuildVersion() != buildInfo["buildVersion"] {
+			color.Red("ERROR - server/client version mismatch")
+			fmt.Printf("Server version is %s, client is %s\n", info.GetBuildVersion(), buildInfo["buildVersion"])
+			os.Exit(1)
+		}
+		return nil
+	}
 
 	// global level flags
 	app.Flags = []cli.Flag{
