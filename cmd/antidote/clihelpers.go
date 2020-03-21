@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/AlecAivazis/survey"
 	"github.com/fatih/color"
 
 	log "github.com/sirupsen/logrus"
@@ -51,16 +52,20 @@ func askSimpleValue(prompt, defaultValue string) string {
 func addMoreToArray(name string) bool {
 	// fatih/color functions automatically append a newline, so we're using its
 	// PrintFunc() to make our own, which doesn't do this.
-	grey := color.New(color.FgHiBlack).PrintfFunc()
+	// grey := color.New(color.FgHiBlack).PrintfFunc()
+	// grey("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
 
-	grey("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
+	// color.Yellow("Do you want to add more %s?", name)
+
+	var val survey.Validator
+
+	resp := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("--- Do you want to add more %s? ---", name),
 	}
-	okayResponses := []string{"y", "Y", "yes", "Yes", "YES"}
-	return containsString(okayResponses, response)
+	survey.AskOne(prompt, &resp, val)
+
+	return resp
 }
 
 // posString returns the first index of element in slice.

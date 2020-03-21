@@ -16,8 +16,7 @@ required = [
   "github.com/cpuguy83/go-md2man",
   "github.com/russross/blackfriday",
 
-	"github.com/go-pg/pg",
-	"github.com/go-pg/pg/orm"
+  "github.com/AlecAivazis/survey",
 ]
 
 [[constraint]]
@@ -27,6 +26,11 @@ required = [
 [[constraint]]
   branch = "master"
   name = "github.com/fatih/color"
+
+[[constraint]]
+  name = "github.com/alecthomas/jsonschema"
+  revision = "7152f22193c99d748515db8612354f96c5e2c71a"
+  # revision = "4bb6e3fae4f22dac4e1ecbeb001cfcf46ebbfba0"
 
 # [[constraint]]
 #   name = "github.com/golang/protobuf"

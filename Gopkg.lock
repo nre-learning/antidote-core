@@ -2,12 +2,19 @@
 
 
 [[projects]]
-  branch = "master"
-  digest = "1:dcb7cadd45a5ce5f7a8a344358e25d92c66298759a1cb52cc0c8645cfc31bfd2"
+  digest = "1:16375790b6f3663cb532e1a8f72a053208661e28cd56a24758c373152980e7a0"
+  name = "github.com/AlecAivazis/survey"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "da50ccef2fd74048e26b7846a731da4254035115"
+  version = "v1.8.8"
+
+[[projects]]
+  digest = "1:1e32045857542ded7d2725c108422b8c09d0544bf97aeaaa1e216a244501cd96"
   name = "github.com/alecthomas/jsonschema"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4bb6e3fae4f22dac4e1ecbeb001cfcf46ebbfba0"
+  revision = "7152f22193c99d748515db8612354f96c5e2c71a"
 
 [[projects]]
   digest = "1:d856fd4ca70fd10ce09eaea2bac3e8b55adbcbf62433d3a75e5ea1660d2a013f"
@@ -51,24 +58,6 @@
   pruneopts = "UT"
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
   version = "v1.0.0"
-
-[[projects]]
-  digest = "1:f9448bfab8ebe44e3d91e4e4475cf92d60789a614652f361df4e41972c9d5caf"
-  name = "github.com/go-pg/pg"
-  packages = [
-    ".",
-    "internal",
-    "internal/iszero",
-    "internal/parser",
-    "internal/pool",
-    "internal/struct_filter",
-    "internal/tag",
-    "orm",
-    "types",
-  ]
-  pruneopts = "UT"
-  revision = "1d957cb20f319c4a1e2db7d345824c12aefe5943"
-  version = "v8.0.6"
 
 [[projects]]
   digest = "1:8a85f428bc6ebfa87f53216b6e43b52b30eccbcffcbd6b057a69ee16718a2248"
@@ -183,6 +172,14 @@
   version = "v0.5.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:3ce584ef2a91ca82a3350c20257e06a6c4b7ea1510b12a6c5d2018e9aaeb4c5c"
+  name = "github.com/iancoleman/orderedmap"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ac98e3ecb4b017efb5c5d0fc075c2ded1f5d500d"
+
+[[projects]]
   digest = "1:78d28d5b84a26159c67ea51996a230da4bc07cac648adaae1dfb5fc0ec8e40d3"
   name = "github.com/imdario/mergo"
   packages = ["."]
@@ -211,20 +208,20 @@
   revision = "976e0346caa839d22a17f8031a96bcd0870c0128"
 
 [[projects]]
-  digest = "1:01ed62f8f4f574d8aff1d88caee113700a2b44c42351943fa73cc1808f736a50"
-  name = "github.com/jinzhu/inflection"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "f5c5f50e6090ae76a29240b61ae2a90dd810112e"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:709cd2a2c29cc9b89732f6c24846bbb9d6270f28ef5ef2128cc73bd0d6d7bff9"
   name = "github.com/json-iterator/go"
   packages = ["."]
   pruneopts = "UT"
   revision = "27518f6661eba504be5a7a9a9f6d9460d892ade3"
   version = "v1.1.7"
+
+[[projects]]
+  branch = "master"
+  digest = "1:400e113a367b511b9b09ca642ee11d9885485a93838526d697033af334a2fdde"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
@@ -249,6 +246,14 @@
   pruneopts = "UT"
   revision = "e1f7b56ace729e4a73a29a6b4fac6cd5fcda7ab3"
   version = "v0.0.9"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2b32af4d2a529083275afc192d1067d8126b578c7a9613b26600e4df9c735155"
+  name = "github.com/mgutz/ansi"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9520e82c474b0a04dd04f8a40959027271bab992"
 
 [[projects]]
   digest = "1:33422d238f147d247752996a26574ac48dcf472976eda7f5134015f06bf16563"
@@ -392,7 +397,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f90b0e268b7bc48a028c62505b1f00b0262bf47b6abc8a7cf9b7b7d371c8fa20"
+  digest = "1:fac0733e55725109a3e76058aa65116e0198fafb4f62f6f1071aeeb55a02561c"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
@@ -400,7 +405,6 @@
     "ed25519/internal/edwards25519",
     "internal/chacha20",
     "internal/subtle",
-    "pbkdf2",
     "poly1305",
     "ssh",
     "ssh/terminal",
@@ -575,6 +579,17 @@
   pruneopts = "UT"
   revision = "a89bee78ddf0f67f27c06b1b2b1b071c18408724"
   version = "v1.27.0"
+
+[[projects]]
+  digest = "1:a8136ab6079cc7a9de8d8665e6757b506bf2bb4c88014a4dc1e35eaaa449dfc0"
+  name = "gopkg.in/AlecAivazis/survey.v1"
+  packages = [
+    "core",
+    "terminal",
+  ]
+  pruneopts = "UT"
+  revision = "da50ccef2fd74048e26b7846a731da4254035115"
+  version = "v1.8.8"
 
 [[projects]]
   digest = "1:2d1fbdc6777e5408cabeb02bf336305e724b925ff4546ded0fa8715a7267922a"
@@ -852,14 +867,6 @@
   revision = "0270cf2f1c1d995d34b36019a6f65d58e6e33ad4"
 
 [[projects]]
-  digest = "1:999d566ad1ae4303c456af5a155f7b42401cca4fd33552567ed9dd997b107a08"
-  name = "mellium.im/sasl"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "e58e780e1378aa4df5dc705364ff5ae9a4dd1e04"
-  version = "v0.2.1"
-
-[[projects]]
   digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
   name = "sigs.k8s.io/yaml"
   packages = ["."]
@@ -871,12 +878,11 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/AlecAivazis/survey",
     "github.com/alecthomas/jsonschema",
     "github.com/cpuguy83/go-md2man",
     "github.com/fatih/color",
     "github.com/ghodss/yaml",
-    "github.com/go-pg/pg",
-    "github.com/go-pg/pg/orm",
     "github.com/golang/glog",
     "github.com/golang/protobuf/descriptor",
     "github.com/golang/protobuf/proto",
@@ -899,6 +905,7 @@
     "google.golang.org/grpc/grpclog",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
+    "gopkg.in/AlecAivazis/survey.v1/terminal",
     "gopkg.in/yaml.v2",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",

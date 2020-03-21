@@ -16,7 +16,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "antidote"
 	app.Version = buildInfo["buildVersion"]
-	app.Usage = "Command-line tool to interact with the Antidote platform and database"
+	app.Usage = "CLI Tool for Antidote-powered curriculum content (WIP)"
 
 	// Consider build your own template that groups commands neatly
 	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
@@ -27,11 +27,11 @@ func main() {
 	testLesson := models.Lesson{
 		Slug:     "test-lesson",
 		Name:     "Test Lesson",
-		Category: "Fundamentals",
+		Category: "fundamentals",
 		Tier:     "prod",
 		Endpoints: []*models.LessonEndpoint{{
 			Name:  "linux1",
-			Image: "antidotelabs/utility",
+			Image: "utility",
 			Presentations: []*models.LessonPresentation{{
 				Name: "cli",
 				Type: "ssh",
@@ -90,6 +90,9 @@ func main() {
 						// Interactively populate fields in Lesson
 						newLesson := models.Lesson{}
 						lessonSchema := newLesson.GetSchema()
+
+						color.Yellow("Please enter '?' at any time to get additional help")
+
 						lessonData, err := schemaWizard(lessonSchema, "Lesson", "")
 
 						// Marshal map to JSON and then unmarshal JSON to Lesson type

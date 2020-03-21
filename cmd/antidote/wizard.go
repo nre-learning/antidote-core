@@ -1,18 +1,26 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
+	"github.com/AlecAivazis/survey"
 	jsonschema "github.com/alecthomas/jsonschema"
 	"github.com/fatih/color"
-	log "github.com/sirupsen/logrus"
+	"gopkg.in/AlecAivazis/survey.v1/terminal"
 )
 
 func promptForValue(name string, value *jsonschema.Type) string {
+
+	var q = &survey.Question{
+		// This function interacts with the user by asking single-question surveys for each field. So, for
+		// predictable outcomes when using the survey package, we'll statically set the "Name" field to
+		// the string "name", and then retrieve that single field from the resulting struct before returning
+		// the value to the caller
+		Name: "value",
+	}
+
 	pattern := ""
 	if value.Pattern != "" {
 		pattern = fmt.Sprintf(", pattern: %s", value.Pattern)
@@ -21,46 +29,51 @@ func promptForValue(name string, value *jsonschema.Type) string {
 	if valueType == "array" {
 		valueType = "comma-separated array"
 	}
-	fmt.Printf("%s (%s%s): ", name, value.Type, pattern)
+	// TODO(mierdin): Add default value? Examples?
 
-	// Read input from user
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		log.Fatal(err)
+	reqd := "optional"
+	if value.MinLength > 0 {
+		reqd = "required"
 	}
-	response = strings.Trim(response, "\n")
 
-	// Before returning, should match response
-	return response
-}
+	help := fmt.Sprintf("%s (%s,%s%s) %s", name, reqd, valueType, pattern, value.Description)
 
-func sortProperties(properties map[string]*jsonschema.Type) []string {
-
-	var retProperties []string
-	var simpleTypes []string
-	var arrayTypes []string
-	var complexTypes []string
-
-	for k, v := range properties {
-		if v.Type != "array" {
-			simpleTypes = append(simpleTypes, k)
-		} else if v.Type == "array" && v.Items.Ref == "" {
-			arrayTypes = append(arrayTypes, k)
-		} else if v.Type == "array" && v.Items.Ref != "" {
-			complexTypes = append(complexTypes, k)
+	if len(value.Enum) > 0 {
+		opts := []string{}
+		for _, opt := range value.Enum {
+			opts = append(opts, opt.(string))
+		}
+		q.Prompt = &survey.Select{
+			Message: fmt.Sprintf("%s:", name),
+			Help:    help,
+			Options: opts,
+		}
+	} else {
+		q.Prompt = &survey.Input{
+			Message: fmt.Sprintf("%s:", name),
+			Help:    help,
 		}
 	}
 
-	sort.Strings(simpleTypes)
-	sort.Strings(arrayTypes)
-	sort.Strings(complexTypes)
+	answers := struct {
+		Value string
+	}{}
+	err := survey.Ask([]*survey.Question{q}, &answers)
+	if err == terminal.InterruptErr {
+		fmt.Println("Exiting.")
+		os.Exit(0)
+	} else if err != nil {
+		// panic(err)
+	}
 
-	retProperties = append(retProperties, simpleTypes...)
-	retProperties = append(retProperties, arrayTypes...)
-	retProperties = append(retProperties, complexTypes...)
+	/*
+		TODO		Things to handle:
+		- in-the-moment validation (is this feasible? Maybe okay to just print whatever,
+			and force users to validate after? maybe we want to explicitly say this doesn't guarantee a valid lesson output
+			and that its just a helper tool. Create first, and then validate after?
+	*/
 
-	return retProperties
+	return answers.Value
 }
 
 // schemaWizard takes a jsonschema object, and returns a fully populated map ready to be exported to JSON (and then
@@ -73,36 +86,25 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 	rootType := schema.Definitions[root]
 	retMap := make(map[string]interface{})
 
-	// TODO(mierdin): Need to figure out a way to sort these so that the simple ones are always first, and then
-	// within that, sort alphabetically.
+	for i := range rootType.Properties.Keys() {
 
-	props := sortProperties(rootType.Properties)
-	for i := range props {
-		// for k, v := range rootType.Properties {
-
-		k := props[i]
-		v := rootType.Properties[k]
-
+		k := rootType.Properties.Keys()[i]
+		vpre, _ := rootType.Properties.Get(k)
 		typeName := fmt.Sprintf("%s%s", typePrefix, k)
+		v := vpre.(*jsonschema.Type)
 
-		// Simple type. Just prompt for value.
-		if v.Type != "array" {
-
+		if v.Type != "array" || (v.Type == "array" && v.Items.Ref == "") {
 			retMap[typeName] = promptForValue(typeName, v)
+		}
 
-			// Simple array type. Prompt for value with delimiter guidance.
-		} else if v.Type == "array" && v.Items.Ref == "" {
-
-			// TODO(mierdin) Provide delimiter guidance
-			retMap[typeName] = promptForValue(typeName, v)
-
-			// Complex type. Recurse into this function with the new root type
-		} else if v.Type == "array" && v.Items.Ref != "" {
+		// Complex type. Recurse into this function with the new root type
+		if v.Type == "array" && v.Items.Ref != "" {
 
 			splitSlice := strings.Split(v.Items.Ref, "/")
 			subTypeName := splitSlice[len(splitSlice)-1]
 
-			color.HiBlack("Entering subwizard for nested type %s\n", subTypeName)
+			// TODO(mierdin): the plurality here is fragile
+			color.Yellow("You will now be prompted to create a series of %ss (%s)\n", subTypeName, v.Description)
 
 			var members []interface{}
 
@@ -119,9 +121,6 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 			}
 
 			retMap[k] = members
-		} else {
-			// TODO - obviously fix this
-			panic("FOOBAR - this should never happen")
 		}
 
 	}

@@ -12,23 +12,20 @@ import (
 // Only this struct should be loaded as a table. All sub-values can be stored as binary JSON
 // and deserialized quickly upon retrieval.
 type Lesson struct {
-
-	// ID string `json:"ID" yaml:"id" jsonschema:"description=Unique id number to identify this lesson"`
-
-	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"description=Unique slug to identify this lesson"`
-	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"required,minItems=1"`
-	Name             string              `json:"Name" yaml:"name" jsonschema:"required,description=Name of the lesson"`
-	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"required,minItems=1"`
+	Name             string              `json:"Name" yaml:"name" jsonschema:"minLength=1,description=Human-readable name/title for the lesson"`
+	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"description=A unique identifier for the lesson, usually 2-3 words with hyphens,pattern=^[a-z-]*$"`
+	Category         string              `json:"Category" yaml:"category" jsonschema:"minLength=1,description=The name for the Category in which this lesson should belong,enum=fundamentals,enum=tools,enum=workflows"`
+	Diagram          string              `json:"Diagram" yaml:"diagram" jsonschema:"description=A public URL to lesson diagram"`
+	Video            string              `json:"Video" yaml:"video" jsonschema:"description=YouTube URL to lesson video"`
+	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"minLength=1,description=Tier for this lesson (you probably want 'prod') ,enum=local,enum=ptr,enum=prod"`
+	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty" jsonschema:"description=The slug for the collection this lesson should belong to"`
+	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"minLength=1,description=A helpful description for this lesson"`
+	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"minLength=1,description=A brief description for this lesson"`
+	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty" jsonschema:"description=A list of slugs for other lessons that are prerequisite to this lesson"`
+	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty" jsonschema:"description=A list of tags to apply to this lesson for categorization purposes"`
+	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minLength=1,minItems=1,description=Logical sections or chapters of a lesson"`
+	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"minLength=1,minItems=1"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty"`
-	Category         string              `json:"Category" yaml:"category" jsonschema:"required,description=Category for the lesson"`
-	Diagram          string              `json:"Diagram" yaml:"diagram" jsonschema:"description=URL to lesson diagram"`
-	Video            string              `json:"Video" yaml:"video" jsonschema:"description=URL to lesson video"`
-	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"required,description=Tier for this lesson,pattern=local|ptr|prod"`
-	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty"`
-	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty"`
-	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty"`
-	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"required,description=Description of this lesson"`
-	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"required,description=Short description of this lesson"`
 
 	// TODO(mierdin): Figure out if these are needed anymore.
 	LessonFile string `json:"-" jsonschema:"-"`
@@ -82,7 +79,7 @@ func (l Lesson) JSValidate() bool {
 // A Lesson might have one or more LessonStages.
 type LessonStage struct {
 	Description   string          `json:"Description,omitempty" yaml:"description,omitempty"`
-	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,pattern=jupyter|markdown"`
+	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,enum=jupyter,enum=markdown"`
 	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
 	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
 }
@@ -113,7 +110,7 @@ type LessonEndpoint struct {
 type LessonPresentation struct {
 	Name string           `json:"Name" yaml:"name" jsonschema:"required"`
 	Port int32            `json:"Port" yaml:"port" jsonschema:"required,minimum=1"`
-	Type PresentationType `json:"Type" yaml:"type" jsonschema:"required,pattern=http|ssh"`
+	Type PresentationType `json:"Type" yaml:"type" jsonschema:"required,enum=http,enum=ssh"`
 }
 
 // LessonConnection is a point-to-point network connection between two LessonEndpoints. The `A` and `B` properties should
