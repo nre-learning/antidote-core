@@ -156,9 +156,10 @@ func renderLessonFiles(curriculumDir string, lesson *models.Lesson) error {
 
 	fmt.Println("")
 	color.Yellow("NOTE: This is just a skeleton lesson. There's still a lot more to do! For instance:")
+	color.Yellow("- Double-check validity with 'antidote validate'")
 	color.Yellow("- Edit all configs in the 'configs/' directory of each stage to properly configure your endpoints")
 	color.Yellow("- Write your content! All stage lesson guides are empty and waiting for your knowledge.")
-	color.Yellow("- Test your lesson in selfmedicate")
+	color.Yellow("- Open a Pull Request and Preview your Content! https://docs.nrelabs.io/creating-contributing/contributing-content")
 
 	// TODO(mierdin): When finished, produce a list of things that the user will still have to do themselves.
 	// Or, perhaps just run the validation logic once the files are rendered?

@@ -12,13 +12,16 @@ import (
 )
 
 func promptForValue(name string, value *jsonschema.Type) string {
-
 	var q = &survey.Question{
 		// This function interacts with the user by asking single-question surveys for each field. So, for
 		// predictable outcomes when using the survey package, we'll statically set the "Name" field to
 		// the string "name", and then retrieve that single field from the resulting struct before returning
 		// the value to the caller
 		Name: "value",
+		Validate: func(val interface{}) error {
+			// TODO(mierdin): Add in-line validation with this for more immediate feedback
+			return nil
+		},
 	}
 
 	pattern := ""
@@ -29,7 +32,6 @@ func promptForValue(name string, value *jsonschema.Type) string {
 	if valueType == "array" {
 		valueType = "comma-separated array"
 	}
-	// TODO(mierdin): Add default value? Examples?
 
 	reqd := "optional"
 	if value.MinLength > 0 {
@@ -66,13 +68,6 @@ func promptForValue(name string, value *jsonschema.Type) string {
 		// panic(err)
 	}
 
-	/*
-		TODO		Things to handle:
-		- in-the-moment validation (is this feasible? Maybe okay to just print whatever,
-			and force users to validate after? maybe we want to explicitly say this doesn't guarantee a valid lesson output
-			and that its just a helper tool. Create first, and then validate after?
-	*/
-
 	return answers.Value
 }
 
@@ -104,6 +99,11 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 			subTypeName := splitSlice[len(splitSlice)-1]
 
 			// TODO(mierdin): the plurality here is fragile
+			if v.MinItems == 0 {
+				if !simpleConfirm(fmt.Sprintf("--- Do you wish to create any %s? ---", typeName)) {
+					continue
+				}
+			}
 			color.Yellow("You will now be prompted to create a series of %ss (%s)\n", subTypeName, v.Description)
 
 			var members []interface{}
@@ -113,7 +113,7 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 				innerMap, _ := schemaWizard(schema, subTypeName, fmt.Sprintf("%s[%d].", typeName, i))
 				members = append(members, innerMap)
 
-				if !addMoreToArray(typeName) {
+				if !simpleConfirm(fmt.Sprintf("--- Do you want to add more %s? ---", typeName)) {
 					break
 				}
 

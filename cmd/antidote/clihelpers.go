@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey"
-	"github.com/fatih/color"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -34,37 +33,23 @@ func askForConfirmation() bool {
 }
 
 func askSimpleValue(prompt, defaultValue string) string {
-
-	// fatih/color functions automatically append a newline, so we're using its
-	// PrintFunc() to make our own, which doesn't do this.
-	grey := color.New(color.FgHiWhite).PrintfFunc()
-
-	grey("%s [%s]:", prompt, defaultValue)
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil || response == "" {
-		return defaultValue
-	} else {
-		return response
+	var val survey.Validator
+	resp := ""
+	q := &survey.Input{
+		Message: fmt.Sprintf("%s [%s]:", prompt, defaultValue),
 	}
+	survey.AskOne(q, &resp, val)
+	return resp
 }
 
-func addMoreToArray(name string) bool {
-	// fatih/color functions automatically append a newline, so we're using its
-	// PrintFunc() to make our own, which doesn't do this.
-	// grey := color.New(color.FgHiBlack).PrintfFunc()
-	// grey("~~~ Would you like to add another item to the '%s' array / list? [y]:", name)
-
-	// color.Yellow("Do you want to add more %s?", name)
-
+// Uses the survey.Confirm prompt to gather a simple yes/no response
+func simpleConfirm(msg string) bool {
 	var val survey.Validator
-
 	resp := false
 	prompt := &survey.Confirm{
-		Message: fmt.Sprintf("--- Do you want to add more %s? ---", name),
+		Message: msg,
 	}
 	survey.AskOne(prompt, &resp, val)
-
 	return resp
 }
 

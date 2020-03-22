@@ -18,38 +18,11 @@ func main() {
 	app.Version = buildInfo["buildVersion"]
 	app.Usage = "CLI Tool for Antidote-powered curriculum content (WIP)"
 
-	// Consider build your own template that groups commands neatly
+	// TODO(mierdin): Consider building a template that groups commands neatly
 	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
 	// cli.AppHelpTemplate is where you do this, and cli.Command.Category can be used to organize
 
 	var curriculumDir string
-
-	testLesson := models.Lesson{
-		Slug:     "test-lesson",
-		Name:     "Test Lesson",
-		Category: "fundamentals",
-		Tier:     "prod",
-		Endpoints: []*models.LessonEndpoint{{
-			Name:  "linux1",
-			Image: "utility",
-			Presentations: []*models.LessonPresentation{{
-				Name: "cli",
-				Type: "ssh",
-				Port: 22,
-			}},
-		}},
-		Stages: []*models.LessonStage{
-			{
-				Description: "stage0",
-				GuideType:   "markdown",
-			},
-			{
-				Description: "stage1",
-				GuideType:   "jupyter",
-			},
-		},
-		Connections: []*models.LessonConnection{},
-	}
 
 	app.Commands = []cli.Command{
 		{
@@ -86,16 +59,17 @@ func main() {
 					},
 
 					Action: func(c *cli.Context) {
+						color.Green("Interactively creating new Lesson (https://docs.nrelabs.io/antidote/object-reference/lessons)")
 
-						// Interactively populate fields in Lesson
+						// Create blank Lesson instance and associated schema
 						newLesson := models.Lesson{}
 						lessonSchema := newLesson.GetSchema()
 
-						color.Yellow("Please enter '?' at any time to get additional help")
-
+						// Start interactive creation wizard
 						lessonData, err := schemaWizard(lessonSchema, "Lesson", "")
 
-						// Marshal map to JSON and then unmarshal JSON to Lesson type
+						// The schema wizard returns a string-indexed map, so we want to marshal
+						// the full result to JSON, and then into the Lesson type
 						stmJSON, err := json.Marshal(lessonData)
 						if err != nil {
 							panic(err)
@@ -103,9 +77,7 @@ func main() {
 						json.Unmarshal([]byte(stmJSON), &newLesson)
 
 						// Pass populated lesson definition to the rendering function
-						// renderLessonFiles(curriculumDir, &newLesson)
-						renderLessonFiles(curriculumDir, &testLesson)
-
+						renderLessonFiles(curriculumDir, &newLesson)
 					},
 				},
 			},

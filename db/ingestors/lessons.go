@@ -140,6 +140,8 @@ func validateLesson(lesson *models.Lesson) error {
 			// make this work
 			fileExt := fileMap[strings.Split(ep.ConfigurationType, "-")[0]]
 
+			// TODO(mierdin): See if you can use napalm.junos.txt or something instead
+
 			// Ensure the necessary config file is present for all stages
 			for s := range lesson.Stages {
 				fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), s, ep.Name, fileExt)
