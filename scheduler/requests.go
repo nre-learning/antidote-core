@@ -1,10 +1,13 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
@@ -224,11 +227,13 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 		}
 	}
 
+	createdPods := make(map[string]*corev1.Pod)
+
 	// Create pods and services
 	for d := range ll.LiveEndpoints {
 		ep := ll.LiveEndpoints[d]
 
-		// Create pod
+		// createPod doesn't try to ensure a certain pod status. That's done later
 		newPod, err := s.createPod(
 			ep,
 			getMemberNetworks(ep.Name, lesson.Connections),
@@ -238,6 +243,10 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 			log.Error(err)
 			return err
 		}
+
+		// TODO(mierdin): get data on created pods like which host they were deployed on. Make sure this is placed in the trace/span
+
+		createdPods[newPod.ObjectMeta.Name] = newPod
 
 		// Expose via service if needed
 		if len(newPod.Spec.Containers[0].Ports) > 0 {
@@ -258,7 +267,7 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 
 		}
 
-		// Create appropriate presentations
+		// Create ingresses for http presentations
 		for pr := range ep.Presentations {
 			p := ep.Presentations[pr]
 
@@ -272,10 +281,50 @@ func (s *AntidoteScheduler) createK8sStuff(req services.LessonScheduleRequest) e
 					log.Error(err)
 					return err
 				}
-			} else if p.Type == "ssh" {
-				// nothing to do?
 			}
 		}
+	}
+
+	// Before moving forward with network-based health checks, let's look back at the pods
+	// we've deployed, and wait until they're in a "Running" status. This allows us to keep a hold
+	// of maximum amounts of context for troubleshooting while we have it
+	wg := new(sync.WaitGroup)
+	wg.Add(len(createdPods))
+
+	failLesson := false
+
+	for name, pod := range createdPods {
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i < 300; i++ {
+
+				rdy, err := s.getPodStatus(pod)
+				if err != nil {
+					failLesson = true
+					return
+				}
+
+				if rdy {
+					delete(createdPods, name)
+					return
+				}
+
+				time.Sleep(1 * time.Second)
+			}
+
+			log.Infof("Timed out waiting for %s to start", name)
+			failLesson = true
+			return
+		}()
+	}
+
+	wg.Wait()
+
+	// At this point, the only pods left in createdPods should be ones that failed to ready
+	if failLesson || len(createdPods) > 0 {
+		log.Infof("Failed pods: %v", createdPods)
+		return errors.New("Some pods failed to start")
 	}
 
 	return nil

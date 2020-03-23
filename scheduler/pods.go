@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -165,4 +166,34 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 		return nil, err
 	}
 	return result, err
+}
+
+// getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
+// kubernetes perspective, before we move forward with network-based health checks
+func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
+	/*
+		The logic here is as follows:
+
+		- return false and an error if we encounter some kind of failure state
+		- return false and no error if we think things are still starting
+		- return true and no error if we think everything is ready to go
+	*/
+
+	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("Couldn't retrieve pod status: %s", err)
+		return false, err
+	}
+
+	// TODO(mierdin): this looks easy enough to use, but does this cover all failure scenarios (i.e. is this used
+	// if the container is restarting?) and does it also cover init containers or just the main container for the pod?
+	if pod.Status.Phase == corev1.PodFailed {
+		return false, errors.New("Pod in failure state")
+	}
+
+	if pod.Status.Phase == corev1.PodRunning {
+		return true, nil
+	}
+
+	return false, nil
 }
