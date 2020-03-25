@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
@@ -50,6 +52,7 @@ type NetworkCrdClient interface {
 type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
 	NEC           *nats.EncodedConn
+	NC            *nats.Conn
 	Config        config.AntidoteConfig
 	Db            db.DataManager
 	HealthChecker LessonHealthChecker
@@ -74,9 +77,9 @@ type AntidoteScheduler struct {
 // and put a results message on the "results" channel when finished (success or fail)
 func (s *AntidoteScheduler) Start() error {
 
-	// In case we're restarting from a previous instance, we want to make sure we clean up any orphaned k8s
-	// namespaces by killing any with our ID
-	s.cleanOrphanedNamespaces()
+	// In case we're restarting from a previous instance, we want to make sure we clean up any
+	// orphaned k8s namespaces by killing any with our ID
+	s.pruneOrphanedNamespaces()
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	s.createNetworkCrd()
@@ -88,19 +91,21 @@ func (s *AntidoteScheduler) Start() error {
 	go func() {
 		for {
 
+			span := opentracing.StartSpan("scheduler_gc")
 			// Clean up any old lesson namespaces
-			llToDelete, err := s.PurgeOldLessons()
+			llToDelete, err := s.PurgeOldLessons(span.Context())
 			if err != nil {
 				log.Error("Problem with GCing lessons")
 			}
 
 			// Clean up local state based on purge results
 			for i := range llToDelete {
-				err := s.Db.DeleteLiveLesson(llToDelete[i])
+				err := s.Db.DeleteLiveLesson(span.Context(), llToDelete[i])
 				if err != nil {
 					log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
 				}
 			}
+			span.Finish()
 			time.Sleep(1 * time.Minute)
 
 		}
@@ -115,18 +120,43 @@ func (s *AntidoteScheduler) Start() error {
 	}
 
 	// Handling incoming LSRs
-	s.NEC.Subscribe("antidote.lsr.incoming", func(lsr services.LessonScheduleRequest) {
-		log.WithFields(log.Fields{
-			"Operation":  lsr.Operation,
-			"LiveLesson": lsr.LiveLessonID,
-			"Stage":      lsr.Stage,
-		}).Debug("Scheduler received new request. Sending to handle function.")
+
+	// I **think** that in order to integrate tracing into NATS and get span contexts,
+	// we need to use Conn instead of EncodedConn
+
+	// s.NEC.Subscribe("antidote.lsr.incoming", func(lsr services.LessonScheduleRequest) {
+	s.NC.Subscribe("antidote.lsr.incoming", func(msg *nats.Msg) {
+
+		// // Create new TraceMsg from the NATS message.
+		t := services.NewTraceMsg(msg)
+
+		tracer := opentracing.GlobalTracer()
+		// Extract the span context from the request message.
+		sc, err := tracer.Extract(opentracing.Binary, t)
+		if err != nil {
+			log.Printf("Extract error: %v", err)
+		}
+
+		span := tracer.StartSpan(
+			"scheduler_lsr_incoming",
+			opentracing.ChildOf(sc))
+		defer span.Finish()
+
+		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
+
+		rem := t.Bytes()
+		var lsr services.LessonScheduleRequest
+		_ = json.Unmarshal(rem, &lsr)
+
+		// Add the current span context to the LSR
+		// lsr.SpanContext = span.Context()
 
 		// TODO(mierdin): I **believe** this function already runs async, so there's no need to run
 		// the below in a goroutine, but should verify this.
 		// go func() {
-		handlers[lsr.Operation].(func(services.LessonScheduleRequest))(lsr)
+		handlers[lsr.Operation].(func(opentracing.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
 		// }()
+
 	})
 
 	// Wait forever
@@ -136,7 +166,13 @@ func (s *AntidoteScheduler) Start() error {
 	return nil
 }
 
-func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+func (s *AntidoteScheduler) configureStuff(sc opentracing.SpanContext, nsName string, liveLesson *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_configure_stuff",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	s.killAllJobs(nsName, "config")
 
@@ -153,7 +189,7 @@ func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.Liv
 			continue
 		}
 
-		job, err := s.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
+		job, err := s.configureEndpoint(span.Context(), liveLesson.LiveEndpoints[i], newRequest)
 		if err != nil {
 			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
 			continue // TODO(mierdin): should quit entirely and return an error result to the channel
@@ -192,9 +228,15 @@ func (s *AntidoteScheduler) configureStuff(nsName string, liveLesson *models.Liv
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (s *AntidoteScheduler) getVolumesConfiguration(lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (s *AntidoteScheduler) getVolumesConfiguration(sc opentracing.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
 
-	lesson, err := s.Db.GetLesson(lessonSlug)
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_get_volumes",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
+
+	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
 	if err != nil {
 		// TODO(mierdin): This function doesn't return an error, which is problematic.
 		return nil, nil, nil

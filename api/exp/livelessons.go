@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,7 +15,11 @@ import (
 	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 	codes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	status "google.golang.org/grpc/status"
+
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 )
 
 // RequestLiveLesson allows the client to get a handle on a livelesson when they only know their session ID
@@ -27,22 +32,30 @@ import (
 // - Refreshing the lastUsed timestamp on the livelesson, which lets the back-end know it's still in use.
 func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
 
-	// TODO(mierdin): RequestLiveSession stores the incoming IP address into the session data model. However,
-	// this function (as well as RequestLiveSession) should also include incoming IP addresses when exporting traces
-	// to jaeger. This way we can see incoming requests of all kinds, even those that don't necessarily result in a new
-	// livesession or livelesson.
+	// Initialize span and populate with tags
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livelesson_request", ext.SpanKindRPCClient)
+	defer span.Finish()
+	span.SetTag("antidote_lesson_slug", lp.LessonSlug)
+	span.SetTag("antidote_stage", lp.LessonStage)
+	span.SetTag("antidote_session_id", lp.SessionId)
+	md, _ := metadata.FromIncomingContext(ctx)
+	// x-forwarded-host gets you IP+port, FWIW.
+	forwardedFor := md["x-forwarded-for"]
+	if len(forwardedFor) == 0 {
+		span.LogEvent("Unable to determine source IP address")
+	}
+	span.SetTag("antidote_request_source_ip", forwardedFor[0])
 
-	// maybe respond with an error if antidote is still starting (and nuking, for instance).
-	// will require some understanding of scheduler state
+	span.LogEvent("Received LiveLesson Request")
 
-	// TODO(mierdin) look up session ID in DB first
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
 		log.Error(msg)
 		return nil, errors.New(msg)
 	}
 
-	_, err := s.Db.GetLiveSession(lp.SessionId)
+	_, err := s.Db.GetLiveSession(span.Context(), lp.SessionId)
 	if err != nil {
 		// WARNING - the front-end relies on this string (minus the actual ID) to identify
 		// if a new session ID should be requested. If you want to change this message, make sure
@@ -66,7 +79,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// 	return nil, errors.New(msg)
 	// }
 
-	lesson, err := s.Db.GetLesson(lp.LessonSlug)
+	lesson, err := s.Db.GetLesson(span.Context(), lp.LessonSlug)
 	if err != nil {
 		log.Errorf("Couldn't find lesson slug '%s'", lp.LessonSlug)
 		return nil, errors.New("Failed to find referenced lesson slug")
@@ -82,7 +95,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// Determine if a livelesson exists that matches this session and lesson
 	llExists := false
 	var existingLL *models.LiveLesson
-	liveLessons, err := s.Db.ListLiveLessons()
+	liveLessons, err := s.Db.ListLiveLessons(span.Context())
 	for _, ll := range liveLessons {
 		if ll.SessionID == lp.SessionId && ll.LessonSlug == lp.LessonSlug {
 			existingLL = &ll
@@ -114,10 +127,11 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 			// Update state
 			// TODO(Mierdin): Handle errors here
-			s.Db.UpdateLiveLessonStatus(existingLL.ID, models.Status_CONFIGURATION)
-			s.Db.UpdateLiveLessonStage(existingLL.ID, lp.LessonStage)
-			s.Db.UpdateLiveLessonGuide(existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
+			s.Db.UpdateLiveLessonStatus(span.Context(), existingLL.ID, models.Status_CONFIGURATION)
+			s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
+			s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
 
+			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
 			// Request the schedule move forward with stage change activities
 			req := services.LessonScheduleRequest{
 				Operation:     services.OperationType_MODIFY,
@@ -125,8 +139,17 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 				LessonSlug:    lp.LessonSlug,
 				LiveSessionID: lp.SessionId,
 				LiveLessonID:  existingLL.ID,
+				// APISpan:       span,
 			}
-			s.NEC.Publish("antidote.lsr.incoming", req)
+
+			// Inject span context and send LSR into NATS
+			var t services.TraceMsg
+			if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
+				log.Fatalf("%v for Inject.", err)
+			}
+			reqBytes, _ := json.Marshal(req)
+			t.Write(reqBytes)
+			s.NC.Publish("antidote.lsr.incoming", t.Bytes())
 
 		} else {
 
@@ -137,7 +160,15 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 				LessonSlug:    lp.LessonSlug,
 				LiveSessionID: lp.SessionId,
 			}
-			s.NEC.Publish("antidote.lsr.incoming", req)
+
+			// Inject span context and send LSR into NATS
+			var t services.TraceMsg
+			if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
+				log.Fatalf("%v for Inject.", err)
+			}
+			reqBytes, _ := json.Marshal(req)
+			t.Write(reqBytes)
+			s.NC.Publish("antidote.lsr.incoming", t.Bytes())
 		}
 
 		return &pb.LiveLessonId{Id: existingLL.ID}, nil
@@ -162,7 +193,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		newLL.GuideContents = lesson.Stages[lp.LessonStage].GuideContents
 	}
 
-	s.Db.CreateLiveLesson(newLL)
+	s.Db.CreateLiveLesson(span.Context(), newLL)
 
 	req := services.LessonScheduleRequest{
 		Operation:     services.OperationType_CREATE,
@@ -172,7 +203,15 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LiveSessionID: lp.SessionId,
 		Created:       time.Now(), // TODO(mierdin): Currently a lot of stuff uses this but you should probably remove it and point everything to the livelesson field
 	}
-	s.NEC.Publish("antidote.lsr.incoming", req)
+
+	// Inject span context and send LSR into NATS
+	var t services.TraceMsg
+	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
+		log.Fatalf("%v for Inject.", err)
+	}
+	reqBytes, _ := json.Marshal(req)
+	t.Write(reqBytes)
+	s.NC.Publish("antidote.lsr.incoming", t.Bytes())
 
 	return &pb.LiveLessonId{Id: newID}, nil
 }
@@ -238,7 +277,11 @@ func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHe
 // CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly for debugging
 // or test purposes. Use this at your own peril.
 func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
-	err := s.Db.CreateLiveLesson(liveLessonAPIToDB(ll))
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livelesson_create", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	err := s.Db.CreateLiveLesson(span.Context(), liveLessonAPIToDB(ll))
 	if err != nil {
 		return nil, err
 	}
@@ -249,13 +292,17 @@ func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (
 // GetLiveLesson retrieves a single LiveLesson via ID
 func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
 
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livelesson_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	if llID.Id == "" {
 		msg := "LiveLesson ID cannot be empty"
 		log.Error(msg)
 		return nil, errors.New(msg)
 	}
 
-	llDb, err := s.Db.GetLiveLesson(llID.Id)
+	llDb, err := s.Db.GetLiveLesson(span.Context(), llID.Id)
 	if err != nil {
 		return nil, errors.New("livelesson not found")
 	}
@@ -271,7 +318,11 @@ func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) 
 // ListLiveLessons returns a list of LiveLessons present in the data store
 func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
 
-	lls, err := s.Db.ListLiveLessons()
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livelesson_list", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lls, err := s.Db.ListLiveLessons(span.Context())
 	if err != nil {
 		return nil, errors.New("Unable to list livelessons")
 	}
@@ -289,17 +340,27 @@ func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.
 // resources (like kubernetes namespace) are deleted, and local state is cleaned up appropriately
 func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.KillLiveLessonStatus, error) {
 
-	ll, err := s.Db.GetLiveLesson(llID.Id)
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livelesson_kill", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	ll, err := s.Db.GetLiveLesson(span.Context(), llID.Id)
 	if err != nil {
 		return nil, errors.New("livelesson not found")
 	}
 
 	// Send deletion request to scheduler. It will take care of sending the appropriate delete commands to
 	// kubernetes, and if successful, removing the livelesson state.
-	s.NEC.Publish("antidote.lsr.incoming", services.LessonScheduleRequest{
+	var t services.TraceMsg
+	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
+		log.Fatalf("%v for Inject.", err)
+	}
+	reqBytes, _ := json.Marshal(services.LessonScheduleRequest{
 		Operation:    services.OperationType_DELETE,
 		LiveLessonID: ll.ID,
 	})
+	t.Write(reqBytes)
+	s.NC.Publish("antidote.lsr.incoming", t.Bytes())
 
 	// TODO(mierdin): May want to clarify that this is a successful receipt of the kill command - not
 	//that it was actually killed.

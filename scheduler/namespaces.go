@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/nre-learning/antidote-core/services"
 	log "github.com/sirupsen/logrus"
 
@@ -35,10 +37,13 @@ func (s *AntidoteScheduler) boopNamespace(nsName string) error {
 	return nil
 }
 
-// cleanOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
+// pruneOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
 // in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
-func (s *AntidoteScheduler) cleanOrphanedNamespaces() error {
+func (s *AntidoteScheduler) pruneOrphanedNamespaces() error {
+
+	span := opentracing.StartSpan("scheduler_prune_orphaned_ns")
+	defer span.Finish()
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
@@ -99,13 +104,19 @@ func (s *AntidoteScheduler) deleteNamespace(name string) error {
 	return errors.New(errorMsg)
 }
 
-func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) (*corev1.Namespace, error) {
+func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req services.LessonScheduleRequest) (*corev1.Namespace, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_create_namespace",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	log.Infof("Creating namespace: %s", nsName)
 
-	ll, err := s.Db.GetLiveLesson(req.LiveLessonID)
+	ll, err := s.Db.GetLiveLesson(span.Context(), req.LiveLessonID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +153,13 @@ func (s *AntidoteScheduler) createNamespace(req services.LessonScheduleRequest) 
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
-func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
+func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]string, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_purgeoldlessons",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
 		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
@@ -175,7 +192,7 @@ func (s *AntidoteScheduler) PurgeOldLessons() ([]string, error) {
 
 		// TODO(mierdin): Gracefully handle this
 		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
-		ls, err := s.Db.GetLiveSession(lsID)
+		ls, err := s.Db.GetLiveSession(span.Context(), lsID)
 		if err != nil {
 			return []string{}, err
 		}

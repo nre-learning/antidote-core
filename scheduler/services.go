@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nre-learning/antidote-core/services"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
@@ -13,7 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createService(pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
+func (s *AntidoteScheduler) createService(sc opentracing.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_service_create",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)

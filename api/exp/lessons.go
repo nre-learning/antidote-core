@@ -6,6 +6,8 @@ import (
 	"time"
 
 	copier "github.com/jinzhu/copier"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
@@ -15,9 +17,13 @@ import (
 // ListLessons returns a list of Lessons present in the data store
 func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
 
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_lesson_list", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	lessons := []*pb.Lesson{}
 
-	dbLessons, err := s.Db.ListLessons()
+	dbLessons, err := s.Db.ListLessons(span.Context())
 	if err != nil {
 		log.Error(err)
 		return nil, errors.New("Error retrieving lessons")
@@ -48,8 +54,12 @@ func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.Le
 
 func (s *AntidoteAPI) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
 
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_lesson_getprereqs", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	// Return if lesson slug doesn't exist
-	lesson, err := s.Db.GetLesson(lessonSlug)
+	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
 	if err != nil {
 		return currentPrereqs
 	}
@@ -85,8 +95,12 @@ func isAlreadyInSlice(lessonSlug string, currentPrereqs []string) bool {
 // GetLesson retrieves a single Lesson from the data store by Slug
 func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
 
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_lesson_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	time.Sleep(2 * time.Second)
-	dbLesson, err := s.Db.GetLesson(lessonSlug.Slug)
+	dbLesson, err := s.Db.GetLesson(span.Context(), lessonSlug.Slug)
 	if err != nil {
 		log.Error(err)
 		return nil, errors.New("Error retrieving specified lesson")

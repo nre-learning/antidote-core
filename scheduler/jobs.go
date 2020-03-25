@@ -9,6 +9,7 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 
 	// Kubernetes types
@@ -89,7 +90,13 @@ func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req services.LessonSch
 
 }
 
-func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
+func (s *AntidoteScheduler) configureEndpoint(sc opentracing.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_configure_endpoint",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	log.Debugf("Configuring endpoint %s", ep.Name)
 
@@ -98,7 +105,7 @@ func (s *AntidoteScheduler) configureEndpoint(ep *models.LiveEndpoint, req servi
 	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
-	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(req.LessonSlug)
+	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
 
 	var configCommand []string
 

@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	copier "github.com/jinzhu/copier"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
@@ -14,9 +16,13 @@ import (
 // ListCollections returns a list of Collections present in the data store
 func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilter) (*pb.Collections, error) {
 
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_collection_list", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	collections := []*pb.Collection{}
 
-	dbCollections, err := s.Db.ListCollections()
+	dbCollections, err := s.Db.ListCollections(span.Context())
 	if err != nil {
 		log.Error(err)
 		return nil, errors.New("Error retrieving specified collection")
@@ -34,7 +40,11 @@ func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilte
 // GetCollection retrieves a single Collection from the data store by Slug
 func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.CollectionSlug) (*pb.Collection, error) {
 
-	dbCollection, err := s.Db.GetCollection(collectionSlug.Slug)
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_collection_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	dbCollection, err := s.Db.GetCollection(span.Context(), collectionSlug.Slug)
 	if err != nil {
 		log.Error(err)
 		return nil, errors.New("Error retrieving specified collection")
@@ -42,7 +52,7 @@ func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.Coll
 
 	collection := collectionDBToAPI(dbCollection)
 
-	lessons, err := s.Db.ListLessons()
+	lessons, err := s.Db.ListLessons(span.Context())
 	if err != nil {
 		log.Errorf("Error retrieving lessons for collection %s: %v", dbCollection.Slug, err)
 		return nil, errors.New("Error retrieving specified collection")

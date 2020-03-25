@@ -4,6 +4,8 @@ import (
 	"os"
 
 	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
+	services "github.com/nre-learning/antidote-core/services"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -50,6 +52,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to read configuration: %v", err)
 		}
+
+		tracer, closer := services.InitTracing(config.InstanceID)
+		opentracing.SetGlobalTracer(tracer)
+		defer closer.Close()
 
 		buildInfo["curriculumVersion"] = config.CurriculumVersion
 
@@ -99,6 +105,7 @@ func main() {
 				Client:        cs,
 				ClientExt:     csExt,
 				ClientCrd:     clientCrd,
+				NC:            nc,
 				NEC:           ec,
 				Config:        config,
 				Db:            adb,
@@ -117,6 +124,7 @@ func main() {
 			apiServer := &api.AntidoteAPI{
 				BuildInfo: buildInfo,
 				Db:        adb,
+				NC:        nc,
 				NEC:       ec,
 				Config:    config,
 			}
@@ -132,6 +140,7 @@ func main() {
 			stats := &stats.AntidoteStats{
 				Config: config,
 				Db:     adb,
+				NC:     nc,
 				NEC:    ec,
 			}
 			go func() {

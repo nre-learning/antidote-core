@@ -5,6 +5,7 @@ import (
 	"time"
 
 	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/opentracing/opentracing-go"
 )
 
 // DataManager enforces the set of functions required by the rest of the Antidote codebase for
@@ -18,32 +19,32 @@ import (
 type DataManager interface {
 
 	// Housekeeping functions
-	Preflight() error
-	Initialize() error
+	Preflight(opentracing.SpanContext) error
+	Initialize(opentracing.SpanContext) error
 
 	// Images
-	InsertImages([]*models.Image) error
-	ListImages() (map[string]models.Image, error)
-	GetImage(string) (*models.Image, error)
+	InsertImages(opentracing.SpanContext, []*models.Image) error
+	ListImages(opentracing.SpanContext) (map[string]models.Image, error)
+	GetImage(opentracing.SpanContext, string) (*models.Image, error)
 
 	// Lessons
-	InsertLessons([]*models.Lesson) error
-	ListLessons() (map[string]models.Lesson, error)
-	GetLesson(string) (*models.Lesson, error)
+	InsertLessons(opentracing.SpanContext, []*models.Lesson) error
+	ListLessons(opentracing.SpanContext) (map[string]models.Lesson, error)
+	GetLesson(opentracing.SpanContext, string) (*models.Lesson, error)
 
 	// Collections
-	InsertCollections([]*models.Collection) error
-	ListCollections() (map[string]models.Collection, error)
-	GetCollection(string) (*models.Collection, error)
+	InsertCollections(opentracing.SpanContext, []*models.Collection) error
+	ListCollections(opentracing.SpanContext) (map[string]models.Collection, error)
+	GetCollection(opentracing.SpanContext, string) (*models.Collection, error)
 
 	// Curriculum
-	SetCurriculum(*models.Curriculum) error
-	GetCurriculum() (*models.Curriculum, error)
+	SetCurriculum(opentracing.SpanContext, *models.Curriculum) error
+	GetCurriculum(opentracing.SpanContext) (*models.Curriculum, error)
 
 	// LiveLessons
-	CreateLiveLesson(*models.LiveLesson) error
-	ListLiveLessons() (map[string]models.LiveLesson, error)
-	GetLiveLesson(string) (*models.LiveLesson, error)
+	CreateLiveLesson(opentracing.SpanContext, *models.LiveLesson) error
+	ListLiveLessons(opentracing.SpanContext) (map[string]models.LiveLesson, error)
+	GetLiveLesson(opentracing.SpanContext, string) (*models.LiveLesson, error)
 	/*
 		I started with a basic UpdateLiveLesson function, and then in the code, I'd first call GetLiveLesson,
 		make some modifications, and then run UpdateLiveLesson. The problem is, if there are any changes to the
@@ -57,19 +58,19 @@ type DataManager interface {
 
 		The first param is the livelesson ID, and the second is the appropriate value
 	*/
-	UpdateLiveLessonStage(string, int32) error
-	UpdateLiveLessonGuide(string, string, string) error
-	UpdateLiveLessonStatus(string, models.LiveLessonStatus) error
-	UpdateLiveLessonError(string, bool) error
-	UpdateLiveLessonEndpointIP(string, string, string) error //ID, epName, IP
-	DeleteLiveLesson(string) error
+	UpdateLiveLessonStage(opentracing.SpanContext, string, int32) error
+	UpdateLiveLessonGuide(opentracing.SpanContext, string, string, string) error
+	UpdateLiveLessonStatus(opentracing.SpanContext, string, models.LiveLessonStatus) error
+	UpdateLiveLessonError(opentracing.SpanContext, string, bool) error
+	UpdateLiveLessonEndpointIP(opentracing.SpanContext, string, string, string) error //ID, epName, IP
+	DeleteLiveLesson(opentracing.SpanContext, string) error
 
 	// LiveSessions
-	CreateLiveSession(*models.LiveSession) error
-	ListLiveSessions() (map[string]models.LiveSession, error)
-	GetLiveSession(string) (*models.LiveSession, error)
-	UpdateLiveSessionPersistence(string, bool) error
-	DeleteLiveSession(string) error
+	CreateLiveSession(opentracing.SpanContext, *models.LiveSession) error
+	ListLiveSessions(opentracing.SpanContext) (map[string]models.LiveSession, error)
+	GetLiveSession(opentracing.SpanContext, string) (*models.LiveSession, error)
+	UpdateLiveSessionPersistence(opentracing.SpanContext, string, bool) error
+	DeleteLiveSession(opentracing.SpanContext, string) error
 }
 
 // RandomID is a helper function designed to promote the unique creation of IDs for

@@ -8,7 +8,10 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
-	log "github.com/sirupsen/logrus"
+	"github.com/opentracing/opentracing-go"
+	log "github.com/opentracing/opentracing-go/log"
+
+	// log "github.com/sirupsen/logrus"
 
 	// Kubernetes Types
 
@@ -18,7 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
+func (s *AntidoteScheduler) createPod(sc opentracing.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_pod_create",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -37,7 +46,7 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(req.LessonSlug)
+	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
 
 	privileged := false
 
@@ -48,7 +57,7 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 		imageRef = ep.Image
 	} else {
 
-		image, err := s.Db.GetImage(ep.Image)
+		image, err := s.Db.GetImage(span.Context(), ep.Image)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
 		}
@@ -147,22 +156,22 @@ func (s *AntidoteScheduler) createPod(ep *models.LiveEndpoint, networks []string
 
 	result, err := s.Client.CoreV1().Pods(nsName).Create(pod)
 	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-			"networks":  string(netAnnotationsJSON),
-		}).Infof("Created pod: %s", result.ObjectMeta.Name)
-
+		span.LogEvent("Pod creation successful")
+		span.LogKV(
+			log.String("name", result.ObjectMeta.Name),
+			log.String("networks", string(netAnnotationsJSON)),
+		)
 	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Pod %s already exists.", ep.Name)
+		// log.Warnf("Pod %s already exists.", ep.Name)
 
 		result, err := s.Client.CoreV1().Pods(nsName).Get(ep.Name, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
+			// log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
 			return nil, err
 		}
 		return result, nil
 	} else {
-		log.Errorf("Problem creating pod %s: %s", ep.Name, err)
+		// log.Errorf("Problem creating pod %s: %s", ep.Name, err)
 		return nil, err
 	}
 	return result, err
@@ -181,7 +190,7 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 
 	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Couldn't retrieve pod status: %s", err)
+		// log.Errorf("Couldn't retrieve pod status: %s", err)
 		return false, err
 	}
 

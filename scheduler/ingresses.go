@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -14,7 +15,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createIngress(nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
+func (s *AntidoteScheduler) createIngress(sc opentracing.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"scheduler_ingress_create",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	redir := "true"
 

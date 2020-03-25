@@ -32,6 +32,7 @@ import (
 type AntidoteAPI struct {
 	Db     db.DataManager
 	Config config.AntidoteConfig
+	NC     *nats.Conn
 	NEC    *nats.EncodedConn
 
 	BuildInfo map[string]string

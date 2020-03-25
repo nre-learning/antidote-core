@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,11 +11,13 @@ import (
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	"github.com/nre-learning/antidote-core/services"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 )
 
 // AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
 type AntidoteStats struct {
+	NC     *nats.Conn
 	NEC    *nats.EncodedConn
 	Config config.AntidoteConfig
 	Db     db.DataManager
@@ -23,11 +26,31 @@ type AntidoteStats struct {
 // Start starts the AntidoteStats service
 func (s *AntidoteStats) Start() error {
 
-	// Begin periodically exporting metrics to TSDB
-	go s.startTSDBExport()
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("stats_root")
+	defer span.Finish()
 
-	s.NEC.Subscribe("antidote.lsr.completed", func(lsr services.LessonScheduleRequest) {
-		s.recordProvisioningTime(lsr)
+	// Begin periodically exporting metrics to TSDB
+	go s.startTSDBExport(span.Context())
+
+	s.NC.Subscribe("antidote.lsr.completed", func(msg *nats.Msg) {
+		t := services.NewTraceMsg(msg)
+		tracer := opentracing.GlobalTracer()
+		sc, err := tracer.Extract(opentracing.Binary, t)
+		if err != nil {
+			log.Printf("Extract error: %v", err)
+		}
+
+		span := tracer.StartSpan(
+			"scheduler_lsr_incoming",
+			opentracing.ChildOf(sc))
+		defer span.Finish()
+
+		rem := t.Bytes()
+		var lsr services.LessonScheduleRequest
+		_ = json.Unmarshal(rem, &lsr)
+		s.recordProvisioningTime(span.Context(), lsr)
+
 	})
 
 	// Wait forever
@@ -37,9 +60,15 @@ func (s *AntidoteStats) Start() error {
 	return nil
 }
 
-func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleRequest) error {
+func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res services.LessonScheduleRequest) error {
 
-	lesson, err := s.Db.GetLesson(res.LessonSlug)
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"stats_record_provisioning",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
+
+	lesson, err := s.Db.GetLesson(span.Context(), res.LessonSlug)
 	if err != nil {
 		return errors.New("Problem getting lesson details for recording provisioning time")
 	}
@@ -108,7 +137,13 @@ func (s *AntidoteStats) recordProvisioningTime(res services.LessonScheduleReques
 	return nil
 }
 
-func (s *AntidoteStats) startTSDBExport() error {
+func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
+
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan(
+		"stats_periodic_export",
+		opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -147,7 +182,7 @@ func (s *AntidoteStats) startTSDBExport() error {
 			continue
 		}
 
-		lessons, err := s.Db.ListLessons()
+		lessons, err := s.Db.ListLessons(span.Context())
 		if err != nil {
 			log.Error("Unable to get lessons from DB for influxdb")
 		}
@@ -162,7 +197,7 @@ func (s *AntidoteStats) startTSDBExport() error {
 			tags["antidoteTier"] = s.Config.Tier
 			tags["antidoteId"] = s.Config.InstanceID
 
-			count, duration := s.getCountAndDuration(lesson.Slug)
+			count, duration := s.getCountAndDuration(span.Context(), lesson.Slug)
 			fields["lessonName"] = lesson.Name
 			fields["lessonSlug"] = lesson.Slug
 
@@ -195,11 +230,12 @@ func (s *AntidoteStats) startTSDBExport() error {
 	}
 }
 
-func (s *AntidoteStats) getCountAndDuration(lessonSlug string) (int64, int64) {
+func (s *AntidoteStats) getCountAndDuration(sc opentracing.SpanContext, lessonSlug string) (int64, int64) {
+	// Don't bother opening a new span for this function, just pass to the underlying DB call
 
 	count := 0
 
-	liveLessons, err := s.Db.ListLiveLessons()
+	liveLessons, err := s.Db.ListLiveLessons(sc)
 	if err != nil {
 		log.Errorf("Problem retrieving livelessons - %v", err)
 		return 0, 0

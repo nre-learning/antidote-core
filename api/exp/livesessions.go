@@ -9,6 +9,8 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	db "github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 )
@@ -17,6 +19,14 @@ import (
 // in state management, and returns the ID to the client
 func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
 
+	// Initialize span and populate with tags
+	//
+	// TODO(mierdin): This is a sort of standalone API call, how can we link this span
+	// with the spans opened with livelesson calls?
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	var sessionID string
 	i := 0
 	for {
@@ -24,7 +34,7 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 			return nil, errors.New("Unable to generate session ID")
 		}
 		sessionID = db.RandomID(10)
-		_, err := s.Db.GetLiveSession(sessionID)
+		_, err := s.Db.GetLiveSession(span.Context(), sessionID)
 		if err == nil {
 			i++
 			continue
@@ -42,8 +52,9 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 		return nil, errors.New("Unable to determine incoming IP address")
 	}
 	sourceIP := forwardedFor[0]
+	span.SetTag("antidote_request_source_ip", sourceIP)
 	log.Infof("Allocating session ID %s for incoming IP %s", sessionID, sourceIP)
-	err := s.Db.CreateLiveSession(&models.LiveSession{
+	err := s.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:         sessionID,
 		SourceIP:   sourceIP,
 		Persistent: false,
@@ -57,7 +68,11 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
-	lsDBs, err := s.Db.ListLiveSessions()
+	tracer := opentracing.GlobalTracer()
+	span := tracer.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lsDBs, err := s.Db.ListLiveSessions(span.Context())
 	if err != nil {
 		return nil, errors.New("Unable to list livesessions")
 	}
