@@ -15,9 +15,7 @@ import (
 
 // ListCollections returns a list of Collections present in the data store
 func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilter) (*pb.Collections, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_collection_list", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_collection_list", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	collections := []*pb.Collection{}
@@ -40,8 +38,7 @@ func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilte
 // GetCollection retrieves a single Collection from the data store by Slug
 func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.CollectionSlug) (*pb.Collection, error) {
 
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_collection_get", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_collection_get", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	dbCollection, err := s.Db.GetCollection(span.Context(), collectionSlug.Slug)

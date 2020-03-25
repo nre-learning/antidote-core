@@ -99,6 +99,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("Unable to create new kubernetes crd client - %v", err)
 			}
+
 			// Start scheduler
 			scheduler := scheduler.AntidoteScheduler{
 				KubeConfig:    kubeConfig,
@@ -112,12 +113,19 @@ func main() {
 				BuildInfo:     buildInfo,
 				HealthChecker: &scheduler.LessonHealthCheck{},
 			}
+
+			// In case we're restarting from a previous instance, we want to make sure we clean up any
+			// orphaned k8s namespaces by killing any with our ID
+			log.Info("Pruning orphaned namespaces...")
+			scheduler.PruneOrphanedNamespaces()
+
 			go func() {
 				err = scheduler.Start()
 				if err != nil {
 					log.Fatalf("Problem starting lesson scheduler: %s", err)
 				}
 			}()
+			log.Info("Scheduler started.")
 		}
 
 		if config.IsServiceEnabled("api") {
@@ -134,6 +142,7 @@ func main() {
 					log.Fatalf("Problem starting API: %s", err)
 				}
 			}()
+			log.Info("API server started.")
 		}
 
 		if config.IsServiceEnabled("stats") {
@@ -149,6 +158,7 @@ func main() {
 					log.Fatalf("Problem starting Stats: %s", err)
 				}
 			}()
+			log.Info("Stats service started.")
 		}
 
 		// Wait forever

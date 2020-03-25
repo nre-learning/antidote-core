@@ -31,11 +31,11 @@ import (
 // - Modify an existing livelesson - such as moving to a different stage ID
 // - Refreshing the lastUsed timestamp on the livelesson, which lets the back-end know it's still in use.
 func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
-
-	// Initialize span and populate with tags
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livelesson_request", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livelesson_request", ext.SpanKindRPCClient)
 	defer span.Finish()
+
+	// Important to set these tags, since this span is likely to have many, many child spans
+	// Get all the useful context embedded here at the top.
 	span.SetTag("antidote_lesson_slug", lp.LessonSlug)
 	span.SetTag("antidote_stage", lp.LessonStage)
 	span.SetTag("antidote_session_id", lp.SessionId)
@@ -277,8 +277,7 @@ func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHe
 // CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly for debugging
 // or test purposes. Use this at your own peril.
 func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livelesson_create", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livelesson_create", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	err := s.Db.CreateLiveLesson(span.Context(), liveLessonAPIToDB(ll))
@@ -291,9 +290,7 @@ func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (
 
 // GetLiveLesson retrieves a single LiveLesson via ID
 func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livelesson_get", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livelesson_get", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	if llID.Id == "" {
@@ -317,9 +314,7 @@ func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) 
 
 // ListLiveLessons returns a list of LiveLessons present in the data store
 func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livelesson_list", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livelesson_list", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	lls, err := s.Db.ListLiveLessons(span.Context())
@@ -339,9 +334,7 @@ func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.
 // KillLiveLesson allows a client to request that a livelesson is killed, meaning the underlying
 // resources (like kubernetes namespace) are deleted, and local state is cleaned up appropriately
 func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.KillLiveLessonStatus, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livelesson_kill", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livelesson_kill", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	ll, err := s.Db.GetLiveLesson(span.Context(), llID.Id)
@@ -352,6 +345,7 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 	// Send deletion request to scheduler. It will take care of sending the appropriate delete commands to
 	// kubernetes, and if successful, removing the livelesson state.
 	var t services.TraceMsg
+	tracer := opentracing.GlobalTracer()
 	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
 		log.Fatalf("%v for Inject.", err)
 	}

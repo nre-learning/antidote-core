@@ -16,11 +16,7 @@ import (
 )
 
 func (s *AntidoteScheduler) createIngress(sc opentracing.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_ingress_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_ingress_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	redir := "true"

@@ -16,11 +16,7 @@ import (
 )
 
 func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_lsr_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_lsr_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
@@ -39,53 +35,9 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newR
 		return
 	}
 
-	log.Debugf("Bootstrap complete for livelesson %s. Moving into BOOTING status", newRequest.LiveLessonID)
-	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_BOOTING)
+	err = s.waitUntilReachable(span.Context(), ll)
 	if err != nil {
-		log.Errorf("Error updating livelesson: %v", err)
-		return
-	}
-
-	var success = false
-	for i := 0; i < 600; i++ {
-		time.Sleep(1 * time.Second)
-
-		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", ll.ID, ll.LiveEndpoints)
-
-		reachability := s.testEndpointReachability(ll)
-
-		log.Debugf("Livelesson %s health check results: %v", ll.ID, reachability)
-
-		// Update reachability status
-		failed := false
-		healthy := int32(0)
-		total := int32(len(reachability))
-		for _, reachable := range reachability {
-			if reachable {
-				healthy++
-			} else {
-				failed = true
-			}
-		}
-		ll.HealthyTests = healthy
-		ll.TotalTests = total
-
-		// Begin again if one of the endpoints isn't reachable
-		if failed {
-			continue
-		}
-
-		success = true
-		break
-
-	}
-
-	if !success {
-		log.Errorf("Timeout waiting for livelesson %s to become reachable", ll.ID)
-		err = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		if err != nil {
-			log.Errorf("Error updating livelesson: %v", err)
-		}
+		log.Errorf("Error while waiting for reachability: %v", err)
 		return
 	}
 
@@ -120,6 +72,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newR
 	}
 
 	// Inject span context and send LSR into NATS
+	tracer := opentracing.GlobalTracer()
 	var t services.TraceMsg
 	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
 		log.Fatalf("%v for Inject.", err)
@@ -130,11 +83,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newR
 }
 
 func (s *AntidoteScheduler) handleRequestMODIFY(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_lsr_modify",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_lsr_modify", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
@@ -162,22 +111,19 @@ func (s *AntidoteScheduler) handleRequestMODIFY(sc opentracing.SpanContext, newR
 		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
 	}
 
-	err = s.boopNamespace(nsName)
+	err = s.boopNamespace(span.Context(), nsName)
 	if err != nil {
 		log.Errorf("Problem modify-booping %s: %v", nsName, err)
 	}
 }
 
 func (s *AntidoteScheduler) handleRequestBOOP(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_lsr_boop",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_lsr_boop", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-	err := s.boopNamespace(nsName)
+	err := s.boopNamespace(span.Context(), nsName)
 	if err != nil {
 		log.Errorf("Problem booping %s: %v", nsName, err)
 	}
@@ -186,14 +132,11 @@ func (s *AntidoteScheduler) handleRequestBOOP(sc opentracing.SpanContext, newReq
 // handleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
 func (s *AntidoteScheduler) handleRequestDELETE(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_lsr_delete",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_lsr_delete", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
-	err := s.deleteNamespace(nsName)
+	err := s.deleteNamespace(span.Context(), nsName)
 	if err != nil {
 		log.Errorf("Unable to delete namespace %s: %v", nsName, err)
 		return
@@ -208,11 +151,7 @@ func (s *AntidoteScheduler) handleRequestDELETE(sc opentracing.SpanContext, newR
 // of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
 // lesson are all created as part of this workflow.
 func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req services.LessonScheduleRequest) error {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_k8s_create_stuff",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_k8s_create_stuff", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	ns, err := s.createNamespace(span.Context(), req)
@@ -329,6 +268,12 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 		}
 	}
 
+	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_BOOTING)
+	if err != nil {
+		log.Errorf("Error updating livelesson: %v", err)
+		return err
+	}
+
 	// Before moving forward with network-based health checks, let's look back at the pods
 	// we've deployed, and wait until they're in a "Running" status. This allows us to keep a hold
 	// of maximum amounts of context for troubleshooting while we have it
@@ -337,13 +282,15 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 
 	failLesson := false
 
+	podStatusSpan := opentracing.StartSpan("scheduler_pod_status", opentracing.ChildOf(span.Context()))
 	for name, pod := range createdPods {
-		go func(name string, pod *corev1.Pod) {
+		go func(podStatusSpan opentracing.Span, name string, pod *corev1.Pod) {
+
 			defer wg.Done()
 
 			for i := 0; i < 300; i++ {
 
-				rdy, err := s.getPodStatus(pod)
+				rdy, err := s.getPodStatus(podStatusSpan, pod)
 				if err != nil {
 					log.Errorf("Pod %s status failure: %v", name, err)
 					failLesson = true
@@ -362,10 +309,11 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 			log.Infof("Timed out waiting for %s to start", name)
 			failLesson = true
 			return
-		}(name, pod)
+		}(podStatusSpan, name, pod)
 	}
 
 	wg.Wait()
+	podStatusSpan.Finish()
 
 	// At this point, the only pods left in createdPods should be ones that failed to ready
 	if failLesson || len(createdPods) > 0 {

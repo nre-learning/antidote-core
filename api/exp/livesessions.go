@@ -18,13 +18,9 @@ import (
 // RequestLiveSession generates a new session ID, performs basic security functions, installs the new session
 // in state management, and returns the ID to the client
 func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
-
-	// Initialize span and populate with tags
-	//
 	// TODO(mierdin): This is a sort of standalone API call, how can we link this span
 	// with the spans opened with livelesson calls?
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	var sessionID string
@@ -68,8 +64,7 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	lsDBs, err := s.Db.ListLiveSessions(span.Context())

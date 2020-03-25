@@ -6,7 +6,8 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	"github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 )
 
 // NewADMInMem produces an initialized instance of ADMInMem ready to be used
@@ -85,10 +86,7 @@ func (a *ADMInMem) Initialize(sc opentracing.SpanContext) error {
 // especially. What's the appropriate behavior when we're trying to insert an item
 // that already exists?
 func (a *ADMInMem) InsertLessons(sc opentracing.SpanContext, lessons []*models.Lesson) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_lesson_insert",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_lesson_insert", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.lessonsMu.Lock()
@@ -96,15 +94,13 @@ func (a *ADMInMem) InsertLessons(sc opentracing.SpanContext, lessons []*models.L
 	for i := range lessons {
 		a.lessons[lessons[i].Slug] = lessons[i]
 	}
+
 	return nil
 }
 
 // ListLessons lists the Lessons currently available in the data store
 func (a *ADMInMem) ListLessons(sc opentracing.SpanContext) (map[string]models.Lesson, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_lesson_list",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_lesson_list", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	lessons := map[string]models.Lesson{}
@@ -116,16 +112,16 @@ func (a *ADMInMem) ListLessons(sc opentracing.SpanContext) (map[string]models.Le
 
 // GetLesson retrieves a specific lesson from the data store
 func (a *ADMInMem) GetLesson(sc opentracing.SpanContext, slug string) (*models.Lesson, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_lesson_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_lesson_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	if lesson, ok := a.lessons[slug]; ok {
 		return lesson, nil
 	}
-	return nil, fmt.Errorf("Unable to find lesson %s", slug)
+	err := fmt.Errorf("Unable to find lesson %s", slug)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return nil, err
 }
 
 // IMAGES
@@ -138,10 +134,7 @@ func (a *ADMInMem) GetLesson(sc opentracing.SpanContext, slug string) (*models.L
 // especially. What's the appropriate behavior when we're trying to insert an item
 // that already exists?
 func (a *ADMInMem) InsertImages(sc opentracing.SpanContext, images []*models.Image) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_image_insert",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_image_insert", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.imagesMu.Lock()
@@ -154,10 +147,7 @@ func (a *ADMInMem) InsertImages(sc opentracing.SpanContext, images []*models.Ima
 
 // ListImages lists the Images currently available in the data store
 func (a *ADMInMem) ListImages(sc opentracing.SpanContext) (map[string]models.Image, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_image_list",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_image_list", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	images := map[string]models.Image{}
@@ -169,16 +159,16 @@ func (a *ADMInMem) ListImages(sc opentracing.SpanContext) (map[string]models.Ima
 
 // GetImage retrieves a specific Image from the data store
 func (a *ADMInMem) GetImage(sc opentracing.SpanContext, slug string) (*models.Image, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_image_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_image_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	if image, ok := a.images[slug]; ok {
 		return image, nil
 	}
-	return nil, fmt.Errorf("Unable to find image %s", slug)
+	err := fmt.Errorf("Unable to find image %s", slug)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return nil, err
 }
 
 // COLLECTIONS
@@ -191,10 +181,7 @@ func (a *ADMInMem) GetImage(sc opentracing.SpanContext, slug string) (*models.Im
 // especially. What's the appropriate behavior when we're trying to insert an item
 // that already exists?
 func (a *ADMInMem) InsertCollections(sc opentracing.SpanContext, collections []*models.Collection) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_collection_insert",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_collection_insert", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.collectionsMu.Lock()
@@ -207,10 +194,7 @@ func (a *ADMInMem) InsertCollections(sc opentracing.SpanContext, collections []*
 
 // ListCollections lists the Collections currently available in the data store
 func (a *ADMInMem) ListCollections(sc opentracing.SpanContext) (map[string]models.Collection, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_collection_list",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_collection_list", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	collections := map[string]models.Collection{}
@@ -222,26 +206,23 @@ func (a *ADMInMem) ListCollections(sc opentracing.SpanContext) (map[string]model
 
 // GetCollection retrieves a specific Collection from the data store
 func (a *ADMInMem) GetCollection(sc opentracing.SpanContext, slug string) (*models.Collection, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_collection_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_collection_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	if collection, ok := a.collections[slug]; ok {
 		return collection, nil
 	}
-	return nil, fmt.Errorf("Unable to find collection %s", slug)
+	err := fmt.Errorf("Unable to find collection %s", slug)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return nil, err
 }
 
 // CURRICULUM
 
 // SetCurriculum updates the curriculum details in the datastore
 func (a *ADMInMem) SetCurriculum(sc opentracing.SpanContext, curriculum *models.Curriculum) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_curriculum_set",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_curriculum_set", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.curriculumMu.Lock()
@@ -252,10 +233,7 @@ func (a *ADMInMem) SetCurriculum(sc opentracing.SpanContext, curriculum *models.
 
 // GetCurriculum retrieves a specific Curriculum from the data store
 func (a *ADMInMem) GetCurriculum(sc opentracing.SpanContext) (*models.Curriculum, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_curriculum_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_curriculum_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	return a.curriculum, nil
@@ -265,85 +243,78 @@ func (a *ADMInMem) GetCurriculum(sc opentracing.SpanContext) (*models.Curriculum
 
 // CreateLiveLesson creates a new instance of a LiveLesson to the in-memory data store
 func (a *ADMInMem) CreateLiveLesson(sc opentracing.SpanContext, ll *models.LiveLesson) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[ll.ID]; ok {
-		return fmt.Errorf("Livelesson %s already exists", ll.ID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[ll.ID]; ok {
+		err := fmt.Errorf("Livelesson %s already exists", ll.ID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveLessons[ll.ID] = ll
 
-	log.Infof("Created livelesson %s", ll.ID)
+	span.LogFields(log.String("created_livelesson_id", ll.ID))
 	return nil
 }
 
 // ListLiveLessons lists all LiveLessons currently tracked in memory
 func (a *ADMInMem) ListLiveLessons(sc opentracing.SpanContext) (map[string]models.LiveLesson, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_list",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_list", opentracing.ChildOf(sc))
 	defer span.Finish()
-
 	liveLessons := map[string]models.LiveLesson{}
 	for id, ll := range a.liveLessons {
 		liveLessons[id] = *ll
 	}
-
-	log.Info("Retrieving all livelessons")
 	return liveLessons, nil
-
 }
 
 // GetLiveLesson retrieves a specific LiveLesson from the in-memory store via ID
 func (a *ADMInMem) GetLiveLesson(sc opentracing.SpanContext, id string) (*models.LiveLesson, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	if ll, ok := a.liveLessons[id]; ok {
 		return ll, nil
 	}
-	return nil, fmt.Errorf("Unable to find liveLesson %s", id)
+	err := fmt.Errorf("Unable to find liveLesson %s", id)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return nil, err
 }
 
 // UpdateLiveLessonStage updates a livelesson's LessonStage property
 func (a *ADMInMem) UpdateLiveLessonStage(sc opentracing.SpanContext, llID string, stage int32) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_update_stage",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_update_stage", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[llID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveLessons[llID].CurrentStage = stage
 	return nil
 }
 
 // UpdateLiveLessonGuide updates a LiveLesson's guide properties
 func (a *ADMInMem) UpdateLiveLessonGuide(sc opentracing.SpanContext, llID, guideType, guideContents string) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_update_guide",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_update_guide", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[llID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveLessons[llID].GuideContents = guideContents
 	a.liveLessons[llID].GuideType = guideType
 	return nil
@@ -351,51 +322,53 @@ func (a *ADMInMem) UpdateLiveLessonGuide(sc opentracing.SpanContext, llID, guide
 
 // UpdateLiveLessonStatus updates a livelesson's Status property
 func (a *ADMInMem) UpdateLiveLessonStatus(sc opentracing.SpanContext, llID string, status models.LiveLessonStatus) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_update_status",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_update_status", opentracing.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("llID", llID)
+	span.SetTag("status", status)
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[llID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveLessons[llID].Status = status
 	return nil
 }
 
 // UpdateLiveLessonError updates a livelesson's Error property
 func (a *ADMInMem) UpdateLiveLessonError(sc opentracing.SpanContext, llID string, err bool) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_update_error",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_update_error", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[llID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveLessons[llID].Error = err
 	return nil
 }
 
 // UpdateLiveLessonEndpointIP updates a livelesson's Host property
 func (a *ADMInMem) UpdateLiveLessonEndpointIP(sc opentracing.SpanContext, llID, epName, IP string) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_update_endpointip",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_update_endpointip", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
-	if _, ok := a.liveLessons[llID]; !ok {
-		return fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
-	}
 	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	for name := range a.liveLessons[llID].LiveEndpoints {
 		if name == epName {
 			a.liveLessons[llID].LiveEndpoints[name].Host = IP
@@ -407,10 +380,7 @@ func (a *ADMInMem) UpdateLiveLessonEndpointIP(sc opentracing.SpanContext, llID, 
 
 // DeleteLiveLesson deletes an existing LiveLesson from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveLesson(sc opentracing.SpanContext, id string) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livelesson_delete",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livelesson_delete", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveLessonsMu.Lock()
@@ -423,27 +393,24 @@ func (a *ADMInMem) DeleteLiveLesson(sc opentracing.SpanContext, id string) error
 
 // CreateLiveSession creates a new instance of a LiveSession to the in-memory data store
 func (a *ADMInMem) CreateLiveSession(sc opentracing.SpanContext, ls *models.LiveSession) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livesession_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livesession_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveSessionsMu.Lock()
-	if _, ok := a.liveSessions[ls.ID]; ok {
-		return fmt.Errorf("LiveSession %s already exists", ls.ID)
-	}
 	defer a.liveSessionsMu.Unlock()
+	if _, ok := a.liveSessions[ls.ID]; ok {
+		err := fmt.Errorf("LiveSession %s already exists", ls.ID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveSessions[ls.ID] = ls
 	return nil
 }
 
 // ListLiveSessions lists all LiveSessions currently tracked in memory
 func (a *ADMInMem) ListLiveSessions(sc opentracing.SpanContext) (map[string]models.LiveSession, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livesession_list",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livesession_list", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	liveSessions := map[string]models.LiveSession{}
@@ -455,41 +422,38 @@ func (a *ADMInMem) ListLiveSessions(sc opentracing.SpanContext) (map[string]mode
 
 // GetLiveSession retrieves a specific LiveSession from the in-memory store via ID
 func (a *ADMInMem) GetLiveSession(sc opentracing.SpanContext, id string) (*models.LiveSession, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livesession_get",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livesession_get", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	if ls, ok := a.liveSessions[id]; ok {
 		return ls, nil
 	}
-	return nil, fmt.Errorf("Unable to find liveSession %s", id)
+	err := fmt.Errorf("Unable to find liveSession %s", id)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return nil, err
 }
 
 // UpdateLiveSessionPersistence updates a livesession's persistent property
 func (a *ADMInMem) UpdateLiveSessionPersistence(sc opentracing.SpanContext, lsID string, persistent bool) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livesession_update_persistence",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livesession_update_persistence", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveSessionsMu.Lock()
-	if _, ok := a.liveSessions[lsID]; !ok {
-		return fmt.Errorf("Livesesson %s doesn't exist; cannot update", lsID)
-	}
 	defer a.liveSessionsMu.Unlock()
+	if _, ok := a.liveSessions[lsID]; !ok {
+		err := fmt.Errorf("Livesesson %s doesn't exist; cannot update", lsID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
 	a.liveSessions[lsID].Persistent = persistent
 	return nil
 }
 
 // DeleteLiveSession deletes an existing LiveSession from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveSession(sc opentracing.SpanContext, id string) error {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"db_livesession_delete",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("db_livesession_delete", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	a.liveSessionsMu.Lock()

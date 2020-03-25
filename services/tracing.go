@@ -3,7 +3,10 @@ package services
 import (
 	"bytes"
 	"io"
-	"log"
+
+	// "log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/nats-io/nats.go"
 	"github.com/opentracing/opentracing-go"
@@ -29,6 +32,10 @@ func NewTraceMsg(m *nats.Msg) *TraceMsg {
 // InitTracing handles the common tracing setup functionality, and keeps
 // implementation specific (Jaeger) configuration here.
 func InitTracing(service string) (opentracing.Tracer, io.Closer) {
+
+	log.Info("Antidote uses OpenTracing for detailed analysis of application behavior.")
+	log.Info("Please consult the documentation for how to set up a supported collector")
+
 	// Sample configuration for testing. Use constant sampling to sample every trace
 	// and enable LogSpan to log every span via configured Logger.
 	cfg := jaegercfg.Configuration{

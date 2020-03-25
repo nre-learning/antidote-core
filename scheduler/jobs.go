@@ -91,11 +91,7 @@ func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req services.LessonSch
 }
 
 func (s *AntidoteScheduler) configureEndpoint(sc opentracing.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_configure_endpoint",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_configure_endpoint", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	log.Debugf("Configuring endpoint %s", ep.Name)

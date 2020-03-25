@@ -25,9 +25,7 @@ type AntidoteStats struct {
 
 // Start starts the AntidoteStats service
 func (s *AntidoteStats) Start() error {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("stats_root")
+	span := opentracing.StartSpan("stats_root")
 	defer span.Finish()
 
 	// Begin periodically exporting metrics to TSDB
@@ -42,7 +40,7 @@ func (s *AntidoteStats) Start() error {
 		}
 
 		span := tracer.StartSpan(
-			"scheduler_lsr_incoming",
+			"stats_lsr_incoming",
 			opentracing.ChildOf(sc))
 		defer span.Finish()
 
@@ -61,11 +59,7 @@ func (s *AntidoteStats) Start() error {
 }
 
 func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res services.LessonScheduleRequest) error {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"stats_record_provisioning",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("stats_record_provisioning", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := s.Db.GetLesson(span.Context(), res.LessonSlug)
@@ -138,11 +132,7 @@ func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res s
 }
 
 func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"stats_periodic_export",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("stats_periodic_export", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	// Make client

@@ -9,14 +9,12 @@ import (
 // ImportCurriculum provides a single function for all curriculum resources to be imported and placed
 // within the backing data store
 func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
+	span := opentracing.StartSpan("antidote_ingest_curriculum")
+	defer span.Finish()
 
 	// TODO(mierdin): Add step to read in curriculum meta and make sure the calling code
 	// (BOTH antidote validate and antidoted import functions)
 	// checks that the values are correct, including the targeted antidote version
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("antidote_ingest_curriculum")
-	defer span.Finish()
 
 	collections, err := ReadCollections(config.CurriculumDir)
 	if err != nil {

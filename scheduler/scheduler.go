@@ -77,10 +77,6 @@ type AntidoteScheduler struct {
 // and put a results message on the "results" channel when finished (success or fail)
 func (s *AntidoteScheduler) Start() error {
 
-	// In case we're restarting from a previous instance, we want to make sure we clean up any
-	// orphaned k8s namespaces by killing any with our ID
-	s.pruneOrphanedNamespaces()
-
 	// Ensure our network CRD is in place (should fail silently if already exists)
 	s.createNetworkCrd()
 
@@ -167,11 +163,7 @@ func (s *AntidoteScheduler) Start() error {
 }
 
 func (s *AntidoteScheduler) configureStuff(sc opentracing.SpanContext, nsName string, liveLesson *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_configure_stuff",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_configure_stuff", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	s.killAllJobs(nsName, "config")
@@ -229,11 +221,7 @@ func (s *AntidoteScheduler) configureStuff(sc opentracing.SpanContext, nsName st
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
 func (s *AntidoteScheduler) getVolumesConfiguration(sc opentracing.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_get_volumes",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_get_volumes", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
@@ -301,10 +289,61 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc opentracing.SpanContext, 
 
 }
 
-// TODO(mierdin): You had to add "Ports" to LiveEndpoint - you'll need to finish this work by
-// taking all presentation ports and additionalPorts when the livelesson is created and populating
-// the LiveEndpoint.Ports field appropriately - probably in the api server on creation
-func (s *AntidoteScheduler) testEndpointReachability(ll *models.LiveLesson) map[string]bool {
+// waitUntilReachable is the top-level endpoint reachability workflow
+func (s *AntidoteScheduler) waitUntilReachable(sc opentracing.SpanContext, ll *models.LiveLesson) error {
+	span := opentracing.StartSpan("scheduler_endpoint_reachability", opentracing.ChildOf(sc))
+	defer span.Finish()
+
+	var success = false
+	for i := 0; i < 600; i++ {
+		time.Sleep(1 * time.Second)
+
+		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", ll.ID, ll.LiveEndpoints)
+
+		reachability := s.getEndpointReachability(ll)
+
+		log.Debugf("Livelesson %s health check results: %v", ll.ID, reachability)
+
+		// Update reachability status
+		failed := false
+		healthy := int32(0)
+		total := int32(len(reachability))
+		for _, reachable := range reachability {
+			if reachable {
+				healthy++
+			} else {
+				failed = true
+			}
+		}
+		ll.HealthyTests = healthy
+		ll.TotalTests = total
+
+		// Begin again if one of the endpoints isn't reachable
+		if failed {
+			continue
+		}
+
+		success = true
+		break
+
+	}
+
+	if !success {
+		log.Errorf("Timeout waiting for livelesson %s to become reachable", ll.ID)
+		err := s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		if err != nil {
+			log.Errorf("Error updating livelesson: %v", err)
+		}
+		return errors.New("Problem")
+	}
+
+	return nil
+}
+
+// getEndpointReachability does a one-time health check for network reachability for endpoints in a
+// livelesson. Meant to be called by a higher-level function which calls it repeatedly until all
+// are healthy.
+func (s *AntidoteScheduler) getEndpointReachability(ll *models.LiveLesson) map[string]bool {
 
 	// Prepare the reachability map as well as the waitgroup to handle the concurrency
 	// of our health checks. We want to pre-populate every possible health check with a

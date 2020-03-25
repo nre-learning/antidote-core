@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -10,7 +9,8 @@ import (
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/nre-learning/antidote-core/services"
-	log "github.com/sirupsen/logrus"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	// Kubernetes types
 	corev1 "k8s.io/api/core/v1"
@@ -18,9 +18,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) boopNamespace(nsName string) error {
+func (s *AntidoteScheduler) boopNamespace(sc opentracing.SpanContext, nsName string) error {
 
-	log.Debugf("Booping %s", nsName)
+	span := opentracing.StartSpan("scheduler_boop_ns", opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	ns, err := s.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
 	if err != nil {
@@ -37,10 +38,10 @@ func (s *AntidoteScheduler) boopNamespace(nsName string) error {
 	return nil
 }
 
-// pruneOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
+// PruneOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
 // in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
-func (s *AntidoteScheduler) pruneOrphanedNamespaces() error {
+func (s *AntidoteScheduler) PruneOrphanedNamespaces() error {
 
 	span := opentracing.StartSpan("scheduler_prune_orphaned_ns")
 	defer span.Finish()
@@ -55,11 +56,10 @@ func (s *AntidoteScheduler) pruneOrphanedNamespaces() error {
 
 	// No need to nuke if no namespaces exist with our ID
 	if len(nameSpaces.Items) == 0 {
-		log.Info("No namespaces with our antidoteId found. Starting normally.")
+		span.LogFields(log.Int("pruned_orphans", 0))
 		return nil
 	}
 
-	log.Warnf("Nuking all namespaces with an antidoteId of %s", s.Config.InstanceID)
 	var wg sync.WaitGroup
 	wg.Add(len(nameSpaces.Items))
 	for n := range nameSpaces.Items {
@@ -67,15 +67,19 @@ func (s *AntidoteScheduler) pruneOrphanedNamespaces() error {
 		nsName := nameSpaces.Items[n].ObjectMeta.Name
 		go func() {
 			defer wg.Done()
-			s.deleteNamespace(nsName)
+			s.deleteNamespace(span.Context(), nsName)
 		}()
 	}
 	wg.Wait()
-	log.Info("Nuke complete. It was the only way to be sure...")
+
+	span.LogFields(log.Int("pruned_orphans", len(nameSpaces.Items)))
 	return nil
 }
 
-func (s *AntidoteScheduler) deleteNamespace(name string) error {
+func (s *AntidoteScheduler) deleteNamespace(sc opentracing.SpanContext, name string) error {
+
+	span := opentracing.StartSpan("scheduler_boop_ns", opentracing.ChildOf(sc))
+	defer span.Finish()
 
 	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
@@ -89,32 +93,26 @@ func (s *AntidoteScheduler) deleteNamespace(name string) error {
 
 		_, err := s.Client.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 		if err == nil {
-			log.Debugf("Waiting for namespace %s to delete...", name)
 			continue
 		} else if apierrors.IsNotFound(err) {
-			log.Infof("Deleted namespace %s", name)
 			return nil
 		} else {
 			return err
 		}
 	}
 
-	errorMsg := fmt.Sprintf("Timed out trying to delete namespace %s", name)
-	log.Error(errorMsg)
-	return errors.New(errorMsg)
+	err = fmt.Errorf("Timed out trying to delete namespace %s", name)
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return err
 }
 
 func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req services.LessonScheduleRequest) (*corev1.Namespace, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_create_namespace",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_create_namespace", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
-
-	log.Infof("Creating namespace: %s", nsName)
+	span.LogFields(log.String("nsName", nsName))
 
 	ll, err := s.Db.GetLiveLesson(span.Context(), req.LiveLessonID)
 	if err != nil {
@@ -137,13 +135,9 @@ func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req serv
 	}
 
 	result, err := s.Client.CoreV1().Namespaces().Create(namespace)
-	if err == nil {
-		log.Infof("Created namespace: %s", result.ObjectMeta.Name)
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Namespace %s already exists.", nsName)
-		return namespace, err
-	} else {
-		log.Errorf("Problem creating namespace %s: %s", nsName, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return result, err
@@ -154,11 +148,7 @@ func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req serv
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
 func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]string, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_purgeoldlessons",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_purgeoldlessons", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -171,7 +161,7 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]strin
 
 	// No need to GC if no matching namespaces exist
 	if len(nameSpaces.Items) == 0 {
-		log.Debug("No namespaces with our ID found. No need to GC.")
+		span.LogFields(log.Int("gc_namespaces", 0))
 		return []string{}, nil
 	}
 
@@ -197,7 +187,7 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]strin
 			return []string{}, err
 		}
 		if ls.Persistent {
-			log.Debugf("Skipping GC of expired namespace %s because its sessionId %s is marked as persistent.", nameSpaces.Items[n].Name, ls.ID)
+			span.LogEvent("Skipping GC, session marked persistent")
 			continue
 		}
 
@@ -207,22 +197,20 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]strin
 
 	// No need to GC if no old namespaces exist
 	if len(oldNameSpaces) == 0 {
-		log.Debug("No old namespaces found. No need to GC.")
+		span.LogFields(log.Int("gc_namespaces", 0))
 		return []string{}, nil
 	}
 
-	log.Infof("Garbage-collecting %d old lessons", len(oldNameSpaces))
-	log.Debug(oldNameSpaces)
 	var wg sync.WaitGroup
 	wg.Add(len(oldNameSpaces))
 	for n := range oldNameSpaces {
 		go func(ns string) {
 			defer wg.Done()
-			s.deleteNamespace(ns)
+			s.deleteNamespace(span.Context(), ns)
 		}(oldNameSpaces[n])
 	}
 	wg.Wait()
-	log.Infof("Finished garbage-collecting %d old lessons", len(oldNameSpaces))
+	span.LogFields(log.Int("gc_namespaces", len(oldNameSpaces)))
 
 	return liveLessonsToDelete, nil
 

@@ -16,9 +16,7 @@ import (
 
 // ListLessons returns a list of Lessons present in the data store
 func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) (*pb.Lessons, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_lesson_list", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_lesson_list", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	lessons := []*pb.Lesson{}
@@ -53,9 +51,7 @@ func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.Le
 }
 
 func (s *AntidoteAPI) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_lesson_getprereqs", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_lesson_getprereqs", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	// Return if lesson slug doesn't exist
@@ -94,9 +90,7 @@ func isAlreadyInSlice(lessonSlug string, currentPrereqs []string) bool {
 
 // GetLesson retrieves a single Lesson from the data store by Slug
 func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.Lesson, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan("api_lesson_get", ext.SpanKindRPCClient)
+	span := opentracing.StartSpan("api_lesson_get", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	time.Sleep(2 * time.Second)

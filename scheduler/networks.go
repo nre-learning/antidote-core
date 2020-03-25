@@ -39,11 +39,7 @@ func (s *AntidoteScheduler) createNetworkCrd() error {
 // The main use case is to restrict access for lesson users to only resources in that lesson,
 // with some exceptions.
 func (s *AntidoteScheduler) createNetworkPolicy(sc opentracing.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
-
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_networkpolicy_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_networkpolicy_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	var tcp corev1.Protocol = "TCP"
@@ -139,10 +135,7 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc opentracing.SpanContext, nsNa
 
 // createNetwork
 func (s *AntidoteScheduler) createNetwork(sc opentracing.SpanContext, netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_network_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_network_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)

@@ -9,6 +9,7 @@ import (
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
 	"github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
 
 	// log "github.com/sirupsen/logrus"
@@ -17,16 +18,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *AntidoteScheduler) createPod(sc opentracing.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
-	tracer := opentracing.GlobalTracer()
-	span := tracer.StartSpan(
-		"scheduler_pod_create",
-		opentracing.ChildOf(sc))
+	span := opentracing.StartSpan("scheduler_pod_create", opentracing.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
@@ -155,31 +152,19 @@ func (s *AntidoteScheduler) createPod(sc opentracing.SpanContext, ep *models.Liv
 	}
 
 	result, err := s.Client.CoreV1().Pods(nsName).Create(pod)
-	if err == nil {
-		span.LogEvent("Pod creation successful")
-		span.LogKV(
-			log.String("name", result.ObjectMeta.Name),
-			log.String("networks", string(netAnnotationsJSON)),
-		)
-	} else if apierrors.IsAlreadyExists(err) {
-		// log.Warnf("Pod %s already exists.", ep.Name)
-
-		result, err := s.Client.CoreV1().Pods(nsName).Get(ep.Name, metav1.GetOptions{})
-		if err != nil {
-			// log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		// log.Errorf("Problem creating pod %s: %s", ep.Name, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
-	return result, err
+
+	return result, nil
 }
 
 // getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
 // kubernetes perspective, before we move forward with network-based health checks
-func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
+func (s *AntidoteScheduler) getPodStatus(span opentracing.Span, origPod *corev1.Pod) (bool, error) {
+
 	/*
 		The logic here is as follows:
 
@@ -193,6 +178,14 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 		// log.Errorf("Couldn't retrieve pod status: %s", err)
 		return false, err
 	}
+
+	span.LogFields(
+		log.String("name", pod.ObjectMeta.Name),
+		log.String("namespace", pod.ObjectMeta.Namespace),
+		log.String("nodeName", pod.Spec.NodeName),
+		log.String("podStatusPhase", string(pod.Status.Phase)),
+		log.String("podStatusMessage", pod.Status.Message),
+	)
 
 	// TODO(mierdin): this looks easy enough to use, but does this cover all failure scenarios (i.e. is this used
 	// if the container is restarting?) and does it also cover init containers or just the main container for the pod?
