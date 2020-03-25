@@ -144,6 +144,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 			// Inject span context and send LSR into NATS
 			var t services.TraceMsg
+			tracer := opentracing.GlobalTracer()
 			if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
 				log.Fatalf("%v for Inject.", err)
 			}
@@ -163,6 +164,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 			// Inject span context and send LSR into NATS
 			var t services.TraceMsg
+			tracer := opentracing.GlobalTracer()
 			if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
 				log.Fatalf("%v for Inject.", err)
 			}
@@ -206,6 +208,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 	// Inject span context and send LSR into NATS
 	var t services.TraceMsg
+	tracer := opentracing.GlobalTracer()
 	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
 		log.Fatalf("%v for Inject.", err)
 	}

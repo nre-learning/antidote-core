@@ -39,9 +39,7 @@ func (s *AntidoteStats) Start() error {
 			log.Printf("Extract error: %v", err)
 		}
 
-		span := tracer.StartSpan(
-			"stats_lsr_incoming",
-			opentracing.ChildOf(sc))
+		span := tracer.StartSpan("stats_lsr_incoming", opentracing.ChildOf(sc))
 		defer span.Finish()
 
 		rem := t.Bytes()

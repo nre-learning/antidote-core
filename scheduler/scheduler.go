@@ -133,9 +133,7 @@ func (s *AntidoteScheduler) Start() error {
 			log.Printf("Extract error: %v", err)
 		}
 
-		span := tracer.StartSpan(
-			"scheduler_lsr_incoming",
-			opentracing.ChildOf(sc))
+		span := opentracing.StartSpan("scheduler_lsr_incoming", opentracing.ChildOf(sc))
 		defer span.Finish()
 
 		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
@@ -147,7 +145,7 @@ func (s *AntidoteScheduler) Start() error {
 		// Add the current span context to the LSR
 		// lsr.SpanContext = span.Context()
 
-		// TODO(mierdin): I **believe** this function already runs async, so there's no need to run
+		// TODO(mierdin): I **believe** this NATS handler function already runs async, so there's no need to run
 		// the below in a goroutine, but should verify this.
 		// go func() {
 		handlers[lsr.Operation].(func(opentracing.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
