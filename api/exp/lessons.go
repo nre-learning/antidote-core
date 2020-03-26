@@ -8,7 +8,7 @@ import (
 	copier "github.com/jinzhu/copier"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-	log "github.com/sirupsen/logrus"
+	log "github.com/opentracing/opentracing-go/log"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -23,7 +23,8 @@ func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) 
 
 	dbLessons, err := s.Db.ListLessons(span.Context())
 	if err != nil {
-		log.Error(err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, errors.New("Error retrieving lessons")
 	}
 
@@ -40,9 +41,11 @@ func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) 
 // it as a flattened, de-duplicated list. Used for the advisor's learning path tool in antidote-web
 func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.LessonSlug) (*pb.LessonPrereqs, error) {
 
+	span := ot.StartSpan("api_lesson_getprereqs", ext.SpanKindRPCClient)
+	defer span.Finish()
+
 	// Preload the requested lesson ID so we can strip it before returning
-	pr := s.getPrereqs(lessonSlug.Slug, []string{lessonSlug.Slug})
-	log.Debugf("Getting prerequisites for Lesson %s: %s", lessonSlug.Slug, pr)
+	pr := s.getPrereqs(span, lessonSlug.Slug, []string{lessonSlug.Slug})
 
 	return &pb.LessonPrereqs{
 		// Remove first item from slice - this is the lesson being requested
@@ -50,9 +53,7 @@ func (s *AntidoteAPI) GetAllLessonPrereqs(ctx context.Context, lessonSlug *pb.Le
 	}, nil
 }
 
-func (s *AntidoteAPI) getPrereqs(lessonSlug string, currentPrereqs []string) []string {
-	span := ot.StartSpan("api_lesson_getprereqs", ext.SpanKindRPCClient)
-	defer span.Finish()
+func (s *AntidoteAPI) getPrereqs(span ot.Span, lessonSlug string, currentPrereqs []string) []string {
 
 	// Return if lesson slug doesn't exist
 	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
@@ -73,7 +74,7 @@ func (s *AntidoteAPI) getPrereqs(lessonSlug string, currentPrereqs []string) []s
 	// Call recursion for lesson IDs that need it
 	for i := range lesson.Prereqs {
 		prereqSlug := lesson.Prereqs[i]
-		currentPrereqs = s.getPrereqs(prereqSlug, currentPrereqs)
+		currentPrereqs = s.getPrereqs(span, prereqSlug, currentPrereqs)
 	}
 
 	return currentPrereqs

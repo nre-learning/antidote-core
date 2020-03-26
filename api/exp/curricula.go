@@ -7,7 +7,7 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-	log "github.com/sirupsen/logrus"
+	log "github.com/opentracing/opentracing-go/log"
 )
 
 // GetCurriculumInfo is designed to only get high-level information about the loaded Curriculum. Specifics on lessons, collections, and more
@@ -18,7 +18,8 @@ func (s *AntidoteAPI) GetCurriculumInfo(ctx context.Context, filter *pb.Curricul
 
 	curriculum, err := s.Db.GetCurriculum(span.Context())
 	if err != nil {
-		log.Error(err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, errors.New("Problem retrieving curriculum details")
 	}
 

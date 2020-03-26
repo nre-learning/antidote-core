@@ -115,7 +115,8 @@ func main() {
 			}
 
 			// In case we're restarting from a previous instance, we want to make sure we clean up any
-			// orphaned k8s namespaces by killing any with our ID
+			// orphaned k8s namespaces by killing any with our ID. This should be done synchronously
+			// before the scheduler or the API is started.
 			log.Info("Pruning orphaned namespaces...")
 			scheduler.PruneOrphanedNamespaces()
 

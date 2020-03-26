@@ -79,7 +79,10 @@ type AntidoteScheduler struct {
 func (s *AntidoteScheduler) Start() error {
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
-	s.createNetworkCrd()
+	err := s.createNetworkCrd()
+	if err != nil {
+		return err
+	}
 
 	// TODO(mierdin): Maybe not an issue right now, but should consider if we should check if another Syringe is operating with
 	// our configured ID.

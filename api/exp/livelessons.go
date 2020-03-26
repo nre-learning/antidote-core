@@ -75,13 +75,6 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	// TODO(mierdin): Ensure this works before removing entirely
-	// if lp.LessonStage == 0 {
-	// 	msg := "Stage ID cannot be nil"
-	// 	log.Error(msg)
-	// 	return nil, errors.New(msg)
-	// }
-
 	lesson, err := s.Db.GetLesson(span.Context(), lp.LessonSlug)
 	if err != nil {
 		msg := fmt.Sprintf("Couldn't find lesson slug '%s'", lp.LessonSlug)
@@ -90,7 +83,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return nil, status.Error(codes.NotFound, msg)
 	}
 
-	// Ensure requested stage is present
+	// Ensure requested stage is present.
 	if len(lesson.Stages) < 1+int(lp.LessonStage) {
 		msg := "Invalid stage ID for this lesson"
 		span.LogFields(log.Error(errors.New(msg)))
@@ -130,12 +123,9 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		// If the incoming requested LessonStage is different from the current livelesson state,
 		// tell the scheduler to change the state
 		if existingLL.CurrentStage != lp.LessonStage {
-
-			// Update state
-			// TODO(Mierdin): Handle errors here
-			s.Db.UpdateLiveLessonStatus(span.Context(), existingLL.ID, models.Status_CONFIGURATION)
-			s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
-			s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
+			_ = s.Db.UpdateLiveLessonStatus(span.Context(), existingLL.ID, models.Status_CONFIGURATION)
+			_ = s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
+			_ = s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
 
 			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
 			req := services.LessonScheduleRequest{

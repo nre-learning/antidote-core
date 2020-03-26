@@ -7,7 +7,6 @@ import (
 	ext "github.com/opentracing/opentracing-go/ext"
 
 	ot "github.com/opentracing/opentracing-go"
-	// log "github.com/sirupsen/logrus"
 	log "github.com/opentracing/opentracing-go/log"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

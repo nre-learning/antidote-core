@@ -43,8 +43,7 @@ func (s *AntidoteStats) Start() error {
 		tracer := ot.GlobalTracer()
 		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
+			// TODO(mierdin): This would be bad, but what can we do?
 		}
 
 		span := tracer.StartSpan("stats_lsr_incoming", ot.ChildOf(sc))

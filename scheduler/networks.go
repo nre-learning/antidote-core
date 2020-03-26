@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	ot "github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
@@ -15,23 +16,22 @@ import (
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (s *AntidoteScheduler) createNetworkCrd() error {
 
-	// note: if the CRD exist our CreateCRD function is set to exit without an error
+	// NOTE: if the CRD already exists, this function will return with no error. The idea is
+	// that we run this every time Antidote starts just to make sure our CRD is installed in the cluster.
+	//
+	// Note the import path - this is code that we control, so if we desire a different
+	// outcome, it's possible. Just be aware this function is called early, so changes in behavior will be
+	// noticed.
 	err := networkcrd.CreateCRD(s.ClientExt)
 	if err != nil {
-		panic(err) // TODO(mierdin): boooooo. Get rid of this
+		return err
 	}
-
-	// Wait for the CRD to be created before we use it (only needed if its a new one)
-	// TODO(mierdin): This really shouldn't be necessary. Let's try removing it.
-	// time.Sleep(3 * time.Second)
-
 	return nil
 }
 
@@ -112,21 +112,9 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string
 	}
 
 	newnp, err := s.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Info("Created networkpolicy")
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Warn("networkpolicy already exists.")
-		return newnp, nil
-	} else {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Errorf("Problem creating networkpolicy: %s", err)
-
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return newnp, nil
@@ -194,21 +182,9 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 	nadClient := s.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
 
 	result, err := nadClient.Create(network)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created network: %s", result.ObjectMeta.Name)
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
-
-		result, err := nadClient.Get(network.ObjectMeta.Name, meta_v1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating network %s: %s", netName, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return result, err
