@@ -9,9 +9,9 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	db "github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
-	opentracing "github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-	log "github.com/sirupsen/logrus"
+	log "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -20,7 +20,7 @@ import (
 func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
 	// TODO(mierdin): This is a sort of standalone API call, how can we link this span
 	// with the spans opened with livelesson calls?
-	span := opentracing.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
+	span := ot.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	var sessionID string
@@ -49,7 +49,7 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 	}
 	sourceIP := forwardedFor[0]
 	span.SetTag("antidote_request_source_ip", sourceIP)
-	log.Infof("Allocating session ID %s for incoming IP %s", sessionID, sourceIP)
+	span.LogFields(log.String("allocatedSessionId", sessionID))
 	err := s.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:         sessionID,
 		SourceIP:   sourceIP,
@@ -64,7 +64,7 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
-	span := opentracing.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
+	span := ot.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
 	defer span.Finish()
 
 	lsDBs, err := s.Db.ListLiveSessions(span.Context())

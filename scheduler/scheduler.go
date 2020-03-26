@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	opentracing "github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 	"golang.org/x/crypto/ssh"
 
 	nats "github.com/nats-io/nats.go"
@@ -87,18 +88,20 @@ func (s *AntidoteScheduler) Start() error {
 	go func() {
 		for {
 
-			span := opentracing.StartSpan("scheduler_gc")
+			span := ot.StartSpan("scheduler_gc")
 			// Clean up any old lesson namespaces
 			llToDelete, err := s.PurgeOldLessons(span.Context())
 			if err != nil {
-				log.Error("Problem with GCing lessons")
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
 			}
 
 			// Clean up local state based on purge results
 			for i := range llToDelete {
 				err := s.Db.DeleteLiveLesson(span.Context(), llToDelete[i])
 				if err != nil {
-					log.Errorf("Unable to delete livelesson %s after GC: %v", llToDelete[i], err)
+					span.LogFields(log.Error(err))
+					ext.Error.Set(span, true)
 				}
 			}
 			span.Finish()
@@ -126,14 +129,14 @@ func (s *AntidoteScheduler) Start() error {
 		// // Create new TraceMsg from the NATS message.
 		t := services.NewTraceMsg(msg)
 
-		tracer := opentracing.GlobalTracer()
+		tracer := ot.GlobalTracer()
 		// Extract the span context from the request message.
-		sc, err := tracer.Extract(opentracing.Binary, t)
+		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			log.Printf("Extract error: %v", err)
+			// TODO(mierdin): This would be bad, but what can we do?
 		}
 
-		span := opentracing.StartSpan("scheduler_lsr_incoming", opentracing.ChildOf(sc))
+		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
 		defer span.Finish()
 
 		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
@@ -148,7 +151,7 @@ func (s *AntidoteScheduler) Start() error {
 		// TODO(mierdin): I **believe** this NATS handler function already runs async, so there's no need to run
 		// the below in a goroutine, but should verify this.
 		// go func() {
-		handlers[lsr.Operation].(func(opentracing.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
+		handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
 		// }()
 
 	})
@@ -160,37 +163,39 @@ func (s *AntidoteScheduler) Start() error {
 	return nil
 }
 
-func (s *AntidoteScheduler) configureStuff(sc opentracing.SpanContext, nsName string, liveLesson *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
-	span := opentracing.StartSpan("scheduler_configure_stuff", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
 	defer span.Finish()
+	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
 
-	s.killAllJobs(nsName, "config")
+	s.killAllJobs(span.Context(), nsName, "config")
 
 	wg := new(sync.WaitGroup)
-	log.Debugf("Endpoints length: %d", len(liveLesson.LiveEndpoints))
-	wg.Add(len(liveLesson.LiveEndpoints))
+	wg.Add(len(ll.LiveEndpoints))
 	allGood := true
-	for i := range liveLesson.LiveEndpoints {
+	for i := range ll.LiveEndpoints {
 
 		// Ignore any endpoints that don't have a configuration option
-		if liveLesson.LiveEndpoints[i].ConfigurationType == "" {
-			log.Debugf("No configuration option specified for %s - skipping.", liveLesson.LiveEndpoints[i].Name)
+		if ll.LiveEndpoints[i].ConfigurationType == "" {
 			wg.Done()
 			continue
 		}
 
-		job, err := s.configureEndpoint(span.Context(), liveLesson.LiveEndpoints[i], newRequest)
+		// TODO(mierdin): This function only sends configuration job requests, should rename accordingly.
+		job, err := s.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
 		if err != nil {
-			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
-			continue // TODO(mierdin): should quit entirely and return an error result to the channel
-			// though this error is only immediate errors creating the job. This will succeed even if
-			// the eventually configuration fais. See below for a better handle on configuration failures.
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
 		}
+
+		// TODO(mierdin) rename this function and ensure we are capturing configuration failure
+		// reasons in the spans
 		go func() {
 			defer wg.Done()
 
 			for i := 0; i < 600; i++ {
-				completed, err := s.isCompleted(job, newRequest)
+				completed, err := s.isCompleted(span, job, newRequest)
 				if err != nil {
 					allGood = false
 					return
@@ -218,8 +223,8 @@ func (s *AntidoteScheduler) configureStuff(sc opentracing.SpanContext, nsName st
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (s *AntidoteScheduler) getVolumesConfiguration(sc opentracing.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
-	span := opentracing.StartSpan("scheduler_get_volumes", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
@@ -288,19 +293,18 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc opentracing.SpanContext, 
 }
 
 // waitUntilReachable is the top-level endpoint reachability workflow
-func (s *AntidoteScheduler) waitUntilReachable(sc opentracing.SpanContext, ll *models.LiveLesson) error {
-	span := opentracing.StartSpan("scheduler_endpoint_reachability", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.LiveLesson) error {
+	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
 	defer span.Finish()
+
+	span.SetTag("liveLessonID", ll.ID)
+	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
 
 	var success = false
 	for i := 0; i < 600; i++ {
 		time.Sleep(1 * time.Second)
-
-		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", ll.ID, ll.LiveEndpoints)
-
-		reachability := s.getEndpointReachability(ll)
-
-		log.Debugf("Livelesson %s health check results: %v", ll.ID, reachability)
+		reachability := s.getEndpointReachability(span.Context(), ll)
+		span.LogFields(log.Object("reachability", reachability))
 
 		// Update reachability status
 		failed := false
@@ -327,12 +331,11 @@ func (s *AntidoteScheduler) waitUntilReachable(sc opentracing.SpanContext, ll *m
 	}
 
 	if !success {
-		log.Errorf("Timeout waiting for livelesson %s to become reachable", ll.ID)
-		err := s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		if err != nil {
-			log.Errorf("Error updating livelesson: %v", err)
-		}
-		return errors.New("Problem")
+		err := errors.New("Timeout waiting for LiveEndpoints to become reachable")
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return err
 	}
 
 	return nil
@@ -341,88 +344,80 @@ func (s *AntidoteScheduler) waitUntilReachable(sc opentracing.SpanContext, ll *m
 // getEndpointReachability does a one-time health check for network reachability for endpoints in a
 // livelesson. Meant to be called by a higher-level function which calls it repeatedly until all
 // are healthy.
-func (s *AntidoteScheduler) getEndpointReachability(ll *models.LiveLesson) map[string]bool {
+func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *models.LiveLesson) map[string]bool {
 
-	// Prepare the reachability map as well as the waitgroup to handle the concurrency
-	// of our health checks. We want to pre-populate every possible health check with a
-	// false value, so we don't accidentally "pass" a livelesson reachability test by
-	// omission.
-	reachableMap := map[string]bool{}
-	wg := new(sync.WaitGroup)
+	span := ot.StartSpan("scheduler_get_endpoint_reachability", ot.ChildOf(sc))
+	defer span.Finish()
+
+	// rTest is used to give structure to the reachability tests we want to run.
+	// This function will first construct a slice of rTests based on information available in the
+	// LiveLesson, and then will subsequently run tests based on each rTest.
+	type rTest struct {
+
+		// name should have
+		name   string
+		method string
+		host   string
+		port   int32
+	}
+
+	// First construct a slice of rTests. This allows us to first get a sense for what
+	//we're about to test and how
+	rTests := []rTest{}
 	for n := range ll.LiveEndpoints {
-
 		ep := ll.LiveEndpoints[n]
 
-		// Add one delta value to the waitgroup and prepopulate the reachability map
-		// with a "false" value based on the endpoint name, since it doesn't
-		// have any presentations.
+		// If no presentations, add a single rTest using the first available Port.
+		// (we aren't currently testing for all Ports)
 		if len(ll.LiveEndpoints[n].Presentations) == 0 {
-			wg.Add(1)
-			reachableMap[ep.Name] = false
+			rTests = append(rTests, rTest{
+				name:   ep.Name,
+				method: "tcp",
+				host:   ep.Host,
+				port:   ep.Ports[0], // TODO(mierdin): SHOULD be present due to earlier code, but to be safe, may want to add a check
+			})
 			continue
 		}
-
-		// For each presentation, add one delta value to the waitgroup
-		// and add an entry to the reachability map based on the endpoint
-		// and presentation names
 		for p := range ep.Presentations {
-			wg.Add(1)
-			reachableMap[fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name)] = false
+			rTests = append(rTests, rTest{
+				name:   fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name),
+				method: string(ep.Presentations[p].Type),
+				host:   ep.Host,
+				port:   ep.Presentations[p].Port,
+			})
 		}
 	}
 
-	// Now that we have a properly sized waitgroup and a prepared reachability map, we can perform the health checks.
+	span.LogFields(log.Object("rTests", rTests))
+
+	// Next, iterate over the rTests and spawn goroutines for each test
 	var mapMutex = &sync.Mutex{}
-	for n := range ll.LiveEndpoints {
+	reachableMap := map[string]bool{}
+	wg := new(sync.WaitGroup)
+	wg.Add(len(rTests))
+	for _, rt := range rTests {
+		go func(span ot.Span, rt rTest) {
+			defer wg.Done()
 
-		ep := ll.LiveEndpoints[n]
+			testResult := false
 
-		// TODO(mierdin): Since you're collapsing all ports into the LiveEndpoint "Ports" property,
-		// You may be able to simplify below
+			// TODO(mierdin): Consider adding an HTTP health check, but not urgently needed atm
+			if rt.method == "ssh" {
+				testResult = s.HealthChecker.sshTest(rt.host, int(rt.port))
+			} else {
+				testResult = s.HealthChecker.tcpTest(rt.host, int(rt.port))
+			}
+			span.LogFields(
+				log.String("rtName", rt.name),
+				log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
+				log.Bool("testResult", testResult),
+			)
 
-		// If no presentations, we can just test the first port in the additionalPorts list.
-		if len(ep.Presentations) == 0 && len(ep.Ports) != 0 {
+			mapMutex.Lock()
+			defer mapMutex.Unlock()
+			reachableMap[rt.name] = testResult
 
-			go func() {
-				defer wg.Done()
-				testResult := false
-
-				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.Ports[0])
-				testResult = s.HealthChecker.tcpTest(ep.Host, int(ep.Ports[0]))
-
-				if testResult {
-					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.Ports[0])
-				}
-
-				mapMutex.Lock()
-				defer mapMutex.Unlock()
-				reachableMap[ep.Name] = testResult
-			}()
-		}
-
-		for i := range ep.Presentations {
-
-			lp := ep.Presentations[i]
-
-			go func() {
-				defer wg.Done()
-
-				testResult := false
-
-				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
-				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
-				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
-				testResult = s.HealthChecker.tcpTest(ep.Host, int(lp.Port))
-				if testResult {
-					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
-				}
-
-				mapMutex.Lock()
-				defer mapMutex.Unlock()
-				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
-
-			}()
-		}
+		}(span, rt)
 	}
 
 	c := make(chan struct{})
@@ -464,17 +459,28 @@ type LessonHealthCheck struct{}
 
 func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
 	strPort := strconv.Itoa(int(port))
+
+	// Using made-up creds, since we only care that SSH is viable for this simple health test.
 	sshConfig := &ssh.ClientConfig{
-		User:            "antidote",
+		User:            "foobar",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password("antidotepassword"),
+			ssh.Password("foobar"),
 		},
 		Timeout: time.Second * 2,
 	}
 
+	// TODO(mierdin): Need to test this with an image that intentionally starts SSH late,
+	// to validate the timeout configured above is actually working (two years ago when I
+	// first wrote this function, it wasn't.)
+
 	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
 	if err != nil {
+		// For a simple health check, we only care that SSH is responding, not that auth is solid.
+		// Thus the made-up creds. If we get this message, then all is good.
+		if strings.Contains(err.Error(), "unable to authenticate") {
+			return true
+		}
 		return false
 	}
 	defer conn.Close()

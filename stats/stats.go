@@ -11,8 +11,9 @@ import (
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	"github.com/nre-learning/antidote-core/services"
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 )
 
 // AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
@@ -25,21 +26,28 @@ type AntidoteStats struct {
 
 // Start starts the AntidoteStats service
 func (s *AntidoteStats) Start() error {
-	span := opentracing.StartSpan("stats_root")
+	span := ot.StartSpan("stats_root")
 	defer span.Finish()
 
 	// Begin periodically exporting metrics to TSDB
-	go s.startTSDBExport(span.Context())
+	go func(span ot.Span) {
+		err := s.startTSDBExport(span.Context())
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+		}
+	}(span)
 
 	s.NC.Subscribe("antidote.lsr.completed", func(msg *nats.Msg) {
 		t := services.NewTraceMsg(msg)
-		tracer := opentracing.GlobalTracer()
-		sc, err := tracer.Extract(opentracing.Binary, t)
+		tracer := ot.GlobalTracer()
+		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			log.Printf("Extract error: %v", err)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 		}
 
-		span := tracer.StartSpan("stats_lsr_incoming", opentracing.ChildOf(sc))
+		span := tracer.StartSpan("stats_lsr_incoming", ot.ChildOf(sc))
 		defer span.Finish()
 
 		rem := t.Bytes()
@@ -56,8 +64,8 @@ func (s *AntidoteStats) Start() error {
 	return nil
 }
 
-func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res services.LessonScheduleRequest) error {
-	span := opentracing.StartSpan("stats_record_provisioning", opentracing.ChildOf(sc))
+func (s *AntidoteStats) recordProvisioningTime(sc ot.SpanContext, res services.LessonScheduleRequest) error {
+	span := ot.StartSpan("stats_record_provisioning", ot.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := s.Db.GetLesson(span.Context(), res.LessonSlug)
@@ -76,7 +84,8 @@ func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res s
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		log.Error("Error creating InfluxDB Client: ", err.Error())
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 	defer c.Close()
@@ -92,7 +101,8 @@ func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res s
 		Precision: "s",
 	})
 	if err != nil {
-		log.Error("Unable to create metrics batch point: ", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
@@ -113,7 +123,8 @@ func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res s
 
 	pt, err := influx.NewPoint("provisioningTime", tags, fields, time.Now())
 	if err != nil {
-		log.Error("Error creating InfluxDB Point: ", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
@@ -122,16 +133,15 @@ func (s *AntidoteStats) recordProvisioningTime(sc opentracing.SpanContext, res s
 	// Write the batch
 	err = c.Write(bp)
 	if err != nil {
-		log.Warn("Unable to push provisioning time to Influx: ", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
 	return nil
 }
 
-func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
-	span := opentracing.StartSpan("stats_periodic_export", opentracing.ChildOf(sc))
-	defer span.Finish()
+func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -145,7 +155,6 @@ func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		log.Error("Error creating InfluxDB Client: ", err.Error())
 		return err
 	}
 	defer c.Close()
@@ -156,9 +165,9 @@ func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
 	}
 
 	for {
-		time.Sleep(1 * time.Minute)
+		span := ot.StartSpan("stats_periodic_export", ot.ChildOf(sc))
 
-		log.Debug("Recording periodic influxdb metrics")
+		time.Sleep(1 * time.Minute)
 
 		// Create a new point batch
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
@@ -166,13 +175,14 @@ func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
 			Precision: "s",
 		})
 		if err != nil {
-			log.Error("Unable to create metrics batch point: ", err)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			continue
 		}
 
 		lessons, err := s.Db.ListLessons(span.Context())
 		if err != nil {
-			log.Error("Unable to get lessons from DB for influxdb")
+			continue
 		}
 
 		for _, lesson := range lessons {
@@ -194,14 +204,16 @@ func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
 			}
 			fields["activeNow"] = count
 
-			// This is just for debugging, so only show active lessons
-			if count > 0 {
-				log.Debugf("Creating influxdb point: ID: %s | NAME: %s | ACTIVE: %d", fields["lessonId"], fields["lessonName"], count)
-			}
+			span.LogFields(
+				log.Object("fields", fields),
+				log.Object("tags", tags),
+				log.Int64("activeNow", count),
+			)
 
 			pt, err := influx.NewPoint("sessionStatus", tags, fields, time.Now())
 			if err != nil {
-				log.Error("Error creating InfluxDB Point: ", err)
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
 				continue
 			}
 
@@ -212,20 +224,22 @@ func (s *AntidoteStats) startTSDBExport(sc opentracing.SpanContext) error {
 		// Write the batch
 		err = c.Write(bp)
 		if err != nil {
-			log.Warn("Unable to push periodic metrics to Influx: ", err)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			continue
 		}
+
+		span.Finish()
 	}
 }
 
-func (s *AntidoteStats) getCountAndDuration(sc opentracing.SpanContext, lessonSlug string) (int64, int64) {
+func (s *AntidoteStats) getCountAndDuration(sc ot.SpanContext, lessonSlug string) (int64, int64) {
 	// Don't bother opening a new span for this function, just pass to the underlying DB call
 
 	count := 0
 
 	liveLessons, err := s.Db.ListLiveLessons(sc)
 	if err != nil {
-		log.Errorf("Problem retrieving livelessons - %v", err)
 		return 0, 0
 	}
 

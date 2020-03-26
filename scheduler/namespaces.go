@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 
 	"github.com/nre-learning/antidote-core/services"
 	ext "github.com/opentracing/opentracing-go/ext"
@@ -18,9 +18,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) boopNamespace(sc opentracing.SpanContext, nsName string) error {
+func (s *AntidoteScheduler) boopNamespace(sc ot.SpanContext, nsName string) error {
 
-	span := opentracing.StartSpan("scheduler_boop_ns", opentracing.ChildOf(sc))
+	span := ot.StartSpan("scheduler_boop_ns", ot.ChildOf(sc))
 	defer span.Finish()
 
 	ns, err := s.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
@@ -43,7 +43,7 @@ func (s *AntidoteScheduler) boopNamespace(sc opentracing.SpanContext, nsName str
 // in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
 func (s *AntidoteScheduler) PruneOrphanedNamespaces() error {
 
-	span := opentracing.StartSpan("scheduler_prune_orphaned_ns")
+	span := ot.StartSpan("scheduler_prune_orphaned_ns")
 	defer span.Finish()
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -76,9 +76,9 @@ func (s *AntidoteScheduler) PruneOrphanedNamespaces() error {
 	return nil
 }
 
-func (s *AntidoteScheduler) deleteNamespace(sc opentracing.SpanContext, name string) error {
+func (s *AntidoteScheduler) deleteNamespace(sc ot.SpanContext, name string) error {
 
-	span := opentracing.StartSpan("scheduler_boop_ns", opentracing.ChildOf(sc))
+	span := ot.StartSpan("scheduler_boop_ns", ot.ChildOf(sc))
 	defer span.Finish()
 
 	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
@@ -107,8 +107,8 @@ func (s *AntidoteScheduler) deleteNamespace(sc opentracing.SpanContext, name str
 	return err
 }
 
-func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req services.LessonScheduleRequest) (*corev1.Namespace, error) {
-	span := opentracing.StartSpan("scheduler_create_namespace", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createNamespace(sc ot.SpanContext, req services.LessonScheduleRequest) (*corev1.Namespace, error) {
+	span := ot.StartSpan("scheduler_create_namespace", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
@@ -147,8 +147,8 @@ func (s *AntidoteScheduler) createNamespace(sc opentracing.SpanContext, req serv
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
-func (s *AntidoteScheduler) PurgeOldLessons(sc opentracing.SpanContext) ([]string, error) {
-	span := opentracing.StartSpan("scheduler_purgeoldlessons", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error) {
+	span := ot.StartSpan("scheduler_purgeoldlessons", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nameSpaces, err := s.Client.CoreV1().Namespaces().List(metav1.ListOptions{

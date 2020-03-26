@@ -8,7 +8,7 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
 
@@ -21,12 +21,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) createPod(sc opentracing.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
+func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
-	span := opentracing.StartSpan("scheduler_pod_create", opentracing.ChildOf(sc))
+	span := ot.StartSpan("scheduler_pod_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+
+	span.SetTag("epName", ep.Name)
+	span.SetTag("nsName", nsName)
 
 	type networkAnnotation struct {
 		Name string `json:"name"`
@@ -163,7 +166,7 @@ func (s *AntidoteScheduler) createPod(sc opentracing.SpanContext, ep *models.Liv
 
 // getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
 // kubernetes perspective, before we move forward with network-based health checks
-func (s *AntidoteScheduler) getPodStatus(span opentracing.Span, origPod *corev1.Pod) (bool, error) {
+func (s *AntidoteScheduler) getPodStatus(span ot.Span, origPod *corev1.Pod) (bool, error) {
 
 	/*
 		The logic here is as follows:
@@ -184,7 +187,6 @@ func (s *AntidoteScheduler) getPodStatus(span opentracing.Span, origPod *corev1.
 		log.String("namespace", pod.ObjectMeta.Namespace),
 		log.String("nodeName", pod.Spec.NodeName),
 		log.String("podStatusPhase", string(pod.Status.Phase)),
-		log.String("podStatusMessage", pod.Status.Message),
 	)
 
 	// TODO(mierdin): this looks easy enough to use, but does this cover all failure scenarios (i.e. is this used

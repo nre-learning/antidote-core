@@ -7,16 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 	corev1 "k8s.io/api/core/v1"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
 )
 
-func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	span := opentracing.StartSpan("scheduler_lsr_create", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
@@ -25,36 +26,37 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newR
 
 	ll, err := s.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
-		log.Errorf("Error getting livelesson: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
 	err = s.createK8sStuff(span.Context(), newRequest)
 	if err != nil {
-		log.Errorf("Error creating lesson: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
 	err = s.waitUntilReachable(span.Context(), ll)
 	if err != nil {
-		log.Errorf("Error while waiting for reachability: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
-	log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.LiveLessonID)
 	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_CONFIGURATION)
 	if err != nil {
-		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return
 	}
 
-	log.Infof("Performing configuration for livelesson %s", ll.ID)
 	err = s.configureStuff(span.Context(), nsName, ll, newRequest)
 	if err != nil {
-		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
-		err = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		if err != nil {
-			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
-		}
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
 	}
 
@@ -65,93 +67,89 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc opentracing.SpanContext, newR
 		s.createNetworkPolicy(span.Context(), nsName)
 	}
 
-	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
-	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
-	if err != nil {
-		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
-	}
+	_ = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
 
 	// Inject span context and send LSR into NATS
-	tracer := opentracing.GlobalTracer()
+	tracer := ot.GlobalTracer()
 	var t services.TraceMsg
-	if err := tracer.Inject(span.Context(), opentracing.Binary, &t); err != nil {
-		log.Fatalf("%v for Inject.", err)
+	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+		// log.Fatalf("%v for Inject.", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 	reqBytes, _ := json.Marshal(newRequest)
 	t.Write(reqBytes)
 	s.NC.Publish("antidote.lsr.completed", t.Bytes())
 }
 
-func (s *AntidoteScheduler) handleRequestMODIFY(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	span := opentracing.StartSpan("scheduler_lsr_modify", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) handleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_modify", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
 	ll, err := s.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
-		log.Errorf("Error getting livelesson: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
-	log.Infof("Performing configuration for stage %d of livelesson %s", newRequest.Stage, newRequest.LiveLessonID)
 	err = s.configureStuff(span.Context(), nsName, ll, newRequest)
 	if err != nil {
-		log.Errorf("Error configuring livelesson %s: %v", ll.ID, err)
-		err = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		if err != nil {
-			log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
-		}
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
 	}
 
-	log.Debugf("Setting livelesson %s to READY", newRequest.LiveLessonID)
 	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
 	if err != nil {
-		log.Errorf("Error updating livelesson %s: %v", ll.ID, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 
 	err = s.boopNamespace(span.Context(), nsName)
 	if err != nil {
-		log.Errorf("Problem modify-booping %s: %v", nsName, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 }
 
-func (s *AntidoteScheduler) handleRequestBOOP(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	span := opentracing.StartSpan("scheduler_lsr_boop", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) handleRequestBOOP(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_boop", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
 	err := s.boopNamespace(span.Context(), nsName)
 	if err != nil {
-		log.Errorf("Problem booping %s: %v", nsName, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 }
 
 // handleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
-func (s *AntidoteScheduler) handleRequestDELETE(sc opentracing.SpanContext, newRequest services.LessonScheduleRequest) {
-	span := opentracing.StartSpan("scheduler_lsr_delete", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) handleRequestDELETE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_delete", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 	err := s.deleteNamespace(span.Context(), nsName)
 	if err != nil {
-		log.Errorf("Unable to delete namespace %s: %v", nsName, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
-	err = s.Db.DeleteLiveLesson(span.Context(), newRequest.LiveLessonID)
-	if err != nil {
-		log.Errorf("Error getting livelesson: %v", err)
-	}
+	_ = s.Db.DeleteLiveLesson(span.Context(), newRequest.LiveLessonID)
 }
 
 // createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
 // of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
 // lesson are all created as part of this workflow.
-func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req services.LessonScheduleRequest) error {
-	span := opentracing.StartSpan("scheduler_k8s_create_stuff", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.LessonScheduleRequest) error {
+	span := ot.StartSpan("scheduler_k8s_create_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 
 	ns, err := s.createNamespace(span.Context(), req)
@@ -159,10 +157,10 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 		log.Error(err)
 	}
 
-	err = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
-	if err != nil {
-		log.Errorf("Unable to sync secret into this namespace. Ingress-based resources (like http presentations or jupyter notebooks) may not work: %v", err)
-	}
+	_ = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
+	// if err != nil {
+	// 	log.Errorf("Unable to sync secret into this namespace. Ingress-based resources (like http presentations or jupyter notebooks) may not work: %v", err)
+	// }
 
 	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
 	if err != nil {
@@ -225,8 +223,6 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 			return err
 		}
 
-		// TODO(mierdin): get data on created pods like which host they were deployed on. Make sure this is placed in the trace/span
-
 		createdPods[newPod.ObjectMeta.Name] = newPod
 
 		// Expose via service if needed
@@ -244,7 +240,9 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 			// Update livelesson liveendpoint with cluster IP
 			s.Db.UpdateLiveLessonEndpointIP(span.Context(), ll.ID, ep.Name, svc.Spec.ClusterIP)
 			if err != nil {
-				log.Error("Unable to update livelesson endpoint with clusterIP")
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+				return err
 			}
 
 		}
@@ -270,7 +268,8 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 
 	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_BOOTING)
 	if err != nil {
-		log.Errorf("Error updating livelesson: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
@@ -282,9 +281,9 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 
 	failLesson := false
 
-	podStatusSpan := opentracing.StartSpan("scheduler_pod_status", opentracing.ChildOf(span.Context()))
+	podStatusSpan := ot.StartSpan("scheduler_pod_status", ot.ChildOf(span.Context()))
 	for name, pod := range createdPods {
-		go func(podStatusSpan opentracing.Span, name string, pod *corev1.Pod) {
+		go func(podStatusSpan ot.Span, name string, pod *corev1.Pod) {
 
 			defer wg.Done()
 
@@ -292,13 +291,11 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 
 				rdy, err := s.getPodStatus(podStatusSpan, pod)
 				if err != nil {
-					log.Errorf("Pod %s status failure: %v", name, err)
 					failLesson = true
 					return
 				}
 
 				if rdy {
-					log.Infof("Pod %s status success", name)
 					delete(createdPods, name)
 					return
 				}
@@ -306,7 +303,9 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 				time.Sleep(1 * time.Second)
 			}
 
-			log.Infof("Timed out waiting for %s to start", name)
+			err = fmt.Errorf("Timed out waiting for %s to start", name)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			failLesson = true
 			return
 		}(podStatusSpan, name, pod)
@@ -323,7 +322,8 @@ func (s *AntidoteScheduler) createK8sStuff(sc opentracing.SpanContext, req servi
 			failedPodNames = append(failedPodNames, k)
 		}
 
-		log.Infof("Failed pods: %v", failedPodNames)
+		span.LogFields(log.Object("failedPodNames", failedPodNames))
+		ext.Error.Set(span, true)
 		return errors.New("Some pods failed to start")
 	}
 

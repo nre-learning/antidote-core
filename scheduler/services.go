@@ -4,18 +4,18 @@ import (
 	"fmt"
 
 	"github.com/nre-learning/antidote-core/services"
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	// Kubernetes types
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createService(sc opentracing.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
-	span := opentracing.StartSpan("scheduler_service_create", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
+	span := ot.StartSpan("scheduler_service_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
@@ -57,22 +57,15 @@ func (s *AntidoteScheduler) createService(sc opentracing.SpanContext, pod *corev
 		})
 	}
 
+	// TODO(mierdin): The code that calls this function relies on svc.Spec.ClusterIP
+	// to set the Host property for the corresponding LiveEndpoint. It appears that this information
+	// is provided from the kubernetes client function below, but I'm not sure how reliable that is.
+	// It has proven acceptably reliable thus far, but might be worth looking at, and perhaps adding a quick
+	// check that this information is present before returning
 	result, err := s.Client.CoreV1().Services(nsName).Create(svc)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created service: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Service %s already exists.", serviceName)
-		result, err := s.Client.CoreV1().Services(nsName).Get(serviceName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve service after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Error creating service: %s", err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 

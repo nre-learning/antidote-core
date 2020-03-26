@@ -6,7 +6,7 @@ import (
 
 	ext "github.com/opentracing/opentracing-go/ext"
 
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 	// log "github.com/sirupsen/logrus"
 	log "github.com/opentracing/opentracing-go/log"
 	corev1 "k8s.io/api/core/v1"
@@ -18,8 +18,8 @@ import (
 // location into the lesson namespace. This is required because Kubernetes does not
 // allow cross-namespace secret lookups, and we need to be able to offer TLS for
 // http presentation endpoints.
-func (s *AntidoteScheduler) syncSecret(sc opentracing.SpanContext, nsName string) error {
-	span := opentracing.StartSpan("scheduler_secret_sync", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) syncSecret(sc ot.SpanContext, nsName string) error {
+	span := ot.StartSpan("scheduler_secret_sync", ot.ChildOf(sc))
 	defer span.Finish()
 
 	// Determine location of original certificate based from config

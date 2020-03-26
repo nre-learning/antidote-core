@@ -9,23 +9,27 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) killAllJobs(nsName, jobType string) error {
+func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
+
+	span := ot.StartSpan("scheduler_job_killall", ot.ChildOf(sc))
+	defer span.Finish()
 
 	result, err := s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 	})
 	if err != nil {
-		log.Errorf("Unable to list Jobs: %s", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
@@ -46,7 +50,8 @@ func (s *AntidoteScheduler) killAllJobs(nsName, jobType string) error {
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
 		if err != nil {
-			log.Errorf("Unable to list Jobs: %s", err)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			return err
 		}
 		if len(result.Items) == 0 {
@@ -57,26 +62,29 @@ func (s *AntidoteScheduler) killAllJobs(nsName, jobType string) error {
 	return nil
 }
 
-func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req services.LessonScheduleRequest) (bool, error) {
+func (s *AntidoteScheduler) isCompleted(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return false, err
 	}
 	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
-	log.WithFields(log.Fields{
-		"jobName":    result.Name,
-		"active":     result.Status.Active,
-		"successful": result.Status.Succeeded,
-		"failed":     result.Status.Failed,
-	}).Info("Job Status")
+	span.LogFields(
+		log.String("jobName", result.Name),
+		log.Int32("active", result.Status.Active),
+		log.Int32("successful", result.Status.Succeeded),
+		log.Int32("failed", result.Status.Failed),
+	)
 
 	if result.Status.Failed >= 3 {
-		log.Errorf("Problem configuring with %s", result.Name)
-		return true, fmt.Errorf("Problem configuring with %s", result.Name)
+		err = fmt.Errorf("Too many failures when trying to configure %s", result.Name)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return true, err
 	}
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
@@ -90,11 +98,9 @@ func (s *AntidoteScheduler) isCompleted(job *batchv1.Job, req services.LessonSch
 
 }
 
-func (s *AntidoteScheduler) configureEndpoint(sc opentracing.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
-	span := opentracing.StartSpan("scheduler_configure_endpoint", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
+	span := ot.StartSpan("scheduler_configure_endpoint", ot.ChildOf(sc))
 	defer span.Finish()
-
-	log.Debugf("Configuring endpoint %s", ep.Name)
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -189,55 +195,10 @@ func (s *AntidoteScheduler) configureEndpoint(sc opentracing.SpanContext, ep *mo
 	}
 
 	result, err := s.Client.BatchV1().Jobs(nsName).Create(configJob)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created job: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Job %s already exists.", jobName)
-
-		result, err := s.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating job %s: %s", jobName, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return result, err
-}
-
-func (s *AntidoteScheduler) verifyStatus(job *batchv1.Job, req services.LessonScheduleRequest) (finished bool, err error) {
-
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
-
-	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
-		return false, err
-	}
-	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
-	log.WithFields(log.Fields{
-		"jobName":    result.Name,
-		"active":     result.Status.Active,
-		"successful": result.Status.Succeeded,
-		"failed":     result.Status.Failed,
-	}).Info("Job Status")
-
-	if result.Status.Failed > 0 {
-		log.Errorf("Problem verifying with %s", result.Name)
-		return true, fmt.Errorf("Problem verifying with %s", result.Name)
-	}
-
-	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
-	// conditional will return true. So let's also check to see if failed or successful is 0
-	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false, nil
-	}
-
-	return (result.Status.Active == 0), nil
-
 }

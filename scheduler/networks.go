@@ -3,7 +3,7 @@ package scheduler
 import (
 	"fmt"
 
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -38,8 +38,8 @@ func (s *AntidoteScheduler) createNetworkCrd() error {
 // createNetworkPolicy applies a kubernetes networkpolicy object control traffic out of the namespace.
 // The main use case is to restrict access for lesson users to only resources in that lesson,
 // with some exceptions.
-func (s *AntidoteScheduler) createNetworkPolicy(sc opentracing.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
-	span := opentracing.StartSpan("scheduler_networkpolicy_create", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
+	span := ot.StartSpan("scheduler_networkpolicy_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	var tcp corev1.Protocol = "TCP"
@@ -134,8 +134,8 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc opentracing.SpanContext, nsNa
 }
 
 // createNetwork
-func (s *AntidoteScheduler) createNetwork(sc opentracing.SpanContext, netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	span := opentracing.StartSpan("scheduler_network_create", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)

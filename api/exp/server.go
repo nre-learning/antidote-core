@@ -7,7 +7,6 @@ import (
 	"mime"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/golang/glog"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/nre-learning/antidote-core/pkg/ui/data/swagger"
 
-	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	assetfs "github.com/philips/go-bindata-assetfs"
@@ -151,9 +149,13 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 		}
 	})
 
-	// Allow CORS (ONLY IN PREPROD)
 	// Add gorilla's logging handler for standards-based access logging
-	return ghandlers.LoggingHandler(os.Stdout, allowCORS(handlerFunc))
+	// (disabled for now because we have tracing in place)
+	// return ghandlers.LoggingHandler(os.Stdout, allowCORS(handlerFunc))
+
+	// Allow CORS (ONLY IN PREPROD)
+	return allowCORS(handlerFunc)
+
 }
 
 // allowCORS allows Cross Origin Resoruce Sharing from any origin.

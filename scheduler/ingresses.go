@@ -3,20 +3,22 @@ package scheduler
 import (
 	"fmt"
 
-	"github.com/opentracing/opentracing-go"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 
 	// Kubernetes types
 	v1beta1 "k8s.io/api/extensions/v1beta1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createIngress(sc opentracing.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
-	span := opentracing.StartSpan("scheduler_ingress_create", opentracing.ChildOf(sc))
+func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
+	span := ot.StartSpan("scheduler_ingress_create", ot.ChildOf(sc))
+	span.SetTag("epName", ep.Name)
+	span.SetTag("nsName", nsName)
 	defer span.Finish()
 
 	redir := "true"
@@ -74,22 +76,9 @@ func (s *AntidoteScheduler) createIngress(sc opentracing.SpanContext, nsName str
 		},
 	}
 	result, err := s.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created ingress: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Ingress %s already exists.", ep.Name)
-
-		result, err := s.Client.ExtensionsV1beta1().Ingresses(nsName).Get(ep.Name, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve ingress after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating ingress %s: %s", ep.Name, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 

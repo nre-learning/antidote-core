@@ -5,7 +5,7 @@ import (
 
 	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
 	services "github.com/nre-learning/antidote-core/services"
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -54,7 +54,7 @@ func main() {
 		}
 
 		tracer, closer := services.InitTracing(config.InstanceID)
-		opentracing.SetGlobalTracer(tracer)
+		ot.SetGlobalTracer(tracer)
 		defer closer.Close()
 
 		buildInfo["curriculumVersion"] = config.CurriculumVersion

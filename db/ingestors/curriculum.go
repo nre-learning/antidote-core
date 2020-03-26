@@ -3,13 +3,13 @@ package db
 import (
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
-	"github.com/opentracing/opentracing-go"
+	ot "github.com/opentracing/opentracing-go"
 )
 
 // ImportCurriculum provides a single function for all curriculum resources to be imported and placed
 // within the backing data store
 func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
-	span := opentracing.StartSpan("antidote_ingest_curriculum")
+	span := ot.StartSpan("ingestor_curriculum_import")
 	defer span.Finish()
 
 	// TODO(mierdin): Add step to read in curriculum meta and make sure the calling code
