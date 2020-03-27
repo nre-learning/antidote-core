@@ -63,3 +63,19 @@ func InitTracing(service string) (ot.Tracer, io.Closer) {
 	}
 	return tracer, closer
 }
+
+// SafePayload is a helper function for ensuring strings meant to be used in Spans are kept to a
+// reasonable size.
+// The Jaeger UDP client will be unable to send spans that are too large. This value is somewhere
+// in the ballpark of 64K bytes. We will limit large strings to a reasonable size, say 50K bytes.
+//
+// This isn't a silver bullet, however. There's nothing preventing you from using multiple strings
+// from this function and still overloading a Span. Generally, strings from this function should
+// only be used once - i.e. to describe a payload that contains logs from a failed pod
+func SafePayload(payload string) string {
+	// return original payload if already safe
+	if len([]byte(payload)) <= 50000 {
+		return payload
+	}
+	return string([]byte(payload)[:50000])
+}

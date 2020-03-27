@@ -62,13 +62,9 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
 	}
 
-	// TODO(mierdin): Here, you will want to do two things. Append the image org from the config.
-	// Also, you will want to verify that the referenced image is loaded in the DB. This is because
-	// we'll use metadata from it.
-
-	pullPolicy := v1.PullAlways
+	pullPolicy := v1.PullIfNotPresent
 	if s.Config.AlwaysPull {
-		pullPolicy = v1.PullIfNotPresent
+		pullPolicy = v1.PullAlways
 	}
 
 	pod := &corev1.Pod{

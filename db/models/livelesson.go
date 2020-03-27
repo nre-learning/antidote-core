@@ -32,6 +32,9 @@ type LiveEndpoint struct {
 	Ports             []int32             `json:"Ports"`
 	Presentations     []*LivePresentation `json:"Presentations"`
 	ConfigurationType string              `json:"ConfigurationType"`
+	ConfigurationFile string              `json:"ConfigurationFile"`
+	SSHUser           string              `json:"SSHUser"`
+	SSHPassword       string              `json:"SSHPassword"`
 
 	Host string `json:"Host"`
 }

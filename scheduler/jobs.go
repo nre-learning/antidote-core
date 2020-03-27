@@ -12,6 +12,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
+	logrus "github.com/sirupsen/logrus"
 
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
@@ -34,6 +35,9 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 	}
 
 	existingJobs := result.Items
+	if len(existingJobs) == 0 {
+		return nil
+	}
 
 	for i := range existingJobs {
 		err = s.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
@@ -42,10 +46,9 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 		}
 	}
 
-	// Block until the jobs are cleaned up, so we don't cause a race condition when the scheduler moves forward with trying to create new jobs
-	for {
-		//TODO(mierdin): add timeout
-		time.Sleep(time.Second * 5)
+	// Block until the jobs are cleaned up, so we don't cause a race
+	// condition when the scheduler moves forward with trying to create new jobs
+	for i := 0; i < 60; i++ {
 		result, err = s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
@@ -55,14 +58,19 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 			return err
 		}
 		if len(result.Items) == 0 {
-			break
+			return nil
 		}
+
+		time.Sleep(time.Second * 1)
 	}
 
-	return nil
+	err = errors.New("Timed out waiting for old jobs to be cleaned up")
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return err
 }
 
-func (s *AntidoteScheduler) isCompleted(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, error) {
+func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, map[string]int32, error) {
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -70,37 +78,66 @@ func (s *AntidoteScheduler) isCompleted(span ot.Span, job *batchv1.Job, req serv
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return false, err
+		return false,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			err
 	}
-	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
-	span.LogFields(
-		log.String("jobName", result.Name),
-		log.Int32("active", result.Status.Active),
-		log.Int32("successful", result.Status.Succeeded),
-		log.Int32("failed", result.Status.Failed),
-	)
 
 	if result.Status.Failed >= 3 {
+
+		// Get logs for failed configuration job/pod for troubleshooting purposes later
+		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("job-name=%s", job.Name),
+		})
+		if err != nil || len(pods.Items) == 0 {
+			logrus.Debugf("Unable to retrieve logs for failed configuration pod in livelesson %s", req.LiveLessonID)
+		} else {
+			failedLogs := s.getPodLogs(&pods.Items[len(pods.Items)-1])
+			span.LogEventWithPayload("jobFailureLogs", services.SafePayload(failedLogs))
+		}
+
+		// Log error to span and return
 		err = fmt.Errorf("Too many failures when trying to configure %s", result.Name)
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return true, err
+		return true,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			err
 	}
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
 	// conditional will return true. So let's also check to see if failed or successful is 0
 	// TODO(mierdin): Should also return error if Failed jobs is not 0
 	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false, nil
+		return false,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			nil
 	}
 
-	return (result.Status.Active == 0), nil
+	return (result.Status.Active == 0), map[string]int32{
+		"active":    result.Status.Active,
+		"succeeded": result.Status.Succeeded,
+		"failed":    result.Status.Failed,
+	}, nil
 
 }
 
 func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
 	span := ot.StartSpan("scheduler_configure_endpoint", ot.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("endpointName", ep.Name)
 
 	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -109,12 +146,20 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 
 	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
 
+	image, err := s.Db.GetImage(span.Context(), ep.Image)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
 	var configCommand []string
+	configFilePath := fmt.Sprintf("/antidote/stage%d/configs/%s", req.Stage, ep.ConfigurationFile)
 
 	if ep.ConfigurationType == "python" {
 		configCommand = []string{
 			"python",
-			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
+			configFilePath,
 		}
 	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
@@ -122,22 +167,30 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 			"-vvvv",
 			"-i",
 			fmt.Sprintf("%s,", ep.Host),
-			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
+			configFilePath,
 		}
-	} else if strings.HasPrefix(ep.ConfigurationType, "napalm") {
+	} else if ep.ConfigurationType == "napalm" {
 
-		separated := strings.Split(ep.ConfigurationType, "-")
-		if len(separated) < 2 {
+		// determine NAPALM driver from filename. Structure is:
+		// <endpoint>-<napalmDriver>.txt. This is enforced on ingest, so as
+		// long as we do basic sanity checks on how many results we get from a split
+		// using . and - as delimiters, we should be okay.
+		separated := strings.FieldsFunc(configFilePath, func(r rune) bool {
+			return r == '-' || r == '.'
+		})
+		if len(separated) < 3 {
 			return nil, errors.New("Invalid napalm driver string")
 		}
+
+		napalmDriver := separated[1]
 		configCommand = []string{
 			"/configure.py",
-			"antidote",
-			"antidotepassword",
-			separated[1],
+			image.ConfigUser,
+			image.ConfigPassword,
+			napalmDriver,
 			"22",
 			ep.Host,
-			fmt.Sprintf("/antidote/stage%d/configs/%s.txt", req.Stage, ep.Name),
+			configFilePath,
 		}
 	} else {
 		return nil, errors.New("Unknown config type")

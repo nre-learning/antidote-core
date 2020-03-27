@@ -658,6 +658,12 @@ Livelesson = `{
         },
         "Host": {
           "type": "string"
+        },
+        "SSHUser": {
+          "type": "string"
+        },
+        "SSHPassword": {
+          "type": "string"
         }
       }
     },

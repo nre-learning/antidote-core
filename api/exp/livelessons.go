@@ -174,13 +174,20 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// Initialize new LiveLesson
 	newID := db.RandomID(10)
 
+	liveEndpoints, err := s.initializeLiveEndpoints(span, lesson)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, errors.New("Unable to initialize new livelesson")
+	}
+
 	newLL := &models.LiveLesson{
 		ID:            newID,
 		SessionID:     lp.SessionId,
 		AntidoteID:    s.Config.InstanceID,
 		LessonSlug:    lp.LessonSlug,
 		GuideType:     string(lesson.Stages[lp.LessonStage].GuideType),
-		LiveEndpoints: initializeLiveEndpoints(lesson),
+		LiveEndpoints: liveEndpoints,
 		CurrentStage:  lp.LessonStage,
 		Status:        models.Status_INITIALIZED,
 		CreatedTime:   time.Now(),
@@ -214,11 +221,16 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	return &pb.LiveLessonId{Id: newID}, nil
 }
 
-func initializeLiveEndpoints(lesson *models.Lesson) map[string]*models.LiveEndpoint {
+func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson *models.Lesson) (map[string]*models.LiveEndpoint, error) {
 	liveEps := map[string]*models.LiveEndpoint{}
 
 	for i := range lesson.Endpoints {
 		ep := lesson.Endpoints[i]
+
+		epImageDef, err := s.Db.GetImage(span.Context(), ep.Image)
+		if err != nil {
+			return nil, err
+		}
 
 		lep := &models.LiveEndpoint{
 			Name:              ep.Name,
@@ -226,6 +238,9 @@ func initializeLiveEndpoints(lesson *models.Lesson) map[string]*models.LiveEndpo
 			Ports:             []int32{},
 			Presentations:     []*models.LivePresentation{},
 			ConfigurationType: ep.ConfigurationType,
+			ConfigurationFile: ep.ConfigurationFile,
+			SSHUser:           epImageDef.SSHUser,
+			SSHPassword:       epImageDef.SSHPassword,
 			Host:              "", // Will be populated by scheduler once service is created for this endpoint
 		}
 
@@ -252,7 +267,7 @@ func initializeLiveEndpoints(lesson *models.Lesson) map[string]*models.LiveEndpo
 		// the IP address to use for the endpoint (all ports)
 
 	}
-	return liveEps
+	return liveEps, nil
 }
 
 func unique(intSlice []int32) []int32 {

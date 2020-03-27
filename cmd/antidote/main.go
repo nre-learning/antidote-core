@@ -31,11 +31,24 @@ func main() {
 			Usage:   "Validates a full curriculum directory for correctness",
 			Action: func(c *cli.Context) {
 
-				_, err := ingestors.ReadLessons(c.Args().First())
+				_, err := ingestors.ReadImages(c.Args().First())
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")
 					os.Exit(1)
 				}
+
+				_, err = ingestors.ReadCollections(c.Args().First())
+				if err != nil {
+					color.Red("Some curriculum resources failed to validate.")
+					os.Exit(1)
+				}
+
+				_, err = ingestors.ReadLessons(c.Args().First())
+				if err != nil {
+					color.Red("Some curriculum resources failed to validate.")
+					os.Exit(1)
+				}
+
 				color.Green("All detected curriculum resources imported successfully.")
 
 				// TODO(mierdin): Add other resources

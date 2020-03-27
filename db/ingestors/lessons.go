@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -100,7 +100,8 @@ func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
 }
 
 // validateLesson validates a single lesson, returning a simple error if the lesson fails
-// to validate.
+// to validate. Note that this function also makes some changes to the provided lesson definition
+// in memory, such as additing additional context for internal use
 func validateLesson(lesson *models.Lesson) error {
 
 	/* TODO(mierdin): Need to add these checks:
@@ -131,25 +132,37 @@ func validateLesson(lesson *models.Lesson) error {
 
 		// Perform configuration-related checks, if relevant
 		if ep.ConfigurationType != "" {
+
+			// Regular expressions for matching recognized config files by type
 			fileMap := map[string]string{
-				"python":  ".py",
-				"ansible": ".yml",
-				"napalm":  ".txt",
+				"python":  fmt.Sprintf(`.*%s\.py`, ep.Name),
+				"ansible": fmt.Sprintf(`.*%s\.yml`, ep.Name),
+				"napalm":  fmt.Sprintf(`.*%s-(junos|eos|iosxr|nxos|nxos_ssh|ios)\.txt$`, ep.Name),
 			}
-			// All NAPALM drivers will use the same file extension so we only need everything before the hyphen to
-			// make this work
-			fileExt := fileMap[strings.Split(ep.ConfigurationType, "-")[0]]
 
-			// TODO(mierdin): See if you can use napalm.junos.txt or something instead
-
-			// Ensure the necessary config file is present for all stages
 			for s := range lesson.Stages {
-				fileName := fmt.Sprintf("%s/stage%d/configs/%s%s", filepath.Dir(file), s, ep.Name, fileExt)
-				_, err := ioutil.ReadFile(fileName)
+
+				configDir := fmt.Sprintf("%s/stage%d/configs/", filepath.Dir(file), s)
+				configFile := ""
+				err := filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
+					var validID = regexp.MustCompile(fileMap[ep.ConfigurationType])
+					if validID.MatchString(path) {
+						configFile = filepath.Base(path)
+						return nil
+					}
+					return nil
+				})
 				if err != nil {
-					log.Errorf("Configuration script %s was not found.", fileName)
+					log.Error(err)
+					return err
+				}
+
+				if configFile == "" || configFile == "." {
+					log.Errorf("Configuration file for endpoint '%s' was not found.", ep.Name)
 					return MissingConfigurationFile
 				}
+
+				lesson.Endpoints[i].ConfigurationFile = configFile
 			}
 		}
 
@@ -200,19 +213,6 @@ func validateLesson(lesson *models.Lesson) error {
 			return MissingLessonGuide
 		}
 		lesson.Stages[l].GuideContents = string(contents)
-
-		// Ensure the necessary checker script is present for all stages
-		// for s := range lesson.Stages {
-		// 	for i := range lesson.Stages[s].Objectives {
-		// 		fileName := fmt.Sprintf("%s/stage%d/checkers/%d.py", filepath.Dir(file), s, i)
-		// 		_, err := ioutil.ReadFile(fileName)
-		// 		if err != nil {
-		// 			log.Errorf("Checker script %s was not found.", fileName)
-		// 			return MissingCheckerScript
-		// 		}
-		// 	}
-		// }
-
 	}
 
 	return nil

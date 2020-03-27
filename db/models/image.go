@@ -20,8 +20,11 @@ type Image struct {
 	// Used to allow authors to know which interfaces are available, and in which order they'll be connected
 	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"required,minItems=1"`
 
-	SSHUser     string `json:"SSHUser" yaml:"sshUser" jsonschema:"Username for SSH connections"`
-	SSHPassword string `json:"SSHPassword" yaml:"sshPassword" jsonschema:"Password for SSH Connections"`
+	SSHUser     string `json:"SSHUser" yaml:"sshUser" jsonschema:"minLength=1,description=Username for SSH connections"`
+	SSHPassword string `json:"SSHPassword" yaml:"sshPassword" jsonschema:"minLength=1,Password for SSH Connections"`
+
+	ConfigUser     string `json:"ConfigUser" yaml:"configUser" jsonschema:"minLength=1,description=Username for configuration scripts"`
+	ConfigPassword string `json:"ConfigPassword" yaml:"configPassword" jsonschema:"minLength=1,Password for configuration scripts"`
 }
 
 // GetSchema returns a Schema to be used in creation wizards

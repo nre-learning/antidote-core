@@ -52,6 +52,9 @@ message LiveEndpoint {
   repeated int32 Ports = 4;
   repeated LivePresentation LivePresentations = 5;
   string Host = 6;
+
+  string SSHUser = 7;
+  string SSHPassword = 8;
 }
 
 message LivePresentation {

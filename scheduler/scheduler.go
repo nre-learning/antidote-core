@@ -1,11 +1,14 @@
 package scheduler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -169,6 +172,7 @@ func (s *AntidoteScheduler) Start() error {
 func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("llID", ll.ID)
 	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
 
 	s.killAllJobs(span.Context(), nsName, "config")
@@ -192,13 +196,16 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 			return err
 		}
 
-		// TODO(mierdin) rename this function and ensure we are capturing configuration failure
-		// reasons in the spans
 		go func() {
 			defer wg.Done()
 
+			oldStatusCount := map[string]int32{
+				"active":    0,
+				"succeeded": 0,
+				"failed":    0,
+			}
 			for i := 0; i < 600; i++ {
-				completed, err := s.isCompleted(span, job, newRequest)
+				completed, statusCount, err := s.getJobStatus(span, job, newRequest)
 				if err != nil {
 					allGood = false
 					return
@@ -206,6 +213,16 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 				if completed {
 					return
 				}
+
+				// The use of this map[string]int32 and comparing old with new using DeepEqual
+				// allows us to only log changes in status, rather than the periodic spam
+				if !reflect.DeepEqual(oldStatusCount, statusCount) {
+					span.LogFields(
+						log.String("jobName", job.Name),
+						log.Object("statusCount", statusCount),
+					)
+				}
+				oldStatusCount = statusCount
 				time.Sleep(1 * time.Second)
 			}
 			allGood = false
@@ -435,6 +452,25 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 	case <-time.After(time.Second * 10):
 		return reachableMap
 	}
+}
+
+func (s *AntidoteScheduler) getPodLogs(pod *corev1.Pod) string {
+
+	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+	podLogs, err := req.Stream()
+	if err != nil {
+		return "error in opening stream"
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "error in copy information from podLogs to buf"
+	}
+	str := buf.String()
+
+	return str
 }
 
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a

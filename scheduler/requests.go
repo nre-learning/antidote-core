@@ -303,6 +303,9 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 				time.Sleep(1 * time.Second)
 			}
 
+			failedLogs := s.getPodLogs(pod)
+			span.LogEventWithPayload("podFailureLogs", services.SafePayload(failedLogs))
+
 			err = fmt.Errorf("Timed out waiting for %s to start", name)
 			span.LogFields(log.Error(err))
 			ext.Error.Set(span, true)

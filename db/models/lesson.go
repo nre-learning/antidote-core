@@ -53,9 +53,14 @@ const (
 // that you want to have running in a lesson for educational purposes
 type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
-	Image string `json:"Image" yaml:"image" jsonschema:"description=The Image ref this endpoint uses,pattern=^[A-Za-z0-9-]*$"`
+	Image string `json:"Image" yaml:"image" jsonschema:"description=The Image ref this endpoint uses,pattern=^[A-Za-z0-9\\-]*$"`
 
 	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"enum=none,enum=napalm,enum=python,enum=ansible"`
+
+	// Since we're starting to use the filename to derive certain things about configuration (i.e.
+	// which NAPALM driver to use) we will store the filename (only the name, no path) here on ingest
+	// so we know where to look when it comes time to push a configuration
+	ConfigurationFile string `json:"ConfigurationFile,omitempty" jsonschema:"-"`
 
 	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts,omitempty" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
 
