@@ -50,9 +50,6 @@ func main() {
 				}
 
 				color.Green("All detected curriculum resources imported successfully.")
-
-				// TODO(mierdin): Add other resources
-
 			},
 		},
 		{

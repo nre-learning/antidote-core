@@ -14,6 +14,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
@@ -43,7 +44,7 @@ func (s *AntidoteStats) Start() error {
 		tracer := ot.GlobalTracer()
 		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			// TODO(mierdin): This would be bad, but what can we do?
+			logrus.Errorf("Failed to extract for antidote.lsr.completed: %v", err)
 		}
 
 		span := tracer.StartSpan("stats_lsr_incoming", ot.ChildOf(sc))
@@ -74,12 +75,9 @@ func (s *AntidoteStats) recordProvisioningTime(sc ot.SpanContext, res services.L
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     s.Config.Stats.URL,
-		Username: s.Config.Stats.Username,
-		Password: s.Config.Stats.Password,
-
-		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
-		// I was getting validation errors.
+		Addr:               s.Config.Stats.URL,
+		Username:           s.Config.Stats.Username,
+		Password:           s.Config.Stats.Password,
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
@@ -144,13 +142,9 @@ func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr: s.Config.Stats.URL,
-
-		Username: s.Config.Stats.Username,
-		Password: s.Config.Stats.Password,
-
-		// TODO(mierdin): Hopefully, temporary. Even though my influx instance is front-ended by a LetsEncrypt cert,
-		// I was getting validation errors.
+		Addr:               s.Config.Stats.URL,
+		Username:           s.Config.Stats.Username,
+		Password:           s.Config.Stats.Password,
 		InsecureSkipVerify: true,
 	})
 	if err != nil {

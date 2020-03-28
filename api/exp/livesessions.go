@@ -18,8 +18,6 @@ import (
 // RequestLiveSession generates a new session ID, performs basic security functions, installs the new session
 // in state management, and returns the ID to the client
 func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*pb.LiveSession, error) {
-	// TODO(mierdin): This is a sort of standalone API call, how can we link this span
-	// with the spans opened with livelesson calls?
 	span := ot.StartSpan("api_livesession_request", ext.SpanKindRPCClient)
 	defer span.Finish()
 
@@ -37,9 +35,6 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 		}
 		break
 	}
-
-	// TODO(mierdin): Need limit on sessions per IP, and livelessons per session. Both need to be configurable
-	// and both livelessons.go and livesessions.go need appropriate checks before allocation
 
 	md, _ := metadata.FromIncomingContext(ctx)
 	// x-forwarded-host gets you IP+port, FWIW.

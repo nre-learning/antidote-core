@@ -72,8 +72,6 @@ func main() {
 					Name:  "list",
 					Usage: "Retrieve all lessons and display in a table",
 					Action: func(c *cli.Context) {
-
-						// TODO(mierdin): Add security options
 						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 						if err != nil {
 							fmt.Println(err)
@@ -104,8 +102,6 @@ func main() {
 					Name:  "list",
 					Usage: "List all LiveSessions",
 					Action: func(c *cli.Context) {
-
-						// TODO(mierdin): Add security options
 						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 						if err != nil {
 							fmt.Println(err)
@@ -136,15 +132,14 @@ func main() {
 					Name:  "kill",
 					Usage: "Kill a running livelesson",
 					Action: func(c *cli.Context) {
-						return // TODO
+						// TODO(mierdin): Implement me!
+						return
 					},
 				},
 				{
 					Name:  "list",
 					Usage: "List all livelessons",
 					Action: func(c *cli.Context) {
-
-						// TODO(mierdin): Add security options
 						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 						if err != nil {
 							fmt.Println(err)
@@ -183,7 +178,6 @@ func main() {
 							os.Exit(1)
 						}
 
-						// TODO(mierdin): Add security options
 						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
 						if err != nil {
 							fmt.Println(err)

@@ -17,6 +17,7 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
 	nats "github.com/nats-io/nats.go"
@@ -139,7 +140,7 @@ func (s *AntidoteScheduler) Start() error {
 		// Extract the span context from the request message.
 		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			// TODO(mierdin): This would be bad, but what can we do?
+			logrus.Errorf("Failed to extract for antidote.lsr.completed: %v", err)
 		}
 
 		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
@@ -210,9 +211,6 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 					allGood = false
 					return
 				}
-				if completed {
-					return
-				}
 
 				// The use of this map[string]int32 and comparing old with new using DeepEqual
 				// allows us to only log changes in status, rather than the periodic spam
@@ -221,6 +219,10 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 						log.String("jobName", job.Name),
 						log.Object("statusCount", statusCount),
 					)
+				}
+
+				if completed {
+					return
 				}
 				oldStatusCount = statusCount
 				time.Sleep(1 * time.Second)

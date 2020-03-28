@@ -73,7 +73,6 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	tracer := ot.GlobalTracer()
 	var t services.TraceMsg
 	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
-		// log.Fatalf("%v for Inject.", err)
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 	}
@@ -158,9 +157,6 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	}
 
 	_ = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
-	// if err != nil {
-	// 	log.Errorf("Unable to sync secret into this namespace. Ingress-based resources (like http presentations or jupyter notebooks) may not work: %v", err)
-	// }
 
 	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
 	if err != nil {
