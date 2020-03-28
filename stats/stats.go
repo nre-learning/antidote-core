@@ -73,6 +73,11 @@ func (s *AntidoteStats) recordProvisioningTime(sc ot.SpanContext, res services.L
 		return errors.New("Problem getting lesson details for recording provisioning time")
 	}
 
+	ll, err := s.Db.GetLiveLesson(span.Context(), res.LiveLessonID)
+	if err != nil {
+		return errors.New("Problem getting lesson details for recording provisioning time")
+	}
+
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
 		Addr:               s.Config.Stats.URL,
@@ -113,7 +118,7 @@ func (s *AntidoteStats) recordProvisioningTime(sc ot.SpanContext, res services.L
 
 	fields := map[string]interface{}{
 		"lessonSlug":       res.LessonSlug,
-		"provisioningTime": int(time.Since(res.Created).Seconds()),
+		"provisioningTime": int(time.Since(ll.CreatedTime).Seconds()),
 		"lessonName":       lesson.Name,
 		"lessonSlugName":   fmt.Sprintf("%s - %s", res.LessonSlug, lesson.Name),
 	}

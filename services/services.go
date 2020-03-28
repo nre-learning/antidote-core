@@ -1,9 +1,6 @@
 package services
 
-import (
-	"time"
-	// server "github.com/nats-io/nats-server/v2/server"
-)
+// server "github.com/nats-io/nats-server/v2/server"
 
 type AntidoteService interface {
 	Start() error
@@ -20,9 +17,14 @@ var (
 
 type LessonScheduleRequest struct {
 	Operation     OperationType
-	LessonSlug    string
 	LiveLessonID  string
 	LiveSessionID string
-	Stage         int32
-	Created       time.Time
+
+	// The fields below should eventually be deprecated. Really, all we need in an LSR are IDs for the relevant state
+	// (livelessons, livesessions) and the operation that's taking place. All state should be retrieved
+	// via lookup with the provided IDs
+	//
+	// However, it doesn't seem to be causing huge problems at the moment, so this is a low priority.
+	LessonSlug string
+	Stage      int32
 }

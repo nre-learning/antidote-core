@@ -205,10 +205,6 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LessonSlug:    lp.LessonSlug,
 		LiveLessonID:  newID,
 		LiveSessionID: lp.SessionId,
-
-		// TODO(mierdin): Currently a lot of stuff uses this but you should
-		// probably remove it and point everything to the livelesson field
-		Created: time.Now(),
 	}
 
 	// Inject span context and send LSR into NATS
@@ -323,7 +319,6 @@ func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) 
 		return nil, errors.New("livelesson not found")
 	}
 
-	// TODO(mierdin): Is this the right thing to do?
 	if llDb.Error {
 		return nil, errors.New("Livelesson encountered errors during provisioning. See antidote logs")
 	}

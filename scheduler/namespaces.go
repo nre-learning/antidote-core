@@ -128,8 +128,8 @@ func (s *AntidoteScheduler) createNamespace(sc ot.SpanContext, req services.Less
 				"lessonSlug":      fmt.Sprintf("%s", ll.LessonSlug),
 				"antidoteManaged": "yes",
 				"antidoteId":      s.Config.InstanceID,
-				"lastAccessed":    strconv.Itoa(int(req.Created.Unix())),
-				"created":         strconv.Itoa(int(req.Created.Unix())),
+				"lastAccessed":    strconv.Itoa(int(ll.CreatedTime.Unix())),
+				"created":         strconv.Itoa(int(ll.CreatedTime.Unix())),
 			},
 		},
 	}
