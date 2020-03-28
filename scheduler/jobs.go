@@ -17,8 +17,12 @@ import (
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// This constant controls the number of times a job is retried before we consider it failed.
+const JobBackoff = 2
 
 func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
 
@@ -87,7 +91,7 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 			err
 	}
 
-	if result.Status.Failed >= 3 {
+	if result.Status.Failed >= JobBackoff+1 {
 
 		// Get logs for failed configuration job/pod for troubleshooting purposes later
 		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
@@ -196,6 +200,12 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 		return nil, errors.New("Unknown config type")
 	}
 
+	pullPolicy := v1.PullIfNotPresent
+	if s.Config.AlwaysPull {
+		pullPolicy = v1.PullAlways
+	}
+
+	backoff := int32(JobBackoff)
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -208,7 +218,7 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 		},
 
 		Spec: batchv1.JobSpec{
-			// BackoffLimit: int32(3),
+			BackoffLimit: &backoff,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
@@ -224,17 +234,12 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
-							Name:    "configurator",
-							Image:   fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
-							Command: configCommand,
-
-							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
-							ImagePullPolicy: "Always",
+							Name:            "configurator",
+							Image:           fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
+							Command:         configCommand,
+							ImagePullPolicy: pullPolicy,
 							Env: []corev1.EnvVar{
-
-								// Providing intended host to configurator
 								{Name: "SYRINGE_TARGET_HOST", Value: ep.Host},
-
 								{Name: "ANSIBLE_HOST_KEY_CHECKING", Value: "False"},
 							},
 							VolumeMounts: volumeMounts,

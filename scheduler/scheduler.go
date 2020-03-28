@@ -410,9 +410,16 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 
 	span.LogFields(log.Object("rTests", rTests))
 
-	// Next, iterate over the rTests and spawn goroutines for each test
+	// Next, we need to seed the map we'll be returning from this function with all of the tests
+	// we expect a status on, set to false by default. This is important, as the higher-level code will use this to determine
+	// when the test is finished (all must be true)
 	var mapMutex = &sync.Mutex{}
 	reachableMap := map[string]bool{}
+	for _, rt := range rTests {
+		reachableMap[rt.name] = false
+	}
+
+	// Last, iterate over the rTests and spawn goroutines for each test
 	wg := new(sync.WaitGroup)
 	wg.Add(len(rTests))
 	for _, rt := range rTests {
@@ -429,6 +436,7 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 			}
 			span.LogFields(
 				log.String("rtName", rt.name),
+				log.String("rtMethod", rt.method),
 				log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
 				log.Bool("testResult", testResult),
 			)
@@ -496,6 +504,9 @@ type LessonHealthChecker interface {
 // LessonHealthCheck performs network tests to determine health of endpoints within a running lesson
 type LessonHealthCheck struct{}
 
+// sshTest is an important health check to run especially for interactive endpoints,
+// so that we know the endpoint is not only online but ready to receive SSH connections
+// from the user via the Web UI
 func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
 	strPort := strconv.Itoa(int(port))
 
@@ -506,12 +517,10 @@ func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
 		Auth: []ssh.AuthMethod{
 			ssh.Password("foobar"),
 		},
+		// TODO(mierdin): This still doesn't seem to work properly for "hung" ssh servers. Having to rely
+		// on the outer select/case timeout at the moment.
 		Timeout: time.Second * 2,
 	}
-
-	// TODO(mierdin): Need to test this with an image that intentionally starts SSH late,
-	// to validate the timeout configured above is actually working (two years ago when I
-	// first wrote this function, it wasn't.)
 
 	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
 	if err != nil {
