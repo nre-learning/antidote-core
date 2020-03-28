@@ -57,19 +57,27 @@ Please replace this text with a Python script for configuring this endpoint.
 
 	defaultNapalmContents = `
 Please replace this text with a NAPALM-compatible configuration for this endpoint.
+
+Also, don't forget to update the name of the file to include the desired NAPALM driver (i.e. "junos", "ios", etc.)
+
 `
 )
 
-// TODO this function needs to do some good, colorized logging of what its creating, and then what is left to do
 func renderLessonFiles(curriculumDir string, lesson *models.Lesson) error {
 
 	// Set lesson directory
 	lessonDir := fmt.Sprintf("%s/lessons/%s", curriculumDir, lesson.Slug)
-	lessonDir = askSimpleValue("Where should I place this lesson? ", lessonDir)
+
+	for {
+		lessonDir = askSimpleValue("Where should I place this lesson? ", lessonDir)
+		if _, err := os.Stat(lessonDir); os.IsNotExist(err) {
+			break
+		}
+		color.Red("Location already exists. Please select another location.")
+	}
 
 	color.Green("--- ** WRITING SKELETON LESSON TO DISK **")
 
-	// TODO what if this already exists?
 	err := os.MkdirAll(lessonDir, os.ModePerm)
 	if err != nil {
 		return err
