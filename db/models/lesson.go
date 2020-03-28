@@ -27,7 +27,6 @@ type Lesson struct {
 	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
 
-	// TODO(mierdin): Figure out if these are needed anymore.
 	LessonFile string `json:"-" jsonschema:"-"`
 	LessonDir  string `json:"-" jsonschema:"-"`
 }

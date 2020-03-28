@@ -56,7 +56,7 @@ const (
 	Status_INITIALIZED LiveLessonStatus = "INITIALIZED"
 
 	// Status_BOOTING means the necessary instructions for initial resource creation
-	//have been/are being sent to Kubernetes and we are waiting for health checks to pass
+	// have been/are being sent to Kubernetes and we are waiting for health checks to pass
 	Status_BOOTING LiveLessonStatus = "BOOTING"
 
 	// Status_CONFIGURATION means health checks have passed, and we have sent instructions to Kubernetes

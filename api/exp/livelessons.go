@@ -91,7 +91,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	// Determine if a livelesson exists that matches this session and lesson
+	// Determine if a livelesson exists that matches this sessionid and lesson slug
 	llExists := false
 	var existingLL *models.LiveLesson
 	liveLessons, err := s.Db.ListLiveLessons(span.Context())
@@ -105,24 +105,24 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// LiveLesson already exists, so we should handle this accordingly
 	if llExists {
 
-		// Check to see if the livelesson already exists in an errored state.
-		// If so, return error. TODO(mierdin): Consider this further, maybe we can do something to clean up the
-		// LiveLesson and the underlying resources and try again?
+		// Check to see if the livelesson already exists in an errored state. If so,
+		// tell the user to try later. In the future we may add some functionality to clean up lessons
+		// that have problems so the user doesn't have to wait for the GC interval, but currently that's what
+		// we're doing
 		if existingLL.Error {
-			return &pb.LiveLessonId{}, errors.New("Lesson is in errored state. Please try again later")
-		}
-
-		// TODO(mierdin): Is this the right place for this? And is this being un-set somewhere?
-		// Probably only return this if the user is trying to CHANGE to a new stage or something.
-		// If they're not, just send them the existing livelesson state as if they refreshed the page.
-		// if existingLL.Busy {   <---- getting rid of this, status is a suitable busy indicator
-		if existingLL.Status != models.Status_READY {
-			return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy. Can't make changes yet. Try later")
+			return &pb.LiveLessonId{}, errors.New("Sorry, this lesson is having some problems. Please try again later")
 		}
 
 		// If the incoming requested LessonStage is different from the current livelesson state,
 		// tell the scheduler to change the state
 		if existingLL.CurrentStage != lp.LessonStage {
+
+			// We want to make sure the livelesson is in a READY state, so we don't cause problems trying
+			// to change the stage when an existing operation is ongoing
+			if existingLL.Status != models.Status_READY {
+				return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy. Can't make changes yet. Try later")
+			}
+
 			_ = s.Db.UpdateLiveLessonStatus(span.Context(), existingLL.ID, models.Status_CONFIGURATION)
 			_ = s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
 			_ = s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
@@ -205,7 +205,10 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		LessonSlug:    lp.LessonSlug,
 		LiveLessonID:  newID,
 		LiveSessionID: lp.SessionId,
-		Created:       time.Now(), // TODO(mierdin): Currently a lot of stuff uses this but you should probably remove it and point everything to the livelesson field
+
+		// TODO(mierdin): Currently a lot of stuff uses this but you should
+		// probably remove it and point everything to the livelesson field
+		Created: time.Now(),
 	}
 
 	// Inject span context and send LSR into NATS
@@ -287,17 +290,19 @@ func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHe
 	return &pb.LBHealthCheckResponse{}, nil
 }
 
-// CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly for debugging
-// or test purposes. Use this at your own peril.
+// CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly
+// for debugging or test purposes. Use this at your own peril.
 func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
 	span := ot.StartSpan("api_livelesson_create", ext.SpanKindRPCClient)
 	defer span.Finish()
 
-	err := s.Db.CreateLiveLesson(span.Context(), liveLessonAPIToDB(ll))
+	llDB := liveLessonAPIToDB(ll)
+	llDB.CreatedTime = time.Now()
+
+	err := s.Db.CreateLiveLesson(span.Context(), llDB)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(mierdin) the protobuf version doesn't have a timestamp so be sure to set this here on the db side.
 	return &empty.Empty{}, nil
 }
 
@@ -370,8 +375,8 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 	t.Write(reqBytes)
 	s.NC.Publish("antidote.lsr.incoming", t.Bytes())
 
-	// TODO(mierdin): May want to clarify that this is a successful receipt of the kill command - not
-	//that it was actually killed.
+	// Note that this success message only means we successfully received the command.
+	// The scheduler will provide details on kill progress via OpenTracing spans.
 	return &pb.KillLiveLessonStatus{Success: true}, nil
 }
 

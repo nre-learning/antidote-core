@@ -132,7 +132,27 @@ func main() {
 					Name:  "kill",
 					Usage: "Kill a running livelesson",
 					Action: func(c *cli.Context) {
-						// TODO(mierdin): Implement me!
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveLessonsServiceClient(conn)
+
+						llID := pb.LiveLessonId{Id: c.Args().First()}
+
+						result, err := client.KillLiveLesson(context.Background(), &llID)
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						if result.Success {
+							fmt.Printf("The kill order for livelesson %s was received successfully, and deletion is in progress.\n", llID.Id)
+						} else {
+							fmt.Println("A problem was encountered processing the livelesson kill order")
+						}
 						return
 					},
 				},

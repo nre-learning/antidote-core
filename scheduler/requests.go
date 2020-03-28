@@ -139,8 +139,10 @@ func (s *AntidoteScheduler) handleRequestDELETE(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return
 	}
+
+	// Make sure to not return earlier than this, so we make sure the state is cleaned up
+	// no matter what
 	_ = s.Db.DeleteLiveLesson(span.Context(), newRequest.LiveLessonID)
 }
 
