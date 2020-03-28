@@ -77,5 +77,5 @@ func SafePayload(payload string) string {
 	if len([]byte(payload)) <= 50000 {
 		return payload
 	}
-	return string([]byte(payload)[:50000])
+	return string([]byte(payload)[len(payload)-50000:])
 }
