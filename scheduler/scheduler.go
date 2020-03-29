@@ -1,11 +1,9 @@
 package scheduler
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"path"
 	"reflect"
@@ -40,6 +38,8 @@ import (
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
+
+const InitContainerName string = "copy-local-files"
 
 // NetworkCrdClient is an interface for the client for our custom
 // network CRD. Allows for injection of mocks at test time.
@@ -87,9 +87,6 @@ func (s *AntidoteScheduler) Start() error {
 	if err != nil {
 		return err
 	}
-
-	// TODO(mierdin): Maybe not an issue right now, but should consider if we should check if another Syringe is operating with
-	// our configured ID.
 
 	// Garbage collection
 	go func() {
@@ -261,14 +258,14 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 	initContainers = append(initContainers, corev1.Container{
-		Name:  "copy-local-files",
+		Name:  InitContainerName,
 		Image: "bash",
 		Command: []string{
 			"bash",
 		},
 		Args: []string{
 			"-c",
-			"cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
+			"exit 1 && cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -323,10 +320,19 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
 
 	var success = false
-	for i := 0; i < 600; i++ {
-		time.Sleep(1 * time.Second)
-		reachability := s.getEndpointReachability(span.Context(), ll)
-		span.LogFields(log.Object("reachability", reachability))
+	//	for network reachability, we should wait no longer than ten minutes.
+	for i := 0; i < 150; i++ {
+		reachability, err := s.getEndpointReachability(span.Context(), ll)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+			return err
+		}
+		span.LogFields(
+			log.Object("reachability", reachability),
+			log.Int("i", i),
+		)
 
 		// Update reachability status
 		failed := false
@@ -342,14 +348,12 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 		ll.HealthyTests = healthy
 		ll.TotalTests = total
 
-		// Begin again if one of the endpoints isn't reachable
-		if failed {
-			continue
+		if !failed {
+			success = true
+			break
 		}
 
-		success = true
-		break
-
+		time.Sleep(4 * time.Second)
 	}
 
 	if !success {
@@ -366,7 +370,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 // getEndpointReachability does a one-time health check for network reachability for endpoints in a
 // livelesson. Meant to be called by a higher-level function which calls it repeatedly until all
 // are healthy.
-func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *models.LiveLesson) map[string]bool {
+func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *models.LiveLesson) (map[string]bool, error) {
 
 	span := ot.StartSpan("scheduler_get_endpoint_reachability", ot.ChildOf(sc))
 	defer span.Finish()
@@ -375,8 +379,6 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 	// This function will first construct a slice of rTests based on information available in the
 	// LiveLesson, and then will subsequently run tests based on each rTest.
 	type rTest struct {
-
-		// name should have
 		name   string
 		method string
 		host   string
@@ -384,7 +386,7 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 	}
 
 	// First construct a slice of rTests. This allows us to first get a sense for what
-	//we're about to test and how
+	// we're about to test and how
 	rTests := []rTest{}
 	for n := range ll.LiveEndpoints {
 		ep := ll.LiveEndpoints[n]
@@ -392,11 +394,17 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 		// If no presentations, add a single rTest using the first available Port.
 		// (we aren't currently testing for all Ports)
 		if len(ll.LiveEndpoints[n].Presentations) == 0 {
+
+			if len(ep.Ports) == 0 {
+				// Should never happen due to earlier code, but good to be safe
+				return nil, errors.New("Endpoint has no Ports")
+			}
+
 			rTests = append(rTests, rTest{
 				name:   ep.Name,
 				method: "tcp",
 				host:   ep.Host,
-				port:   ep.Ports[0], // TODO(mierdin): SHOULD be present due to earlier code, but to be safe, may want to add a check
+				port:   ep.Ports[0],
 			})
 			continue
 		}
@@ -430,7 +438,8 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 
 			testResult := false
 
-			// TODO(mierdin): Consider adding an HTTP health check, but not urgently needed atm
+			// Not currently doing an HTTP health check, but one could easily be added.
+			// rt.method is already being set to "http" for corresponding presentations
 			if rt.method == "ssh" {
 				testResult = s.HealthChecker.sshTest(rt.host, int(rt.port))
 			} else {
@@ -458,29 +467,10 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 
 	select {
 	case <-c:
-		return reachableMap
+		return reachableMap, nil
 	case <-time.After(time.Second * 10):
-		return reachableMap
+		return reachableMap, nil
 	}
-}
-
-func (s *AntidoteScheduler) getPodLogs(pod *corev1.Pod) string {
-
-	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
-	podLogs, err := req.Stream()
-	if err != nil {
-		return "error in opening stream"
-	}
-	defer podLogs.Close()
-
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, podLogs)
-	if err != nil {
-		return "error in copy information from podLogs to buf"
-	}
-	str := buf.String()
-
-	return str
 }
 
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a

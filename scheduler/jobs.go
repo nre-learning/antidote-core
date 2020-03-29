@@ -100,7 +100,7 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 		if err != nil || len(pods.Items) == 0 {
 			logrus.Debugf("Unable to retrieve logs for failed configuration pod in livelesson %s", req.LiveLessonID)
 		} else {
-			failedLogs := s.getPodLogs(&pods.Items[len(pods.Items)-1])
+			failedLogs := s.getPodLogs(&pods.Items[len(pods.Items)-1], "")
 			span.LogEventWithPayload("jobFailureLogs", services.SafePayload(failedLogs))
 		}
 

@@ -18,14 +18,13 @@ RUN cd $GOPATH/src/github.com/nre-learning/antidote-core/vendor/github.com/grpc-
 RUN go get -u github.com/golang/protobuf/protoc-gen-go
 RUN go get github.com/jteeuwen/go-bindata/...
 
-env PATH $GOPATH/bin:$PATH
+ENV PATH $GOPATH/bin:$PATH
 EXPOSE 8086
 
 # Compile binaries
 RUN cd $GOPATH/src/github.com/nre-learning/antidote-core && make
 
 # Copy binaries into new minimalist image
-# TODO(mierdin): DNS lookups not working right in scratch. I tried debian and it just blew chunks. Need to look into a solution for this
 FROM scratch
 COPY --from=build-env /go/bin/antictl /usr/bin/antictl
 COPY --from=build-env /go/bin/antidoted /usr/bin/antidoted

@@ -35,6 +35,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
 	}
 
@@ -42,6 +43,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
 	}
 
@@ -49,6 +51,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
 	}
 
@@ -279,15 +282,15 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 
 	failLesson := false
 
-	podStatusSpan := ot.StartSpan("scheduler_pod_status", ot.ChildOf(span.Context()))
 	for name, pod := range createdPods {
-		go func(podStatusSpan ot.Span, name string, pod *corev1.Pod) {
-
+		go func(sc ot.SpanContext, name string, pod *corev1.Pod) {
+			span := ot.StartSpan("scheduler_pod_status", ot.ChildOf(sc))
+			defer span.Finish()
 			defer wg.Done()
 
-			for i := 0; i < 300; i++ {
-
-				rdy, err := s.getPodStatus(podStatusSpan, pod)
+			// for i := 0; i < 150; i++ {
+			for i := 0; i < 15; i++ {
+				rdy, err := s.getPodStatus(pod)
 				if err != nil {
 					failLesson = true
 					return
@@ -298,10 +301,13 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 					return
 				}
 
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 			}
 
-			failedLogs := s.getPodLogs(pod)
+			// We would only get to this point if the pod failed to start in the first place.
+			// One potential reason for this is a failure in the init container, so we should attempt
+			// to gather those logs.
+			failedLogs := s.getPodLogs(pod, InitContainerName)
 			span.LogEventWithPayload("podFailureLogs", services.SafePayload(failedLogs))
 
 			err = fmt.Errorf("Timed out waiting for %s to start", name)
@@ -309,11 +315,10 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			ext.Error.Set(span, true)
 			failLesson = true
 			return
-		}(podStatusSpan, name, pod)
+		}(span.Context(), name, pod)
 	}
 
 	wg.Wait()
-	podStatusSpan.Finish()
 
 	// At this point, the only pods left in createdPods should be ones that failed to ready
 	if failLesson || len(createdPods) > 0 {

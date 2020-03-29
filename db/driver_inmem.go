@@ -53,8 +53,6 @@ type ADMInMem struct {
 	liveSessionsMu *sync.Mutex
 }
 
-// TODO(mierdin): Add span event logs
-
 var _ DataManager = &ADMInMem{}
 
 // HOUSEKEEPING

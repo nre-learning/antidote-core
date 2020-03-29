@@ -1,9 +1,11 @@
 package scheduler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -123,9 +125,12 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		},
 	}
 
-	// TODO(mierdin): See Antidote mini-project 6 (MP6) for details on how we're planning to obviate
-	// the need for privileged mode entirely. For now, this mechanism allows us to only grant this to
-	// images that contain a virtualization layer (i.e. network devices).
+	// Not all endpoint images come with a hypervisor. For these, we want to be able to conditionally
+	// enable/disable privileged mode based on the relevant field present in the loaded image spec.
+	//
+	// See https://github.com/nre-learning/proposals/pull/7 for plans to standardize the endpoint image
+	// build process, which is likely to include a virtualization layer for safety. However, this option will
+	// likely remain in place regardless.
 	if privileged {
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &privileged,
@@ -158,32 +163,27 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 }
 
 // getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
-// kubernetes perspective, before we move forward with network-based health checks
-func (s *AntidoteScheduler) getPodStatus(span ot.Span, origPod *corev1.Pod) (bool, error) {
+// kubernetes perspective, before we move forward with network-based health checks. It is not meant to capture
+// all potential failure scenarios, only those that result in the Pod failing to start in the first place.
+// If a pod starts successfully but fails after (resulting in a CrashLoopBackoff state) then this
+// will likely not catch it. The next network-centric health checks should handle that
+func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 
 	/*
 		The logic here is as follows:
 
-		- return false and an error if we encounter some kind of failure state
+		- return false and an error if we encounter some kind of failure state either in the pod or in getting the pod
 		- return false and no error if we think things are still starting
 		- return true and no error if we think everything is ready to go
 	*/
 
 	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
 	if err != nil {
-		// log.Errorf("Couldn't retrieve pod status: %s", err)
+
 		return false, err
 	}
 
-	span.LogFields(
-		log.String("name", pod.ObjectMeta.Name),
-		log.String("namespace", pod.ObjectMeta.Namespace),
-		log.String("nodeName", pod.Spec.NodeName),
-		log.String("podStatusPhase", string(pod.Status.Phase)),
-	)
-
-	// TODO(mierdin): this looks easy enough to use, but does this cover all failure scenarios (i.e. is this used
-	// if the container is restarting?) and does it also cover init containers or just the main container for the pod?
+	// Note that this doesn't cover init container failures, nor does it cover post-Ready failures.
 	if pod.Status.Phase == corev1.PodFailed {
 		return false, errors.New("Pod in failure state")
 	}
@@ -193,4 +193,27 @@ func (s *AntidoteScheduler) getPodStatus(span ot.Span, origPod *corev1.Pod) (boo
 	}
 
 	return false, nil
+}
+
+func (s *AntidoteScheduler) getPodLogs(pod *corev1.Pod, container string) string {
+
+	var plo = corev1.PodLogOptions{}
+	if container != "" {
+		plo.Container = container
+	}
+	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &plo)
+	podLogs, err := req.Stream()
+	if err != nil {
+		return "error in opening stream"
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "error in copy information from podLogs to buf"
+	}
+	str := buf.String()
+
+	return str
 }
