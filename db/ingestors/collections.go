@@ -80,7 +80,7 @@ func validateCollection(collection *models.Collection) error {
 	// Basic validation from jsonschema
 	if !collection.JSValidate() {
 		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
-		return BasicValidationError
+		return errBasicValidation
 	}
 
 	return nil

@@ -14,25 +14,6 @@ import (
 	models "github.com/nre-learning/antidote-core/db/models"
 )
 
-// Common validation errors for Lesson ingestion
-//
-// TODO(mierdin): These need to be named more appropriately to be more consistent, and namespaced to lessons,
-// as other resources will have their own.
-var (
-	BasicValidationError          = errors.New("a")
-	TierMismatchError             = errors.New("a")
-	InsufficientPresentationError = errors.New("a")
-	ProhibitedImageTagError       = errors.New("a")
-	InvalidConfigurationType      = errors.New("a")
-	MissingConfigurationFile      = errors.New("a")
-	DuplicatePresentationError    = errors.New("a")
-	MissingPresentationPort       = errors.New("a")
-	BadConnectionError            = errors.New("a")
-	UnsupportedGuideTypeError     = errors.New("a")
-	MissingLessonGuide            = errors.New("a")
-	MissingCheckerScript          = errors.New("a")
-)
-
 // ReadLessons reads lesson definitions from the filesystem, validates them, and returns them
 // in a slice.
 func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
@@ -117,7 +98,7 @@ func validateLesson(lesson *models.Lesson) error {
 	// This should be run first, and then only checks that can't be done with JSONschema will follow.
 	if !lesson.JSValidate() {
 		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
-		return BasicValidationError
+		return errBasicValidation
 	}
 
 	// Endpoint-specific checks
@@ -127,7 +108,7 @@ func validateLesson(lesson *models.Lesson) error {
 		// Must EITHER provide additionalPorts, or Presentations. Endpoints without either are invalid.
 		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) == 0 {
 			log.Error("No presentations configured, and no additionalPorts specified")
-			return InsufficientPresentationError
+			return errInsufficientPresentation
 		}
 
 		// Perform configuration-related checks, if relevant
@@ -159,7 +140,7 @@ func validateLesson(lesson *models.Lesson) error {
 
 				if configFile == "" || configFile == "." {
 					log.Errorf("Configuration file for endpoint '%s' was not found.", ep.Name)
-					return MissingConfigurationFile
+					return errMissingConfigurationFile
 				}
 
 				lesson.Endpoints[i].ConfigurationFile = configFile
@@ -171,7 +152,7 @@ func validateLesson(lesson *models.Lesson) error {
 		for n := range ep.Presentations {
 			if _, ok := seenPresentations[ep.Presentations[n].Name]; ok {
 				log.Errorf("Failed to import %s: - Presentation %s appears more than once for an endpoint", file, ep.Presentations[n].Name)
-				return DuplicatePresentationError
+				return errDuplicatePresentation
 			}
 			seenPresentations[ep.Presentations[n].Name] = ep.Presentations[n].Name
 		}
@@ -183,12 +164,12 @@ func validateLesson(lesson *models.Lesson) error {
 
 		if !entityInLabDef(connection.A, lesson) {
 			log.Errorf("Failed to import %s: - Connection %s refers to nonexistent entity", file, connection.A)
-			return BadConnectionError
+			return errBadConnection
 		}
 
 		if !entityInLabDef(connection.B, lesson) {
 			log.Errorf("Failed to import %s: - Connection %s refers to nonexistent entity", file, connection.B)
-			return BadConnectionError
+			return errBadConnection
 		}
 	}
 
@@ -201,16 +182,11 @@ func validateLesson(lesson *models.Lesson) error {
 			"jupyter":  ".ipynb",
 		}
 
-		if _, ok := guideFileMap[string(s.GuideType)]; !ok {
-			log.Errorf("Failed to import %s: - stage references an unsupported guide type", file)
-			return UnsupportedGuideTypeError
-		}
-
 		fileName := fmt.Sprintf("%s/stage%d/guide%s", filepath.Dir(file), l, guideFileMap[string(s.GuideType)])
 		contents, err := ioutil.ReadFile(fileName)
 		if err != nil {
 			log.Errorf("Encountered problem reading lesson guide: %s", err)
-			return MissingLessonGuide
+			return errMissingLessonGuide
 		}
 		lesson.Stages[l].GuideContents = string(contents)
 	}

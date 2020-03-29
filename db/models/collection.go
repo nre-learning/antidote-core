@@ -25,8 +25,6 @@ type Collection struct {
 	CollectionFile   string `json:"CollectionFile" yaml:"collectionFile"`
 }
 
-// TODO(mierdin): Add json schema stuff here
-
 // JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema
 // document, and then validates that instance's values against that schema.
 func (l Collection) JSValidate() bool {

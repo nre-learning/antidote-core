@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nre-learning/antidote-core/services"
@@ -57,13 +58,18 @@ func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, re
 		})
 	}
 
-	// TODO(mierdin): The code that calls this function relies on svc.Spec.ClusterIP
-	// to set the Host property for the corresponding LiveEndpoint. It appears that this information
-	// is provided from the kubernetes client function below, but I'm not sure how reliable that is.
-	// It has proven acceptably reliable thus far, but might be worth looking at, and perhaps adding a quick
-	// check that this information is present before returning
 	result, err := s.Client.CoreV1().Services(nsName).Create(svc)
 	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
+	// This is a corner case that has yet to occur (the svc creation taking place without having a clusterIP
+	// assigned) but it's easy for us to just check for it really quick, and this is important to properly set
+	// up the liveendpoints later.
+	if result.Spec.ClusterIP == "" {
+		err = errors.New("Service was created but no ClusterIP was assigned")
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		return nil, err

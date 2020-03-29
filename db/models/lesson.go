@@ -98,11 +98,6 @@ func (l Lesson) GetSchema() *jsonschema.Schema {
 	return jsonschema.Reflect(l)
 }
 
-// TODO(mierdin): Implement this
-func sortSchema(js *jsonschema.Schema) *jsonschema.Schema {
-	return js
-}
-
 // JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema
 // document, and then validates that instance's values against that schema.
 func (l Lesson) JSValidate() bool {

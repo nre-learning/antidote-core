@@ -12,9 +12,9 @@ func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 	span := ot.StartSpan("ingestor_curriculum_import")
 	defer span.Finish()
 
-	// TODO(mierdin): Add step to read in curriculum meta and make sure the calling code
-	// (BOTH antidote validate and antidoted import functions)
-	// checks that the values are correct, including the targeted antidote version
+	// There is a model for a Curriculum type, but we're still figuring out if/how we want to
+	// use that, so I'm leaving it out for now. This is where we would likely import it, and perhaps also
+	// do checks like version compatibility with Antidote version, etc.
 
 	collections, err := ReadCollections(config.CurriculumDir)
 	if err != nil {

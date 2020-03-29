@@ -16,11 +16,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "antidote"
 	app.Version = buildInfo["buildVersion"]
-	app.Usage = "CLI Tool for Antidote-powered curriculum content (WIP)"
-
-	// TODO(mierdin): Consider building a template that groups commands neatly
-	// https://github.com/urfave/cli/blob/master/docs/v2/manual.md#customization-1
-	// cli.AppHelpTemplate is where you do this, and cli.Command.Category can be used to organize
+	app.Usage = "Companion tool for working with Antidote-based curricula"
 
 	var curriculumDir string
 

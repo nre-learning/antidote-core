@@ -9,9 +9,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// TODO(mierdin): Consider renaming this package to "services", and placing all services related code in here, including
-// interface to define an Antidote service, the pub/sub code, and this config stuff
-
 type AntidoteConfig struct {
 	InstanceID string `yaml:"instanceId"`
 

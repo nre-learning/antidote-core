@@ -286,10 +286,10 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		go func(sc ot.SpanContext, name string, pod *corev1.Pod) {
 			span := ot.StartSpan("scheduler_pod_status", ot.ChildOf(sc))
 			defer span.Finish()
+			span.SetTag("podName", name)
 			defer wg.Done()
 
-			// for i := 0; i < 150; i++ {
-			for i := 0; i < 15; i++ {
+			for i := 0; i < 150; i++ {
 				rdy, err := s.getPodStatus(pod)
 				if err != nil {
 					failLesson = true
@@ -307,7 +307,7 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			// We would only get to this point if the pod failed to start in the first place.
 			// One potential reason for this is a failure in the init container, so we should attempt
 			// to gather those logs.
-			failedLogs := s.getPodLogs(pod, InitContainerName)
+			failedLogs := s.getPodLogs(pod, initContainerName)
 			span.LogEventWithPayload("podFailureLogs", services.SafePayload(failedLogs))
 
 			err = fmt.Errorf("Timed out waiting for %s to start", name)

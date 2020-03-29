@@ -19,7 +19,6 @@ func promptForValue(name string, value *jsonschema.Type) string {
 		// the value to the caller
 		Name: "value",
 		Validate: func(val interface{}) error {
-			// TODO(mierdin): Add in-line validation with this for more immediate feedback
 			return nil
 		},
 	}

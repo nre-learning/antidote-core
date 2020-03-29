@@ -79,7 +79,7 @@ func validateImage(image *models.Image) error {
 	// This should be run first, and then only checks that can't be done with JSONschema will follow.
 	if !image.JSValidate() {
 		log.Errorf("Basic schema validation failed on %s - see log for errors.", image.Slug)
-		return BasicValidationError
+		return errBasicValidation
 	}
 
 	return nil

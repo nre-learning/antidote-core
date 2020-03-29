@@ -39,7 +39,7 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 )
 
-const InitContainerName string = "copy-local-files"
+const initContainerName string = "copy-local-files"
 
 // NetworkCrdClient is an interface for the client for our custom
 // network CRD. Allows for injection of mocks at test time.
@@ -258,14 +258,14 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 	initContainers = append(initContainers, corev1.Container{
-		Name:  InitContainerName,
+		Name:  initContainerName,
 		Image: "bash",
 		Command: []string{
 			"bash",
 		},
 		Args: []string{
 			"-c",
-			"exit 1 && cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
+			"cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -320,8 +320,11 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
 
 	var success = false
-	//	for network reachability, we should wait no longer than ten minutes.
-	for i := 0; i < 150; i++ {
+	// for i := 0; i < 150; i++ {
+	// In calculating retries, consider that getEndpointReachability may take its full timeout. Consider
+	// this value in conjunction with the sleep wiithin this loop before setting the upper limit for this
+	// loop
+	for i := 0; i < 75; i++ {
 		reachability, err := s.getEndpointReachability(span.Context(), ll)
 		if err != nil {
 			span.LogFields(log.Error(err))
@@ -329,10 +332,6 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 			s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 			return err
 		}
-		span.LogFields(
-			log.Object("reachability", reachability),
-			log.Int("i", i),
-		)
 
 		// Update reachability status
 		failed := false
@@ -468,7 +467,7 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 	select {
 	case <-c:
 		return reachableMap, nil
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 5):
 		return reachableMap, nil
 	}
 }
