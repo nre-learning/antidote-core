@@ -111,18 +111,18 @@ func (a *ADMInMem) ListLessons(sc ot.SpanContext) (map[string]models.Lesson, err
 }
 
 // GetLesson retrieves a specific lesson from the data store
-func (a *ADMInMem) GetLesson(sc ot.SpanContext, slug string) (*models.Lesson, error) {
+func (a *ADMInMem) GetLesson(sc ot.SpanContext, slug string) (models.Lesson, error) {
 	span := ot.StartSpan("db_lesson_get", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("lessonSlug", slug)
 
 	if lesson, ok := a.lessons[slug]; ok {
-		return lesson, nil
+		return *lesson, nil
 	}
 	err := fmt.Errorf("Unable to find lesson %s", slug)
 	span.LogFields(log.Error(err))
 	ext.Error.Set(span, true)
-	return nil, err
+	return models.Lesson{}, err
 }
 
 // IMAGES
@@ -161,18 +161,18 @@ func (a *ADMInMem) ListImages(sc ot.SpanContext) (map[string]models.Image, error
 }
 
 // GetImage retrieves a specific Image from the data store
-func (a *ADMInMem) GetImage(sc ot.SpanContext, slug string) (*models.Image, error) {
+func (a *ADMInMem) GetImage(sc ot.SpanContext, slug string) (models.Image, error) {
 	span := ot.StartSpan("db_image_get", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("imageSlug", slug)
 
 	if image, ok := a.images[slug]; ok {
-		return image, nil
+		return *image, nil
 	}
 	err := fmt.Errorf("Unable to find image %s", slug)
 	span.LogFields(log.Error(err))
 	ext.Error.Set(span, true)
-	return nil, err
+	return models.Image{}, err
 }
 
 // COLLECTIONS
@@ -211,17 +211,17 @@ func (a *ADMInMem) ListCollections(sc ot.SpanContext) (map[string]models.Collect
 }
 
 // GetCollection retrieves a specific Collection from the data store
-func (a *ADMInMem) GetCollection(sc ot.SpanContext, slug string) (*models.Collection, error) {
+func (a *ADMInMem) GetCollection(sc ot.SpanContext, slug string) (models.Collection, error) {
 	span := ot.StartSpan("db_collection_get", ot.ChildOf(sc))
 	defer span.Finish()
 
 	if collection, ok := a.collections[slug]; ok {
-		return collection, nil
+		return *collection, nil
 	}
 	err := fmt.Errorf("Unable to find collection %s", slug)
 	span.LogFields(log.Error(err))
 	ext.Error.Set(span, true)
-	return nil, err
+	return models.Collection{}, err
 }
 
 // CURRICULUM
@@ -243,11 +243,11 @@ func (a *ADMInMem) SetCurriculum(sc ot.SpanContext, curriculum *models.Curriculu
 }
 
 // GetCurriculum retrieves a specific Curriculum from the data store
-func (a *ADMInMem) GetCurriculum(sc ot.SpanContext) (*models.Curriculum, error) {
+func (a *ADMInMem) GetCurriculum(sc ot.SpanContext) (models.Curriculum, error) {
 	span := ot.StartSpan("db_curriculum_get", ot.ChildOf(sc))
 	defer span.Finish()
 
-	return a.curriculum, nil
+	return *a.curriculum, nil
 }
 
 // LIVELESSONS
@@ -284,18 +284,18 @@ func (a *ADMInMem) ListLiveLessons(sc ot.SpanContext) (map[string]models.LiveLes
 }
 
 // GetLiveLesson retrieves a specific LiveLesson from the in-memory store via ID
-func (a *ADMInMem) GetLiveLesson(sc ot.SpanContext, id string) (*models.LiveLesson, error) {
+func (a *ADMInMem) GetLiveLesson(sc ot.SpanContext, id string) (models.LiveLesson, error) {
 	span := ot.StartSpan("db_livelesson_get", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("llID", id)
 
 	if ll, ok := a.liveLessons[id]; ok {
-		return ll, nil
+		return *ll, nil
 	}
 	err := fmt.Errorf("Unable to find liveLesson %s", id)
 	span.LogFields(log.Error(err))
 	ext.Error.Set(span, true)
-	return nil, err
+	return models.LiveLesson{}, err
 }
 
 // UpdateLiveLessonStage updates a livelesson's LessonStage property
@@ -400,6 +400,28 @@ func (a *ADMInMem) UpdateLiveLessonEndpointIP(sc ot.SpanContext, llID, epName, I
 	return nil
 }
 
+// UpdateLiveLessonTests updates the HealthyTests and TotalTests properties
+func (a *ADMInMem) UpdateLiveLessonTests(sc ot.SpanContext, llID string, healthy, total int32) error {
+	span := ot.StartSpan("db_livelesson_update_tests", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("llID", llID)
+	span.SetTag("healthy", healthy)
+	span.SetTag("total", total)
+
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	a.liveLessons[llID].HealthyTests = healthy
+	a.liveLessons[llID].TotalTests = total
+	return nil
+}
+
 // DeleteLiveLesson deletes an existing LiveLesson from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveLesson(sc ot.SpanContext, id string) error {
 	span := ot.StartSpan("db_livelesson_delete", ot.ChildOf(sc))
@@ -447,17 +469,17 @@ func (a *ADMInMem) ListLiveSessions(sc ot.SpanContext) (map[string]models.LiveSe
 }
 
 // GetLiveSession retrieves a specific LiveSession from the in-memory store via ID
-func (a *ADMInMem) GetLiveSession(sc ot.SpanContext, id string) (*models.LiveSession, error) {
+func (a *ADMInMem) GetLiveSession(sc ot.SpanContext, id string) (models.LiveSession, error) {
 	span := ot.StartSpan("db_livesession_get", ot.ChildOf(sc))
 	defer span.Finish()
 
 	if ls, ok := a.liveSessions[id]; ok {
-		return ls, nil
+		return *ls, nil
 	}
 	err := fmt.Errorf("Unable to find liveSession %s", id)
 	span.LogFields(log.Error(err))
 	ext.Error.Set(span, true)
-	return nil, err
+	return models.LiveSession{}, err
 }
 
 // UpdateLiveSessionPersistence updates a livesession's persistent property

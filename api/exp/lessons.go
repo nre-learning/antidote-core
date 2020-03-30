@@ -29,7 +29,7 @@ func (s *AntidoteAPI) ListLessons(ctx context.Context, filter *pb.LessonFilter) 
 	}
 
 	for _, l := range dbLessons {
-		lessons = append(lessons, lessonDBToAPI(&l))
+		lessons = append(lessons, lessonDBToAPI(l))
 	}
 
 	return &pb.Lessons{
@@ -108,7 +108,7 @@ func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) 
 
 // lessonDBToAPI translates a single Lesson from the `db` package models into the
 // api package's equivalent
-func lessonDBToAPI(dbLesson *models.Lesson) *pb.Lesson {
+func lessonDBToAPI(dbLesson models.Lesson) *pb.Lesson {
 	lessonAPI := &pb.Lesson{}
 	copier.Copy(&lessonAPI, dbLesson)
 	return lessonAPI

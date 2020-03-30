@@ -30,7 +30,7 @@ func (s *AntidoteAPI) ListCollections(ctx context.Context, _ *pb.CollectionFilte
 	}
 
 	for _, c := range dbCollections {
-		collections = append(collections, collectionDBToAPI(&c))
+		collections = append(collections, collectionDBToAPI(c))
 	}
 
 	return &pb.Collections{
@@ -74,7 +74,7 @@ func (s *AntidoteAPI) GetCollection(ctx context.Context, collectionSlug *pb.Coll
 
 // collectionDBToAPI translates a single Collection from the `db` package models into the
 // api package's equivalent
-func collectionDBToAPI(dbCollection *models.Collection) *pb.Collection {
+func collectionDBToAPI(dbCollection models.Collection) *pb.Collection {
 	collectionAPI := &pb.Collection{}
 	copier.Copy(&collectionAPI, dbCollection)
 	return collectionAPI

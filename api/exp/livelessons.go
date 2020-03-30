@@ -220,7 +220,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	return &pb.LiveLessonId{Id: newID}, nil
 }
 
-func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson *models.Lesson) (map[string]*models.LiveEndpoint, error) {
+func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson models.Lesson) (map[string]*models.LiveEndpoint, error) {
 	liveEps := map[string]*models.LiveEndpoint{}
 
 	for i := range lesson.Endpoints {
@@ -339,7 +339,7 @@ func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.
 	pblls := map[string]*pb.LiveLesson{}
 
 	for _, ll := range lls {
-		pblls[ll.ID] = liveLessonDBToAPI(&ll)
+		pblls[ll.ID] = liveLessonDBToAPI(ll)
 	}
 
 	return &pb.LiveLessons{LiveLessons: pblls}, nil
@@ -377,7 +377,7 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 
 // liveLessonDBToAPI translates a single LiveLesson from the `db` package models into the
 // api package's equivalent
-func liveLessonDBToAPI(dbLL *models.LiveLesson) *pb.LiveLesson {
+func liveLessonDBToAPI(dbLL models.LiveLesson) *pb.LiveLesson {
 
 	// Copy the majority of like-named fields
 	var llAPI pb.LiveLesson

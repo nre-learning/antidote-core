@@ -168,7 +168,7 @@ func (s *AntidoteScheduler) Start() error {
 	return nil
 }
 
-func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll *models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("llID", ll.ID)
@@ -411,7 +411,7 @@ func (s *AntidoteScheduler) isEpReachable(ep *models.LiveEndpoint) (bool, error)
 }
 
 // waitUntilReachable waits until an entire livelesson is reachable
-func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.LiveLesson) error {
+func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.LiveLesson) error {
 	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("liveLessonID", ll.ID)
@@ -444,10 +444,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 				}
 				if epr {
 					finishedEps[ep.Name] = true
-
-					// TODO(mierdin): convert to safe db function, and make ll not a pointer
-					ll.HealthyTests = int32(len(finishedEps))
-					ll.TotalTests = int32(len(ll.LiveEndpoints))
+					_ = s.Db.UpdateLiveLessonTests(span.Context(), ll.ID, int32(len(finishedEps)), int32(len(ll.LiveEndpoints)))
 					span.LogEvent("Endpoint has become reachable")
 					return
 				}
@@ -498,7 +495,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.Liv
 
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
 // jupyter notebook as a lab guide in any stage.
-func usesJupyterLabGuide(lesson *models.Lesson) bool {
+func usesJupyterLabGuide(lesson models.Lesson) bool {
 
 	for i := range lesson.Stages {
 		if lesson.Stages[i].GuideType == models.GuideJupyter {

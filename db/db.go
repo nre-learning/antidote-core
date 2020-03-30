@@ -25,26 +25,26 @@ type DataManager interface {
 	// Images
 	InsertImages(ot.SpanContext, []*models.Image) error
 	ListImages(ot.SpanContext) (map[string]models.Image, error)
-	GetImage(ot.SpanContext, string) (*models.Image, error)
+	GetImage(ot.SpanContext, string) (models.Image, error)
 
 	// Lessons
 	InsertLessons(ot.SpanContext, []*models.Lesson) error
 	ListLessons(ot.SpanContext) (map[string]models.Lesson, error)
-	GetLesson(ot.SpanContext, string) (*models.Lesson, error)
+	GetLesson(ot.SpanContext, string) (models.Lesson, error)
 
 	// Collections
 	InsertCollections(ot.SpanContext, []*models.Collection) error
 	ListCollections(ot.SpanContext) (map[string]models.Collection, error)
-	GetCollection(ot.SpanContext, string) (*models.Collection, error)
+	GetCollection(ot.SpanContext, string) (models.Collection, error)
 
 	// Curriculum
 	SetCurriculum(ot.SpanContext, *models.Curriculum) error
-	GetCurriculum(ot.SpanContext) (*models.Curriculum, error)
+	GetCurriculum(ot.SpanContext) (models.Curriculum, error)
 
 	// LiveLessons
 	CreateLiveLesson(ot.SpanContext, *models.LiveLesson) error
 	ListLiveLessons(ot.SpanContext) (map[string]models.LiveLesson, error)
-	GetLiveLesson(ot.SpanContext, string) (*models.LiveLesson, error) // TODO(Mierdin): Do NOT hand out a pointer!!
+	GetLiveLesson(ot.SpanContext, string) (models.LiveLesson, error) // TODO(Mierdin): Do NOT hand out a pointer!!
 	/*
 		I started with a basic UpdateLiveLesson function, and then in the code, I'd first call GetLiveLesson,
 		make some modifications, and then run UpdateLiveLesson. The problem is, if there are any changes to the
@@ -63,12 +63,13 @@ type DataManager interface {
 	UpdateLiveLessonStatus(ot.SpanContext, string, models.LiveLessonStatus) error
 	UpdateLiveLessonError(ot.SpanContext, string, bool) error
 	UpdateLiveLessonEndpointIP(ot.SpanContext, string, string, string) error //ID, epName, IP
+	UpdateLiveLessonTests(ot.SpanContext, string, int32, int32) error        //ID, healthyTests, totalTests
 	DeleteLiveLesson(ot.SpanContext, string) error
 
 	// LiveSessions
 	CreateLiveSession(ot.SpanContext, *models.LiveSession) error
 	ListLiveSessions(ot.SpanContext) (map[string]models.LiveSession, error)
-	GetLiveSession(ot.SpanContext, string) (*models.LiveSession, error)
+	GetLiveSession(ot.SpanContext, string) (models.LiveSession, error)
 	UpdateLiveSessionPersistence(ot.SpanContext, string, bool) error
 	DeleteLiveSession(ot.SpanContext, string) error
 }
