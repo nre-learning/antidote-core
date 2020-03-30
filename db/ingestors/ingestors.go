@@ -10,6 +10,7 @@ var (
 	// Lessons
 	errInsufficientPresentation = errors.New("No presentations configured, and no additionalPorts specified")
 	errMissingConfigurationFile = errors.New("Configuration file not found")
+	errDuplicateEndpoint        = errors.New("Duplicate endpoints detected")
 	errDuplicatePresentation    = errors.New("Duplicate presentations detected")
 	errBadConnection            = errors.New("Malformed connection")
 	errMissingLessonGuide       = errors.New("Couldn't find/read lesson guide")

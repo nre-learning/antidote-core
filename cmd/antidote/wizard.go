@@ -97,13 +97,12 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 			splitSlice := strings.Split(v.Items.Ref, "/")
 			subTypeName := splitSlice[len(splitSlice)-1]
 
-			// TODO(mierdin): the plurality here is fragile
 			if v.MinItems == 0 {
 				if !simpleConfirm(fmt.Sprintf("--- Do you wish to create any %s? ---", typeName)) {
 					continue
 				}
 			}
-			color.Yellow("You will now be prompted to create a series of %ss (%s)\n", subTypeName, v.Description)
+			color.Yellow("You will now be prompted to create a series of %s (%s)\n", typeName, v.Description)
 
 			var members []interface{}
 

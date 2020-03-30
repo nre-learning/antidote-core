@@ -67,30 +67,40 @@ func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
 		retLds = append(retLds, &lesson)
 	}
 
-	// TODO(mierdin): need to load into memory first so you can do inter-lesson references (like prereqs) first,
-	// and THEN insert into DB.
+	log.Info("Performing post-import lesson prereq validation check")
+	for _, lesson := range retLds {
+		for _, prereqSlug := range lesson.Prereqs {
+			if !lessonInSlice(retLds, prereqSlug) {
+				err := fmt.Errorf("Lesson %s listed an unknown prereq: %s", lesson.Slug, prereqSlug)
+				log.Error(err.Error())
+				return nil, err
+			}
+		}
+	}
 
-	if len(fileList) == len(retLds) {
-		log.Infof("Imported %d lesson definitions.", len(retLds))
-		return retLds, nil
-	} else {
+	if len(fileList) != len(retLds) {
 		log.Warnf("Imported %d lesson definitions with errors.", len(retLds))
 		return retLds, errors.New("Not all lesson definitions were imported")
 	}
 
+	log.Infof("Imported %d lesson definitions.", len(retLds))
+	return retLds, nil
+
+}
+
+func lessonInSlice(lessons []*models.Lesson, slug string) bool {
+	for _, lesson := range lessons {
+		if lesson.Slug == slug {
+			return true
+		}
+	}
+	return false
 }
 
 // validateLesson validates a single lesson, returning a simple error if the lesson fails
 // to validate. Note that this function also makes some changes to the provided lesson definition
 // in memory, such as additing additional context for internal use
 func validateLesson(lesson *models.Lesson) error {
-
-	/* TODO(mierdin): Need to add these checks:
-
-	- Make sure referenced collection exists
-	- Make sure lesson ID, lesson name, stage ID, stage name, and endpoint name are all unique.
-	  I don't believe this is possible to do in JSONSchema, so we'll need to add a check for it here.
-	*/
 
 	file := lesson.LessonFile
 
@@ -99,6 +109,16 @@ func validateLesson(lesson *models.Lesson) error {
 	if !lesson.JSValidate() {
 		log.Errorf("Basic schema validation failed on %s - see log for errors.", file)
 		return errBasicValidation
+	}
+
+	seenEndpoints := map[string]string{}
+	for n := range lesson.Endpoints {
+		ep := lesson.Endpoints[n]
+		if _, ok := seenEndpoints[ep.Name]; ok {
+			log.Errorf("Failed to import %s: - Endpoint %s appears more than once", file, ep.Name)
+			return errDuplicateEndpoint
+		}
+		seenEndpoints[ep.Name] = ep.Name
 	}
 
 	// Endpoint-specific checks

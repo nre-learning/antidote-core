@@ -61,7 +61,10 @@ func main() {
 
 		// Initialize DataManager
 		adb := db.NewADMInMem()
-		ingestors.ImportCurriculum(adb, config)
+		err = ingestors.ImportCurriculum(adb, config)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		nc, err := nats.Connect(nats.DefaultURL)
 		if err != nil {

@@ -18,19 +18,19 @@ func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 
 	collections, err := ReadCollections(config.CurriculumDir)
 	if err != nil {
-		// log.Warn(err)
+		return err
 	}
 	dm.InsertCollections(span.Context(), collections)
 
 	lessons, err := ReadLessons(config.CurriculumDir)
 	if err != nil {
-		// log.Warn(err)
+		return err
 	}
 	dm.InsertLessons(span.Context(), lessons)
 
 	images, err := ReadImages(config.CurriculumDir)
 	if err != nil {
-		// log.Warn(err)
+		return err
 	}
 	dm.InsertImages(span.Context(), images)
 
