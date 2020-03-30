@@ -118,7 +118,6 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
 	// conditional will return true. So let's also check to see if failed or successful is 0
-	// TODO(mierdin): Should also return error if Failed jobs is not 0
 	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
 		return false,
 			map[string]int32{
@@ -147,7 +146,12 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
-	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	if err != nil {
+		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
 
 	image, err := s.Db.GetImage(span.Context(), ep.Image)
 	if err != nil {

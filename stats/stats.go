@@ -20,7 +20,6 @@ import (
 // AntidoteStats tracks lesson startup time, as well as periodically exports usage data to a TSDB
 type AntidoteStats struct {
 	NC     *nats.Conn
-	NEC    *nats.EncodedConn
 	Config config.AntidoteConfig
 	Db     db.DataManager
 }
@@ -39,15 +38,15 @@ func (s *AntidoteStats) Start() error {
 		}
 	}(span)
 
-	s.NC.Subscribe("antidote.lsr.completed", func(msg *nats.Msg) {
+	s.NC.Subscribe(services.LsrCompleted, func(msg *nats.Msg) {
 		t := services.NewTraceMsg(msg)
 		tracer := ot.GlobalTracer()
 		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			logrus.Errorf("Failed to extract for antidote.lsr.completed: %v", err)
+			logrus.Errorf("Failed to extract for %s: %v", services.LsrCompleted, err)
 		}
 
-		span := tracer.StartSpan("stats_lsr_incoming", ot.ChildOf(sc))
+		span := tracer.StartSpan("stats_lsr_completed", ot.ChildOf(sc))
 		defer span.Finish()
 
 		rem := t.Bytes()

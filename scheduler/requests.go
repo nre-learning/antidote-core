@@ -81,7 +81,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	}
 	reqBytes, _ := json.Marshal(newRequest)
 	t.Write(reqBytes)
-	s.NC.Publish("antidote.lsr.completed", t.Bytes())
+	s.NC.Publish(services.LsrCompleted, t.Bytes())
 }
 
 func (s *AntidoteScheduler) handleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {

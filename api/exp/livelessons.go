@@ -145,7 +145,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			}
 			reqBytes, _ := json.Marshal(req)
 			t.Write(reqBytes)
-			s.NC.Publish("antidote.lsr.incoming", t.Bytes())
+			s.NC.Publish(services.LsrIncoming, t.Bytes())
 
 		} else {
 
@@ -165,7 +165,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			}
 			reqBytes, _ := json.Marshal(req)
 			t.Write(reqBytes)
-			s.NC.Publish("antidote.lsr.incoming", t.Bytes())
+			s.NC.Publish(services.LsrIncoming, t.Bytes())
 		}
 
 		return &pb.LiveLessonId{Id: existingLL.ID}, nil
@@ -215,7 +215,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	}
 	reqBytes, _ := json.Marshal(req)
 	t.Write(reqBytes)
-	s.NC.Publish("antidote.lsr.incoming", t.Bytes())
+	s.NC.Publish(services.LsrIncoming, t.Bytes())
 
 	return &pb.LiveLessonId{Id: newID}, nil
 }
@@ -368,7 +368,7 @@ func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId)
 		LiveLessonID: ll.ID,
 	})
 	t.Write(reqBytes)
-	s.NC.Publish("antidote.lsr.incoming", t.Bytes())
+	s.NC.Publish(services.LsrIncoming, t.Bytes())
 
 	// Note that this success message only means we successfully received the command.
 	// The scheduler will provide details on kill progress via OpenTracing spans.

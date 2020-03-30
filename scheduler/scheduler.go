@@ -57,7 +57,6 @@ type NetworkCrdClient interface {
 // moving existing livelessons to a different stage, deleting old lessons, etc.
 type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
-	NEC           *nats.EncodedConn
 	NC            *nats.Conn
 	Config        config.AntidoteConfig
 	Db            db.DataManager
@@ -115,7 +114,6 @@ func (s *AntidoteScheduler) Start() error {
 		}
 	}()
 
-	// Handle incoming requests asynchronously
 	var handlers = map[services.OperationType]interface{}{
 		services.OperationType_CREATE: s.handleRequestCREATE,
 		services.OperationType_DELETE: s.handleRequestDELETE,
@@ -123,42 +121,23 @@ func (s *AntidoteScheduler) Start() error {
 		services.OperationType_BOOP:   s.handleRequestBOOP,
 	}
 
-	// Handling incoming LSRs
-
-	// I **think** that in order to integrate tracing into NATS and get span contexts,
-	// we need to use Conn instead of EncodedConn
-
-	// s.NEC.Subscribe("antidote.lsr.incoming", func(lsr services.LessonScheduleRequest) {
-	s.NC.Subscribe("antidote.lsr.incoming", func(msg *nats.Msg) {
-
-		// // Create new TraceMsg from the NATS message.
+	s.NC.Subscribe(services.LsrIncoming, func(msg *nats.Msg) {
 		t := services.NewTraceMsg(msg)
-
 		tracer := ot.GlobalTracer()
-		// Extract the span context from the request message.
 		sc, err := tracer.Extract(ot.Binary, t)
 		if err != nil {
-			logrus.Errorf("Failed to extract for antidote.lsr.completed: %v", err)
+			logrus.Errorf("Failed to extract for %s: %v", services.LsrIncoming, err)
 		}
 
 		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
 		defer span.Finish()
-
 		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
 
 		rem := t.Bytes()
 		var lsr services.LessonScheduleRequest
 		_ = json.Unmarshal(rem, &lsr)
 
-		// Add the current span context to the LSR
-		// lsr.SpanContext = span.Context()
-
-		// TODO(mierdin): I **believe** this NATS handler function already runs async, so there's no need to run
-		// the below in a goroutine, but should verify this.
-		// go func() {
-		handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
-		// }()
-
+		go handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
 	})
 
 	// Wait forever
@@ -187,7 +166,6 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 			continue
 		}
 
-		// TODO(mierdin): This function only sends configuration job requests, should rename accordingly.
 		job, err := s.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
 		if err != nil {
 			span.LogFields(log.Error(err))
@@ -243,14 +221,13 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
 	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
 	if err != nil {
-		// TODO(mierdin): This function doesn't return an error, which is problematic.
-		return nil, nil, nil
+		return nil, nil, nil, err
 	}
 
 	volumes := []corev1.Volume{}
@@ -308,7 +285,7 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
 	})
 
-	return volumes, volumeMounts, initContainers
+	return volumes, volumeMounts, initContainers, nil
 
 }
 
@@ -417,9 +394,10 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.Live
 	span.SetTag("liveLessonID", ll.ID)
 	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
 
-	// epTimer controls how long we wait for each goroutine to finish
-	// TODO(mierdin): This is 120 for dev purposes. Increase before finished
-	epTimer := time.Second * 120
+	// reachableTimeLimit controls how long we wait for each goroutine to finish
+	// as well as in general how long we wait for all of them to finish. If this is exceeded,
+	// the livelesson is marked as failed.
+	reachableTimeLimit := time.Second * 300
 
 	finishedEps := map[string]bool{}
 	wg := new(sync.WaitGroup)
@@ -427,7 +405,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.Live
 	for n := range ll.LiveEndpoints {
 		ep := ll.LiveEndpoints[n]
 		ctx := context.Background()
-		ctx, _ = context.WithTimeout(ctx, epTimer)
+		ctx, _ = context.WithTimeout(ctx, reachableTimeLimit)
 
 		go func(sc ot.SpanContext, ctx context.Context, ep *models.LiveEndpoint) {
 			span := ot.StartSpan("scheduler_ep_reachable_test", ot.ChildOf(sc))
@@ -469,7 +447,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.Live
 	select {
 	case <-c:
 		//
-	case <-time.After(epTimer):
+	case <-time.After(reachableTimeLimit):
 		//
 	}
 

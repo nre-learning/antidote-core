@@ -70,11 +70,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		ec, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer ec.Close()
+		defer nc.Close()
 
 		if config.IsServiceEnabled("scheduler") {
 
@@ -110,7 +106,6 @@ func main() {
 				ClientExt:     csExt,
 				ClientCrd:     clientCrd,
 				NC:            nc,
-				NEC:           ec,
 				Config:        config,
 				Db:            adb,
 				BuildInfo:     buildInfo,
@@ -137,7 +132,6 @@ func main() {
 				BuildInfo: buildInfo,
 				Db:        adb,
 				NC:        nc,
-				NEC:       ec,
 				Config:    config,
 			}
 			go func() {
@@ -154,7 +148,6 @@ func main() {
 				Config: config,
 				Db:     adb,
 				NC:     nc,
-				NEC:    ec,
 			}
 			go func() {
 				err = stats.Start()

@@ -8,11 +8,14 @@ type AntidoteService interface {
 
 type OperationType int32
 
-var (
+const (
 	OperationType_CREATE OperationType = 1
 	OperationType_DELETE OperationType = 2
 	OperationType_MODIFY OperationType = 3
 	OperationType_BOOP   OperationType = 4
+
+	LsrIncoming  = "antidote.lsr.incoming"
+	LsrCompleted = "antidote.lsr.completed"
 )
 
 type LessonScheduleRequest struct {
