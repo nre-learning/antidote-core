@@ -184,6 +184,8 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 	}
 
 	// Note that this doesn't cover init container failures, nor does it cover post-Ready failures.
+	// This is just designed to cover things like images failing to download, etc
+	// TODO(mierdin): Could we detect crashloopbackoff of the init container?
 	if pod.Status.Phase == corev1.PodFailed {
 		return false, errors.New("Pod in failure state")
 	}
@@ -195,7 +197,21 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 	return false, nil
 }
 
-func (s *AntidoteScheduler) getPodLogs(pod *corev1.Pod, container string) string {
+// recordPodLogs allows us to record the logs for a given pod (ideally one that has failed in some way),
+// such as an endpoint pod or a pod spawned by a Job during configuration. These logs are retrieved,
+// and then exported via a dedicated OpenTracing span.
+func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
+	span := ot.StartSpan("scheduler_pod_logs", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("podName", podName)
+	span.SetTag("container", container)
+
+	nsName := generateNamespaceName(s.Config.InstanceID, llID)
+	pod, err := s.Client.CoreV1().Pods(nsName).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
 
 	var plo = corev1.PodLogOptions{}
 	if container != "" {
@@ -204,16 +220,18 @@ func (s *AntidoteScheduler) getPodLogs(pod *corev1.Pod, container string) string
 	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &plo)
 	podLogs, err := req.Stream()
 	if err != nil {
-		return "error in opening stream"
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 	defer podLogs.Close()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "error in copy information from podLogs to buf"
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 	str := buf.String()
 
-	return str
+	span.LogEventWithPayload("logs", services.SafePayload(str))
 }

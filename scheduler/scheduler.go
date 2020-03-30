@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -311,68 +312,7 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 }
 
-// waitUntilReachable is the top-level endpoint reachability workflow
-func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.LiveLesson) error {
-	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
-	defer span.Finish()
-
-	span.SetTag("liveLessonID", ll.ID)
-	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
-
-	var success = false
-	// for i := 0; i < 150; i++ {
-	// In calculating retries, consider that getEndpointReachability may take its full timeout. Consider
-	// this value in conjunction with the sleep wiithin this loop before setting the upper limit for this
-	// loop
-	for i := 0; i < 75; i++ {
-		reachability, err := s.getEndpointReachability(span.Context(), ll)
-		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
-			s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-			return err
-		}
-
-		// Update reachability status
-		failed := false
-		healthy := int32(0)
-		total := int32(len(reachability))
-		for _, reachable := range reachability {
-			if reachable {
-				healthy++
-			} else {
-				failed = true
-			}
-		}
-		ll.HealthyTests = healthy
-		ll.TotalTests = total
-
-		if !failed {
-			success = true
-			break
-		}
-
-		time.Sleep(4 * time.Second)
-	}
-
-	if !success {
-		err := errors.New("Timeout waiting for LiveEndpoints to become reachable")
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-		s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return err
-	}
-
-	return nil
-}
-
-// getEndpointReachability does a one-time health check for network reachability for endpoints in a
-// livelesson. Meant to be called by a higher-level function which calls it repeatedly until all
-// are healthy.
-func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *models.LiveLesson) (map[string]bool, error) {
-
-	span := ot.StartSpan("scheduler_get_endpoint_reachability", ot.ChildOf(sc))
-	defer span.Finish()
+func (s *AntidoteScheduler) isEpReachable(ep *models.LiveEndpoint) (bool, error) {
 
 	// rTest is used to give structure to the reachability tests we want to run.
 	// This function will first construct a slice of rTests based on information available in the
@@ -384,55 +324,47 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 		port   int32
 	}
 
-	// First construct a slice of rTests. This allows us to first get a sense for what
-	// we're about to test and how
 	rTests := []rTest{}
-	for n := range ll.LiveEndpoints {
-		ep := ll.LiveEndpoints[n]
-
-		// If no presentations, add a single rTest using the first available Port.
-		// (we aren't currently testing for all Ports)
-		if len(ll.LiveEndpoints[n].Presentations) == 0 {
-
-			if len(ep.Ports) == 0 {
-				// Should never happen due to earlier code, but good to be safe
-				return nil, errors.New("Endpoint has no Ports")
-			}
-
-			rTests = append(rTests, rTest{
-				name:   ep.Name,
-				method: "tcp",
-				host:   ep.Host,
-				port:   ep.Ports[0],
-			})
-			continue
-		}
-		for p := range ep.Presentations {
-			rTests = append(rTests, rTest{
-				name:   fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name),
-				method: string(ep.Presentations[p].Type),
-				host:   ep.Host,
-				port:   ep.Presentations[p].Port,
-			})
-		}
-	}
-
-	span.LogFields(log.Object("rTests", rTests))
-
-	// Next, we need to seed the map we'll be returning from this function with all of the tests
-	// we expect a status on, set to false by default. This is important, as the higher-level code will use this to determine
-	// when the test is finished (all must be true)
 	var mapMutex = &sync.Mutex{}
 	reachableMap := map[string]bool{}
 	for _, rt := range rTests {
 		reachableMap[rt.name] = false
 	}
 
+	// If no presentations, add a single rTest using the first available Port.
+	// (we aren't currently testing for all Ports)
+	if len(ep.Presentations) == 0 {
+
+		if len(ep.Ports) == 0 {
+			// Should never happen due to earlier code, but good to be safe
+			return false, errors.New("Endpoint has no Ports")
+		}
+
+		rTests = append(rTests, rTest{
+			name:   ep.Name,
+			method: "tcp",
+			host:   ep.Host,
+			port:   ep.Ports[0],
+		})
+	}
+	for p := range ep.Presentations {
+		rTests = append(rTests, rTest{
+			name:   fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name),
+			method: string(ep.Presentations[p].Type),
+			host:   ep.Host,
+			port:   ep.Presentations[p].Port,
+		})
+	}
+
 	// Last, iterate over the rTests and spawn goroutines for each test
 	wg := new(sync.WaitGroup)
 	wg.Add(len(rTests))
 	for _, rt := range rTests {
-		go func(span ot.Span, rt rTest) {
+		ctx := context.Background()
+
+		// Timeout for an individual test
+		ctx, _ = context.WithTimeout(ctx, 10*time.Second)
+		go func(ctx context.Context, rt rTest) {
 			defer wg.Done()
 
 			testResult := false
@@ -444,18 +376,18 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 			} else {
 				testResult = s.HealthChecker.tcpTest(rt.host, int(rt.port))
 			}
-			span.LogFields(
-				log.String("rtName", rt.name),
-				log.String("rtMethod", rt.method),
-				log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
-				log.Bool("testResult", testResult),
-			)
+			// span.LogFields(
+			// 	log.String("rtName", rt.name),
+			// 	log.String("rtMethod", rt.method),
+			// 	log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
+			// 	log.Bool("testResult", testResult),
+			// )
 
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
 			reachableMap[rt.name] = testResult
 
-		}(span, rt)
+		}(ctx, rt)
 	}
 
 	c := make(chan struct{})
@@ -466,10 +398,102 @@ func (s *AntidoteScheduler) getEndpointReachability(sc ot.SpanContext, ll *model
 
 	select {
 	case <-c:
-		return reachableMap, nil
+		for _, r := range reachableMap {
+			if !r {
+				return false, nil
+			}
+		}
+		return true, nil
 	case <-time.After(time.Second * 5):
-		return reachableMap, nil
+		return false, nil
 	}
+
+}
+
+// waitUntilReachable waits until an entire livelesson is reachable
+func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll *models.LiveLesson) error {
+	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("liveLessonID", ll.ID)
+	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
+
+	// epTimer controls how long we wait for each goroutine to finish
+	// TODO(mierdin): This is 120 for dev purposes. Increase before finished
+	epTimer := time.Second * 120
+
+	finishedEps := map[string]bool{}
+	wg := new(sync.WaitGroup)
+	wg.Add(len(ll.LiveEndpoints))
+	for n := range ll.LiveEndpoints {
+		ep := ll.LiveEndpoints[n]
+		ctx := context.Background()
+		ctx, _ = context.WithTimeout(ctx, epTimer)
+
+		go func(sc ot.SpanContext, ctx context.Context, ep *models.LiveEndpoint) {
+			span := ot.StartSpan("scheduler_ep_reachable_test", ot.ChildOf(sc))
+			defer span.Finish()
+			span.SetTag("epName", ep.Name)
+
+			defer wg.Done()
+			for {
+				epr, err := s.isEpReachable(ep)
+				if err != nil {
+					span.LogFields(log.Error(err))
+					ext.Error.Set(span, true)
+					return
+				}
+				if epr {
+					finishedEps[ep.Name] = true
+
+					// TODO(mierdin): convert to safe db function, and make ll not a pointer
+					ll.HealthyTests = int32(len(finishedEps))
+					ll.TotalTests = int32(len(ll.LiveEndpoints))
+					span.LogEvent("Endpoint has become reachable")
+					return
+				}
+
+				select {
+				case <-time.After(1 * time.Second):
+					continue
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(span.Context(), ctx, ep)
+	}
+
+	// Wait for each endpoint's goroutine to finish, either through completion,
+	// or through context cancelation due to timer expiring.
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		//
+	case <-time.After(epTimer):
+		//
+	}
+
+	if len(finishedEps) != len(ll.LiveEndpoints) {
+		// Record pod logs for all failed endpoints for later troubleshooting
+		for _, ep := range ll.LiveEndpoints {
+			if _, ok := finishedEps[ep.Name]; !ok {
+				s.recordPodLogs(span.Context(), ll.ID, ep.Name, "")
+			}
+		}
+
+		err := errors.New("Timeout waiting for LiveEndpoints to become reachable")
+		span.LogFields(
+			log.Error(err),
+			log.Object("failedEps", finishedEps),
+		)
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	return nil
 }
 
 // usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a

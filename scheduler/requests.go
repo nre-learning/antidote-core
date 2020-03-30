@@ -307,8 +307,7 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			// We would only get to this point if the pod failed to start in the first place.
 			// One potential reason for this is a failure in the init container, so we should attempt
 			// to gather those logs.
-			failedLogs := s.getPodLogs(pod, initContainerName)
-			span.LogEventWithPayload("podFailureLogs", services.SafePayload(failedLogs))
+			s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
 
 			err = fmt.Errorf("Timed out waiting for %s to start", name)
 			span.LogFields(log.Error(err))

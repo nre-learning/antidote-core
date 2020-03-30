@@ -44,7 +44,7 @@ type DataManager interface {
 	// LiveLessons
 	CreateLiveLesson(ot.SpanContext, *models.LiveLesson) error
 	ListLiveLessons(ot.SpanContext) (map[string]models.LiveLesson, error)
-	GetLiveLesson(ot.SpanContext, string) (*models.LiveLesson, error)
+	GetLiveLesson(ot.SpanContext, string) (*models.LiveLesson, error) // TODO(Mierdin): Do NOT hand out a pointer!!
 	/*
 		I started with a basic UpdateLiveLesson function, and then in the code, I'd first call GetLiveLesson,
 		make some modifications, and then run UpdateLiveLesson. The problem is, if there are any changes to the

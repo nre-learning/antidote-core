@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// This constant controls the number of times a job is retried before we consider it failed.
+// JobBackoff controls the number of times a job is retried before we consider it failed.
 const JobBackoff = 2
 
 func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
@@ -100,8 +100,7 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 		if err != nil || len(pods.Items) == 0 {
 			logrus.Debugf("Unable to retrieve logs for failed configuration pod in livelesson %s", req.LiveLessonID)
 		} else {
-			failedLogs := s.getPodLogs(&pods.Items[len(pods.Items)-1], "")
-			span.LogEventWithPayload("jobFailureLogs", services.SafePayload(failedLogs))
+			s.recordPodLogs(span.Context(), req.LiveLessonID, pods.Items[len(pods.Items)-1].Name, "")
 		}
 
 		// Log error to span and return
