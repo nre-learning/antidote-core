@@ -180,7 +180,6 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 			continue
 		}
 
-		// TODO(mierdin): Gracefully handle this
 		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
 		ls, err := s.Db.GetLiveSession(span.Context(), lsID)
 		if err != nil {

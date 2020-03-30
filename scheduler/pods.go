@@ -165,31 +165,23 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 // getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
 // kubernetes perspective, before we move forward with network-based health checks. It is not meant to capture
 // all potential failure scenarios, only those that result in the Pod failing to start in the first place.
-// If a pod starts successfully but fails after (resulting in a CrashLoopBackoff state) then this
-// will likely not catch it. The next network-centric health checks should handle that
 func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
-
-	/*
-		The logic here is as follows:
-
-		- return false and an error if we encounter some kind of failure state either in the pod or in getting the pod
-		- return false and no error if we think things are still starting
-		- return true and no error if we think everything is ready to go
-	*/
-
 	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
 	if err != nil {
 
 		return false, err
 	}
 
-	// Note that this doesn't cover init container failures, nor does it cover post-Ready failures.
-	// This is just designed to cover things like images failing to download, etc
-	// TODO(mierdin): Could we detect crashloopbackoff of the init container?
+	if len(pod.Status.InitContainerStatuses) == 0 {
+		return false, errors.New("Pod didn't have an init container status")
+	}
+	if pod.Status.InitContainerStatuses[0].State.Terminated != nil {
+		return false, errors.New("Init container failed")
+	}
+
 	if pod.Status.Phase == corev1.PodFailed {
 		return false, errors.New("Pod in failure state")
 	}
-
 	if pod.Status.Phase == corev1.PodRunning {
 		return true, nil
 	}
@@ -197,7 +189,7 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 	return false, nil
 }
 
-// recordPodLogs allows us to record the logs for a given pod (ideally one that has failed in some way),
+// recordPodLogs allows us to record the logs for a given pod (typically as a result of a failure of some kind),
 // such as an endpoint pod or a pod spawned by a Job during configuration. These logs are retrieved,
 // and then exported via a dedicated OpenTracing span.
 func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
