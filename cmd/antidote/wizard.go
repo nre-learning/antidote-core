@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey"
@@ -42,6 +43,9 @@ func promptForValue(name string, value *jsonschema.Type) string {
 	if len(value.Enum) > 0 {
 		opts := []string{}
 		for _, opt := range value.Enum {
+			if opt == "" {
+				opt = "<none>"
+			}
 			opts = append(opts, opt.(string))
 		}
 		q.Prompt = &survey.Select{
@@ -67,6 +71,10 @@ func promptForValue(name string, value *jsonschema.Type) string {
 		// panic(err)
 	}
 
+	if answers.Value == "<none>" {
+		return ""
+	}
+
 	return answers.Value
 }
 
@@ -87,8 +95,37 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 		typeName := fmt.Sprintf("%s%s", typePrefix, k)
 		v := vpre.(*jsonschema.Type)
 
-		if v.Type != "array" || (v.Type == "array" && v.Items.Ref == "") {
-			retMap[typeName] = promptForValue(typeName, v)
+		if v.Type != "array" {
+			retString := promptForValue(typeName, v)
+			if v.Type == "integer" {
+				i, err := strconv.Atoi(retString)
+				if err != nil {
+					fmt.Printf("Warning - skipping non-integer '%s'", retString)
+				}
+				retMap[k] = i
+			} else {
+				retMap[k] = retString
+			}
+		}
+
+		if v.Type == "array" && v.Items.Ref == "" {
+			retString := promptForValue(typeName, v)
+			if retString != "" {
+				if v.Items.Type == "integer" {
+					intArray := []int{}
+					for _, member := range strings.Split(retString, ",") {
+						i, err := strconv.Atoi(member)
+						if err != nil {
+							fmt.Printf("Warning - dropping non-integer '%s'", member)
+							continue
+						}
+						intArray = append(intArray, i)
+					}
+					retMap[k] = intArray
+				} else {
+					retMap[k] = strings.Split(retString, ",")
+				}
+			}
 		}
 
 		// Complex type. Recurse into this function with the new root type
@@ -117,11 +154,11 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 
 				i++
 			}
-
 			retMap[k] = members
 		}
 
 	}
+
 	return retMap, nil
 
 }

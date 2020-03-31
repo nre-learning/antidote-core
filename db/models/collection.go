@@ -13,16 +13,22 @@ import (
 // as a home for all curriculum resources with strong relationships to that entity, and as a way of giving
 // more information for that entity.
 type Collection struct {
-	Slug             string `json:"Slug" yaml:"slug"`
-	Title            string `json:"Title" yaml:"title"`
-	Image            string `json:"Image" yaml:"image"`
-	Website          string `json:"Website" yaml:"website"`
-	ContactEmail     string `json:"ContactEmail" yaml:"contactEmail"`
-	BriefDescription string `json:"BriefDescription" yaml:"briefDescription"`
-	LongDescription  string `json:"LongDescription" yaml:"longDescription"`
-	Type             string `json:"Type" yaml:"type"`
-	Tier             string `json:"Tier" yaml:"tier"`
-	CollectionFile   string `json:"CollectionFile" yaml:"collectionFile"`
+	Slug             string `json:"Slug" yaml:"slug" jsonschema:"minLength=1,description=A unique identifier for the lesson, usually 2-3 words with hyphens,pattern=^[a-z-]*$"`
+	Title            string `json:"Title" yaml:"title" jsonschema:"minLength=1,description=A human-readable name for the collection (i.e. a company name)"`
+	Image            string `json:"Image" yaml:"image" jsonschema:"minLength=1,description=An internet-accessible URL to a logo for this collection"`
+	Website          string `json:"Website" yaml:"website" jsonschema:"minLength=1,description=URL to the website for the person or organization this collection represents"`
+	ContactEmail     string `json:"ContactEmail" yaml:"contactEmail" jsonschema:"description=Contact email address for this collection"`
+	BriefDescription string `json:"BriefDescription" yaml:"briefDescription" jsonschema:"minLength=1,description=A brief description of the collection"`
+	LongDescription  string `json:"LongDescription" yaml:"longDescription" jsonschema:"minLength=1,description=A longer-form description of the collection, which may include explanations of the person or organization sponsoring it"`
+	Type             string `json:"Type" yaml:"type" jsonschema:"minLength=1,description=The type of collection,enum=vendor,enum=community,enum=consultancy"`
+	Tier             string `json:"Tier" yaml:"tier" jsonschema:"description=Tier for this collection (you probably want 'prod') ,enum=prod,enum=ptr,enum=local"`
+
+	CollectionFile string `json:"-" jsonschema:"-"`
+}
+
+// GetSchema returns a Schema to be used in creation wizards
+func (c Collection) GetSchema() *jsonschema.Schema {
+	return jsonschema.Reflect(c)
 }
 
 // JSValidate uses an Antidote resource's struct properties and tags to construct a jsonschema

@@ -9,8 +9,6 @@ import (
 )
 
 // Lesson represents the fields and sub-types for defining a lesson resource in Antidote
-// Only this struct should be loaded as a table. All sub-values can be stored as binary JSON
-// and deserialized quickly upon retrieval.
 type Lesson struct {
 	Name             string              `json:"Name" yaml:"name" jsonschema:"minLength=1,description=Human-readable name/title for the lesson"`
 	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"minLength=1,description=A unique identifier for the lesson, usually 2-3 words with hyphens,pattern=^[a-z-]*$"`
@@ -19,24 +17,26 @@ type Lesson struct {
 	Video            string              `json:"Video" yaml:"video" jsonschema:"description=YouTube URL to lesson video"`
 	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"description=Tier for this lesson (you probably want 'prod') ,enum=prod,enum=ptr,enum=local"`
 	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty" jsonschema:"description=The slug for the collection this lesson should belong to"`
-	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"minLength=1,description=A helpful description for this lesson"`
-	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"minLength=1,description=A brief description for this lesson"`
+	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"minLength=1,description=A helpful description for what the learner should expect to get from this lesson"`
+	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"minLength=1,description=A brief description for this lesson. One or two words"`
 	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty" jsonschema:"description=A list of slugs for other lessons that are prerequisite to this lesson"`
 	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty" jsonschema:"description=A list of tags to apply to this lesson for categorization purposes"`
-	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=Logical sections or chapters of a lesson"`
+	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=Logical sections or chapters of a lesson,additionalProperties=false"`
 	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
 
-	LessonFile string `json:"-" jsonschema:"-"`
-	LessonDir  string `json:"-" jsonschema:"-"`
+	LessonFile string `json:"-" yaml:"-" jsonschema:"-"`
+	LessonDir  string `json:"-" yaml:"-" jsonschema:"-"`
 }
+
+// `jsonschema:"additionalProperties=false"`
 
 // LessonStage is a specific state that a Lesson can be in. This can be thought of like chapters in a book.
 // A Lesson might have one or more LessonStages.
 type LessonStage struct {
 	Description   string          `json:"Description,omitempty" yaml:"description,omitempty"`
 	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,enum=markdown,enum=jupyter"`
-	GuideContents string          `json:"GuideContents,omitempty" jsonschema:"-"`
+	GuideContents string          `json:"GuideContents,omitempty"  yaml:"-" jsonschema:"-"`
 	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
 }
 
@@ -54,16 +54,16 @@ type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
 	Image string `json:"Image" yaml:"image" jsonschema:"description=The Image ref this endpoint uses,pattern=^[A-Za-z0-9\\-]*$"`
 
-	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"enum=none,enum=napalm,enum=python,enum=ansible"`
+	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"enum=,enum=napalm,enum=python,enum=ansible"`
 
 	// Since we're starting to use the filename to derive certain things about configuration (i.e.
 	// which NAPALM driver to use) we will store the filename (only the name, no path) here on ingest
 	// so we know where to look when it comes time to push a configuration
-	ConfigurationFile string `json:"ConfigurationFile,omitempty" jsonschema:"-"`
+	ConfigurationFile string `json:"-" yaml:"-" jsonschema:"-"`
 
 	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts,omitempty" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
 
-	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations,omitempty"`
+	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations,omitempty" jsonschema:"description=A way of giving the learner some kind of interactive access to this endpoint"`
 }
 
 // LessonPresentation is a particular view into a LessonEndpoint. It's a way of specifying how an endpoint

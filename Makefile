@@ -27,9 +27,7 @@ compile:
 
 	@echo "Compiling antidote binaries..."
 
-	@# It doesn't seem like we need this. TODO(mierdin): Verify
 	@#go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
-
 	@go install ./cmd/...
 
 docker:
