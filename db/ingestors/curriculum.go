@@ -8,7 +8,7 @@ import (
 
 // ImportCurriculum provides a single function for all curriculum resources to be imported and placed
 // within the backing data store
-func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
+func ImportCurriculum(dm db.DataManager, cfg config.AntidoteConfig) error {
 	span := ot.StartSpan("ingestor_curriculum_import")
 	defer span.Finish()
 
@@ -16,19 +16,19 @@ func ImportCurriculum(dm db.DataManager, config config.AntidoteConfig) error {
 	// use that, so I'm leaving it out for now. This is where we would likely import it, and perhaps also
 	// do checks like version compatibility with Antidote version, etc.
 
-	collections, err := ReadCollections(config.CurriculumDir)
+	collections, err := ReadCollections(cfg)
 	if err != nil {
 		return err
 	}
 	dm.InsertCollections(span.Context(), collections)
 
-	lessons, err := ReadLessons(config.CurriculumDir)
+	lessons, err := ReadLessons(cfg)
 	if err != nil {
 		return err
 	}
 	dm.InsertLessons(span.Context(), lessons)
 
-	images, err := ReadImages(config.CurriculumDir)
+	images, err := ReadImages(cfg)
 	if err != nil {
 		return err
 	}

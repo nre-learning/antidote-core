@@ -11,16 +11,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
+	"github.com/nre-learning/antidote-core/config"
 	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // ReadLessons reads lesson definitions from the filesystem, validates them, and returns them
 // in a slice.
-func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
+func ReadLessons(cfg config.AntidoteConfig) ([]*models.Lesson, error) {
 
 	// Get lesson definitions
 	fileList := []string{}
-	lessonDir := fmt.Sprintf("%s/lessons", curriculumDir)
+	lessonDir := fmt.Sprintf("%s/lessons", cfg.CurriculumDir)
 	log.Debugf("Searching %s for lesson definitions", lessonDir)
 	err := filepath.Walk(lessonDir, func(path string, f os.FileInfo, err error) error {
 		lessonDefFile := fmt.Sprintf("%s/lesson.meta.yaml", path)
@@ -62,8 +63,12 @@ func ReadLessons(curriculumDir string) ([]*models.Lesson, error) {
 			continue
 		}
 
-		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
+		if tierMap[lesson.Tier] < tierMap[cfg.Tier] {
+			log.Warnf("Skipping lesson %s due to configured tier", lesson.Slug)
+			continue
+		}
 
+		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
 		retLds = append(retLds, &lesson)
 	}
 

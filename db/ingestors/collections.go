@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/nre-learning/antidote-core/config"
 	models "github.com/nre-learning/antidote-core/db/models"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -14,10 +15,10 @@ import (
 
 // ReadCollections reads collection definitions from the filesystem, validates them, and returns them
 // in a slice.
-func ReadCollections(curriculumDir string) ([]*models.Collection, error) {
+func ReadCollections(cfg config.AntidoteConfig) ([]*models.Collection, error) {
 
 	fileList := []string{}
-	collectionDir := fmt.Sprintf("%s/collections", curriculumDir)
+	collectionDir := fmt.Sprintf("%s/collections", cfg.CurriculumDir)
 	log.Debugf("Searching %s for collection definitions", collectionDir)
 	err := filepath.Walk(collectionDir, func(path string, f os.FileInfo, err error) error {
 		colFile := fmt.Sprintf("%s/collection.meta.yaml", path)
@@ -54,8 +55,13 @@ func ReadCollections(curriculumDir string) ([]*models.Collection, error) {
 		if err != nil {
 			continue
 		}
-		log.Infof("Successfully imported collection %s: %s", collection.Slug, collection.Title)
 
+		if tierMap[collection.Tier] < tierMap[cfg.Tier] {
+			log.Warnf("Skipping collection %s due to configured tier", collection.Slug)
+			continue
+		}
+
+		log.Infof("Successfully imported collection %s: %s", collection.Slug, collection.Title)
 		retCollections = append(retCollections, &collection)
 	}
 

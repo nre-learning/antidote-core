@@ -8,6 +8,7 @@ import (
 	"github.com/fatih/color"
 	cli "github.com/urfave/cli"
 
+	"github.com/nre-learning/antidote-core/config"
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	models "github.com/nre-learning/antidote-core/db/models"
 )
@@ -28,19 +29,24 @@ func main() {
 			Description: "Validates a full curriculum directory for correctness. Curriculum directory defaults to current working directory",
 			Action: func(c *cli.Context) {
 
-				_, err := ingestors.ReadImages(c.Args().First())
+				cfg := config.AntidoteConfig{
+					CurriculumDir: c.Args().First(),
+					Tier:          "local",
+				}
+
+				_, err := ingestors.ReadImages(cfg)
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")
 					os.Exit(1)
 				}
 
-				_, err = ingestors.ReadCollections(c.Args().First())
+				_, err = ingestors.ReadCollections(cfg)
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")
 					os.Exit(1)
 				}
 
-				_, err = ingestors.ReadLessons(c.Args().First())
+				_, err = ingestors.ReadLessons(cfg)
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")
 					os.Exit(1)

@@ -10,16 +10,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
+	"github.com/nre-learning/antidote-core/config"
 	models "github.com/nre-learning/antidote-core/db/models"
 )
 
 // ReadImages reads image definitions from the filesystem, validates them, and returns them
 // in a slice.
-func ReadImages(curriculumDir string) ([]*models.Image, error) {
+func ReadImages(cfg config.AntidoteConfig) ([]*models.Image, error) {
 
 	// Get image definitions
 	fileList := []string{}
-	imageDir := fmt.Sprintf("%s/images", curriculumDir)
+	imageDir := fmt.Sprintf("%s/images", cfg.CurriculumDir)
 	log.Debugf("Searching %s for image definitions", imageDir)
 	err := filepath.Walk(imageDir, func(path string, f os.FileInfo, err error) error {
 		imageLoc := fmt.Sprintf("%s/image.meta.yaml", path)
