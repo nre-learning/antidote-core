@@ -292,6 +292,8 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			for i := 0; i < 150; i++ {
 				rdy, err := s.getPodStatus(pod)
 				if err != nil {
+					s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
+					s.recordPodLogs(span.Context(), ll.ID, pod.Name, "")
 					failLesson = true
 					return
 				}

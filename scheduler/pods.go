@@ -45,7 +45,13 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	if err != nil {
+		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
 
 	privileged := false
 
@@ -168,15 +174,19 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
 	if err != nil {
-
 		return false, err
 	}
 
+	// We expect to see an init container status, so if we don't see one, we know we're not
+	// ready yet. Also useful to ensure we don't get an "index out of range" panic
 	if len(pod.Status.InitContainerStatuses) == 0 {
-		return false, errors.New("Pod didn't have an init container status")
+		return false, nil
 	}
+
 	if pod.Status.InitContainerStatuses[0].State.Terminated != nil {
-		return false, errors.New("Init container failed")
+		if pod.Status.InitContainerStatuses[0].State.Terminated.ExitCode != 0 {
+			return false, errors.New("Init container failed")
+		}
 	}
 
 	if pod.Status.Phase == corev1.PodFailed {
@@ -203,6 +213,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return
 	}
 
 	var plo = corev1.PodLogOptions{}
@@ -214,6 +225,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return
 	}
 	defer podLogs.Close()
 
@@ -222,6 +234,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return
 	}
 	str := buf.String()
 
