@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/nre-learning/antidote-core/config"
 	models "github.com/nre-learning/antidote-core/db/models"
 )
 
@@ -41,99 +42,16 @@ func equals(tb testing.TB, exp, act interface{}) {
 // Tests in this file should make use of this by making a copy, tweaking in some way that makes it
 // invalid, and then asserting on the error type/message.
 func getValidLesson() models.Lesson {
-	return models.Lesson{
-		Slug: "example-lesson",
-		Stages: []*models.LessonStage{
-			{
-				Description: "Test Stage",
-				GuideType:   "markdown",
-				// Objectives: []*models.LessonStageObjective{
-				// 	{
-				// 		Description: "foobar",
-				// 	},
-				// },
-			},
-		},
-		Name: "Example Lesson",
-		Endpoints: []*models.LessonEndpoint{
-			{
-				Name:              "foobar1",
-				Image:             "utility",
-				ConfigurationType: "napalm",
-				Presentations: []*models.LessonPresentation{
-					{
-						Name: "presentation1",
-						Port: 22,
-						Type: "http",
-					},
-					{
-						Name: "presentation2",
-						Port: 80,
-						Type: "ssh",
-					},
-				},
-			},
-			{
-				Name:              "foobar2",
-				Image:             "utility",
-				ConfigurationType: "python",
-				Presentations: []*models.LessonPresentation{
-					{
-						Name: "presentation1",
-						Port: 22,
-						Type: "http",
-					},
-					{
-						Name: "presentation2",
-						Port: 80,
-						Type: "ssh",
-					},
-				},
-			},
-			{
-				Name:              "foobar3",
-				Image:             "utility",
-				ConfigurationType: "ansible",
-				Presentations: []*models.LessonPresentation{
-					{
-						Name: "presentation1",
-						Port: 22,
-						Type: "http",
-					},
-					{
-						Name: "presentation2",
-						Port: 80,
-						Type: "ssh",
-					},
-				},
-			},
-		},
-		Connections: []*models.LessonConnection{
-			{
-				A: "foobar1",
-				B: "foobar2",
-			},
-			{
-				A: "foobar2",
-				B: "foobar3",
-			},
-			{
-				A: "foobar3",
-				B: "foobar1",
-			},
-		},
-		Category: "fundamentals",
-		Diagram:  "https://example.com/diagram.png",
-		Video:    "https://example.com/video.png",
-		Tier:     "local",
-		Prereqs:  []string{},
-		Tags:     []string{"a", "b", "c"},
-		// Collection:  1,
-		Description: "",
 
-		// Path to mock lesson in the codebase (this is way better than mocking ioutil, IMO)
-		LessonFile: "../test/mocklessons/validlesson1/lesson.meta.yaml",
+	lessons, err := ReadLessons(config.AntidoteConfig{
+		CurriculumDir: "../test/test-curriculum",
+		Tier:          "local",
+	})
+	if err != nil {
+		panic(err)
 	}
+	fmt.Printf("%v\n", lessons)
+	return *lessons[0]
 }
 
 func TestValidLesson(t *testing.T) {

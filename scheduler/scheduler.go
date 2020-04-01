@@ -431,7 +431,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.Live
 	// reachableTimeLimit controls how long we wait for each goroutine to finish
 	// as well as in general how long we wait for all of them to finish. If this is exceeded,
 	// the livelesson is marked as failed.
-	reachableTimeLimit := time.Second * 300
+	reachableTimeLimit := time.Second * 600
 
 	finishedEps := map[string]bool{}
 	wg := new(sync.WaitGroup)

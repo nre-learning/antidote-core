@@ -1,0 +1,55 @@
+slug: valid-lesson
+description: |
+  An example of a valid lesson that uses all the features.
+  Tests should ingest this lesson and tweak in some ways to test validation
+
+category: fundamentals
+diagram:  https://example.com/diagram.png
+video:    https://example.com/video.png
+tier:     local
+tags: ["a", "b", "c"]
+
+name: example lesson
+endpoints:
+- name: foobar1
+  image: utility
+  configurationType: napalm
+  presentations:
+  - name: presentation1
+    port: 22
+    type: ssh
+  - name: presentation2
+    port: 80
+    type: http
+- name: foobar2
+  image: utility
+  configurationType: python
+  presentations:
+  - name: presentation1
+    port: 22
+    type: ssh
+  - name: presentation2
+    port: 80
+    type: http
+- name: foobar3
+  image: utility
+  configurationType: ansible
+  presentations:
+  - name: presentation1
+    port: 22
+    type: ssh
+  - name: presentation2
+    port: 80
+    type: http
+
+connections:
+- a: foobar1
+  b: foobar2
+- a: foobar2
+  b: foobar3
+- a: foobar3
+  b: foobar1
+
+stages:
+- description: Test Stage
+  guideType: markdown

@@ -1,0 +1,11 @@
+---
+slug: stargate
+title: Stargate Command
+image: "https://i.kinja-img.com/gawker-media/image/upload/c_fill,f_auto,fl_progressive,g_center,h_200,q_80,w_200/eti2h1r4wg0bqxctxenl.png"
+website: https://www.theonion.com/
+briefDescription: Lorem Ipsum, etc.
+contactEmail: sgc@example.com
+longDescription: |
+  Lorem ipsum dolor sit amet
+type: community
+tier: prod

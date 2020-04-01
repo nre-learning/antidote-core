@@ -1,0 +1,9 @@
+slug: utility
+description: A utility image
+privileged: false
+sshUser: antidote
+sshPassword: antidotepassword
+configUser: antidote
+configPassword: antidotepassword
+networkInterfaces:
+  - 'eth0'

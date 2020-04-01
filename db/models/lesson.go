@@ -25,6 +25,10 @@ type Lesson struct {
 	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
 
+	// NOTE - any time you see these dashes, it means this field is used for internal purposes only.
+	// When we were using protobuf models for everything, we couldn't do this. But by separating internal
+	// models from API models, we can still mark a field like this while still being able to offer it via API.
+	// Adding a hash to the json tag for instance doesn't mean we're hiding it from the API.
 	LessonFile string `json:"-" yaml:"-" jsonschema:"-"`
 	LessonDir  string `json:"-" yaml:"-" jsonschema:"-"`
 }
@@ -36,7 +40,7 @@ type Lesson struct {
 type LessonStage struct {
 	Description   string          `json:"Description,omitempty" yaml:"description,omitempty"`
 	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,enum=markdown,enum=jupyter"`
-	GuideContents string          `json:"GuideContents,omitempty"  yaml:"-" jsonschema:"-"`
+	GuideContents string          `json:"-"  yaml:"-" jsonschema:"-"`
 	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
 }
 
