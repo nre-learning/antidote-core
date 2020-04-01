@@ -101,6 +101,8 @@ func (a *ADMInMem) InsertLessons(sc ot.SpanContext, lessons []*models.Lesson) er
 func (a *ADMInMem) ListLessons(sc ot.SpanContext) (map[string]models.Lesson, error) {
 	span := ot.StartSpan("db_lesson_list", ot.ChildOf(sc))
 	defer span.Finish()
+	a.lessonsMu.Lock()
+	defer a.lessonsMu.Unlock()
 
 	lessons := map[string]models.Lesson{}
 	for slug, lesson := range a.lessons {
@@ -151,6 +153,8 @@ func (a *ADMInMem) InsertImages(sc ot.SpanContext, images []*models.Image) error
 func (a *ADMInMem) ListImages(sc ot.SpanContext) (map[string]models.Image, error) {
 	span := ot.StartSpan("db_image_list", ot.ChildOf(sc))
 	defer span.Finish()
+	a.imagesMu.Lock()
+	defer a.imagesMu.Unlock()
 
 	images := map[string]models.Image{}
 	for slug, image := range a.images {
@@ -201,6 +205,8 @@ func (a *ADMInMem) InsertCollections(sc ot.SpanContext, collections []*models.Co
 func (a *ADMInMem) ListCollections(sc ot.SpanContext) (map[string]models.Collection, error) {
 	span := ot.StartSpan("db_collection_list", ot.ChildOf(sc))
 	defer span.Finish()
+	a.collectionsMu.Lock()
+	defer a.collectionsMu.Unlock()
 
 	collections := map[string]models.Collection{}
 	for slug, collection := range a.collections {
@@ -275,6 +281,9 @@ func (a *ADMInMem) CreateLiveLesson(sc ot.SpanContext, ll *models.LiveLesson) er
 func (a *ADMInMem) ListLiveLessons(sc ot.SpanContext) (map[string]models.LiveLesson, error) {
 	span := ot.StartSpan("db_livelesson_list", ot.ChildOf(sc))
 	defer span.Finish()
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+
 	liveLessons := map[string]models.LiveLesson{}
 	for id, ll := range a.liveLessons {
 		liveLessons[id] = *ll
@@ -459,6 +468,8 @@ func (a *ADMInMem) CreateLiveSession(sc ot.SpanContext, ls *models.LiveSession) 
 func (a *ADMInMem) ListLiveSessions(sc ot.SpanContext) (map[string]models.LiveSession, error) {
 	span := ot.StartSpan("db_livesession_list", ot.ChildOf(sc))
 	defer span.Finish()
+	a.liveSessionsMu.Lock()
+	defer a.liveSessionsMu.Unlock()
 
 	liveSessions := map[string]models.LiveSession{}
 	for id, ls := range a.liveSessions {
