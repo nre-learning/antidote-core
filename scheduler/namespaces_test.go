@@ -6,6 +6,7 @@ import (
 	"time"
 
 	models "github.com/nre-learning/antidote-core/db/models"
+	ot "github.com/opentracing/opentracing-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -14,10 +15,13 @@ import (
 // properties set based on Syringe-specific inputs.
 func TestNamespaces(t *testing.T) {
 
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
+
 	nsName := "100-foobar-ns"
 	schedulerSvc := createFakeScheduler()
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
-	schedulerSvc.Db.CreateLiveSession(&models.LiveSession{
+	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID: "abcdef",
 	})
 
@@ -52,10 +56,10 @@ func TestNamespaces(t *testing.T) {
 
 	// Test that namespaces are GC'd as expected.
 	t.Run("A=1", func(t *testing.T) {
-		cleaned, err := schedulerSvc.PurgeOldLessons()
+		cleaned, err := schedulerSvc.PurgeOldLessons(span.Context())
 		ok(t, err)
-		assert(t, (len(cleaned) == 1), "")
-		assert(t, (cleaned[0] == "100-foobar-ns"), "")
+		assert(t, (len(cleaned) == 1), string(len(cleaned)))
+		assert(t, (cleaned[0] == "123456"), cleaned[0])
 	})
 
 }

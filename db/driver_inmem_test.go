@@ -4,13 +4,17 @@ import (
 	"testing"
 
 	models "github.com/nre-learning/antidote-core/db/models"
+	ot "github.com/opentracing/opentracing-go"
 )
 
 func TestLessonsCRUD(t *testing.T) {
 
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
+
 	adb := NewADMInMem()
 
-	err := adb.InsertLessons([]*models.Lesson{
+	err := adb.InsertLessons(span.Context(), []*models.Lesson{
 		{
 			Name: "Foo Bar Lesson",
 			Slug: "foobar",
@@ -31,7 +35,7 @@ func TestLessonsCRUD(t *testing.T) {
 		t.Fatalf("Problem inserting lessons: %v", err)
 	}
 
-	lessons, err := adb.ListLessons()
+	lessons, err := adb.ListLessons(span.Context())
 	if err != nil {
 		t.Fatalf("Problem listing lessons: %v", err)
 	}
@@ -39,7 +43,7 @@ func TestLessonsCRUD(t *testing.T) {
 		t.Fatalf("Expected %d lessons, got %d", len(lessons), 2)
 	}
 
-	lesson, err := adb.GetLesson("foobar")
+	lesson, err := adb.GetLesson(span.Context(), "foobar")
 	if err != nil {
 		t.Fatalf("Problem getting lessons: %v", err)
 	}
@@ -47,7 +51,7 @@ func TestLessonsCRUD(t *testing.T) {
 		t.Fatalf("Retrieved incorrect lesson: %s", lesson.Name)
 	}
 
-	_, err = adb.GetLesson("foobar2")
+	_, err = adb.GetLesson(span.Context(), "foobar2")
 	if err == nil {
 		t.Fatal("Error expected and was not produced in GetLessons")
 	}
@@ -56,9 +60,12 @@ func TestLessonsCRUD(t *testing.T) {
 
 func TestImagesCRUD(t *testing.T) {
 
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
+
 	adb := NewADMInMem()
 
-	err := adb.InsertImages([]*models.Image{
+	err := adb.InsertImages(span.Context(), []*models.Image{
 		{
 			Slug:        "foobar",
 			Description: "Foo Bar Image",
@@ -79,7 +86,7 @@ func TestImagesCRUD(t *testing.T) {
 		t.Fatalf("Problem inserting images: %v", err)
 	}
 
-	images, err := adb.ListImages()
+	images, err := adb.ListImages(span.Context())
 	if err != nil {
 		t.Fatalf("Problem listing images: %v", err)
 	}
@@ -87,7 +94,7 @@ func TestImagesCRUD(t *testing.T) {
 		t.Fatalf("Expected %d images, got %d", len(images), 2)
 	}
 
-	image, err := adb.GetImage("foobar")
+	image, err := adb.GetImage(span.Context(), "foobar")
 	if err != nil {
 		t.Fatalf("Problem getting images: %v", err)
 	}
@@ -95,7 +102,7 @@ func TestImagesCRUD(t *testing.T) {
 		t.Fatalf("Retrieved incorrect image: (Got %s)", image.Description)
 	}
 
-	_, err = adb.GetImage("foobar2")
+	_, err = adb.GetImage(span.Context(), "foobar2")
 	if err == nil {
 		t.Fatal("Error expected and was not produced in GetImages")
 	}
@@ -103,10 +110,12 @@ func TestImagesCRUD(t *testing.T) {
 }
 
 func TestCollectionsCRUD(t *testing.T) {
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
 
 	adb := NewADMInMem()
 
-	err := adb.InsertCollections([]*models.Collection{
+	err := adb.InsertCollections(span.Context(), []*models.Collection{
 		{
 			Slug:  "foobar",
 			Title: "Foo Bar Collection",
@@ -127,7 +136,7 @@ func TestCollectionsCRUD(t *testing.T) {
 		t.Fatalf("Problem inserting collections: %v", err)
 	}
 
-	collections, err := adb.ListCollections()
+	collections, err := adb.ListCollections(span.Context())
 	if err != nil {
 		t.Fatalf("Problem listing collections: %v", err)
 	}
@@ -135,7 +144,7 @@ func TestCollectionsCRUD(t *testing.T) {
 		t.Fatalf("Expected %d collections, got %d", len(collections), 2)
 	}
 
-	collection, err := adb.GetCollection("foobar")
+	collection, err := adb.GetCollection(span.Context(), "foobar")
 	if err != nil {
 		t.Fatalf("Problem getting collections: %v", err)
 	}
@@ -143,7 +152,7 @@ func TestCollectionsCRUD(t *testing.T) {
 		t.Fatalf("Retrieved incorrect collection: (Got %s)", collection.Title)
 	}
 
-	_, err = adb.GetCollection("foobar2")
+	_, err = adb.GetCollection(span.Context(), "foobar2")
 	if err == nil {
 		t.Fatal("Error expected and was not produced in GetCollection")
 	}
@@ -151,7 +160,8 @@ func TestCollectionsCRUD(t *testing.T) {
 }
 
 func TestLiveLessonCRUD(t *testing.T) {
-
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
 	adb := NewADMInMem()
 
 	liveLessons := []*models.LiveLesson{
@@ -174,13 +184,13 @@ func TestLiveLessonCRUD(t *testing.T) {
 	}
 
 	for l := range liveLessons {
-		err := adb.CreateLiveLesson(liveLessons[l])
+		err := adb.CreateLiveLesson(span.Context(), liveLessons[l])
 		if err != nil {
 			t.Fatalf("Problem creating LiveLesson: %v", err)
 		}
 	}
 
-	err := adb.CreateLiveLesson(&models.LiveLesson{
+	err := adb.CreateLiveLesson(span.Context(), &models.LiveLesson{
 		ID:         "10-ghijk",
 		SessionID:  "ghijk",
 		LessonSlug: "foobar-10",
@@ -189,7 +199,7 @@ func TestLiveLessonCRUD(t *testing.T) {
 		t.Fatal("Expected error creating LiveLesson but encountered none")
 	}
 
-	liveLessonsList, err := adb.ListLiveLessons()
+	liveLessonsList, err := adb.ListLiveLessons(span.Context())
 	if err != nil {
 		t.Fatalf("Problem listing LiveLessons: %v", err)
 	}
@@ -198,7 +208,7 @@ func TestLiveLessonCRUD(t *testing.T) {
 		t.Fatalf("Expected %d liveLessons, got %d", len(liveLessonsList), 3)
 	}
 
-	ll, err := adb.GetLiveLesson("10-abcdef")
+	ll, err := adb.GetLiveLesson(span.Context(), "10-abcdef")
 	if err != nil {
 		t.Fatalf("Problem getting LiveLessons: %v", err)
 	}
@@ -206,30 +216,30 @@ func TestLiveLessonCRUD(t *testing.T) {
 		t.Fatalf("Retrieved incorrect LiveLesson: (Got %s)", ll.SessionID)
 	}
 
-	_, err = adb.GetLiveLesson("foobar")
+	_, err = adb.GetLiveLesson(span.Context(), "foobar")
 	if err == nil {
 		t.Fatal("Error expected and was not produced in GetLiveLesson")
 	}
 
-	err = adb.UpdateLiveLessonStage(ll.ID, 1)
+	err = adb.UpdateLiveLessonStage(span.Context(), ll.ID, 1)
 	if err != nil {
 		t.Fatalf("Problem updating LiveLesson: %v", err)
 	}
-	newLl, err := adb.GetLiveLesson(ll.ID)
+	newLl, err := adb.GetLiveLesson(span.Context(), ll.ID)
 	ok(t, err)
 	assert(t, newLl.CurrentStage == 1, "update check failed")
 
-	err = adb.UpdateLiveLessonStage("10-foobardoesntexist", 2)
+	err = adb.UpdateLiveLessonStage(span.Context(), "10-foobardoesntexist", 2)
 	if err == nil {
 		t.Fatal("Error expected and was not produced in UpdateLiveLesson")
 	}
 
-	err = adb.DeleteLiveLesson("11-abcdef")
+	err = adb.DeleteLiveLesson(span.Context(), "11-abcdef")
 	if err != nil {
 		t.Fatalf("Problem deleting LiveLesson: %v", err)
 	}
 
-	finalLiveLessonsList, err := adb.ListLiveLessons()
+	finalLiveLessonsList, err := adb.ListLiveLessons(span.Context())
 	ok(t, err)
 	assert(t, len(finalLiveLessonsList) == 2, "final livelesson assertion failed")
 	assert(t, finalLiveLessonsList["10-abcdef"].CurrentStage == 1, "final livelesson assertion failed")
@@ -239,7 +249,8 @@ func TestLiveLessonCRUD(t *testing.T) {
 }
 
 func TestLiveSessionCRUD(t *testing.T) {
-
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
 	adb := NewADMInMem()
 
 	liveSessions := []*models.LiveSession{
@@ -256,13 +267,13 @@ func TestLiveSessionCRUD(t *testing.T) {
 	}
 
 	for s := range liveSessions {
-		err := adb.CreateLiveSession(liveSessions[s])
+		err := adb.CreateLiveSession(span.Context(), liveSessions[s])
 		if err != nil {
 			t.Fatalf("Problem creating LiveSession: %v", err)
 		}
 	}
 
-	err := adb.CreateLiveSession(&models.LiveSession{
+	err := adb.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:       "abcdef",
 		SourceIP: "1.1.1.1",
 	})
@@ -270,7 +281,7 @@ func TestLiveSessionCRUD(t *testing.T) {
 		t.Fatal("Expected error creating LiveSession but encountered none")
 	}
 
-	liveSessionsList, err := adb.ListLiveSessions()
+	liveSessionsList, err := adb.ListLiveSessions(span.Context())
 	if err != nil {
 		t.Fatalf("Problem listing LiveSessions: %v", err)
 	}
@@ -279,7 +290,7 @@ func TestLiveSessionCRUD(t *testing.T) {
 		t.Fatalf("Expected %d liveSessions, got %d", len(liveSessionsList), 3)
 	}
 
-	ls, err := adb.GetLiveSession("abcdef")
+	ls, err := adb.GetLiveSession(span.Context(), "abcdef")
 	if err != nil {
 		t.Fatalf("Problem getting LiveSessions: %v", err)
 	}
@@ -287,17 +298,17 @@ func TestLiveSessionCRUD(t *testing.T) {
 		t.Fatalf("Retrieved incorrect LiveSession: (Got %s)", ls.ID)
 	}
 
-	_, err = adb.GetLiveSession("foobar")
+	_, err = adb.GetLiveSession(span.Context(), "foobar")
 	if err == nil {
 		t.Fatal("Error expected and was not produced in GetLiveSession")
 	}
 
-	err = adb.DeleteLiveSession("ghijkl")
+	err = adb.DeleteLiveSession(span.Context(), "ghijkl")
 	if err != nil {
 		t.Fatalf("Problem deleting LiveSession: %v", err)
 	}
 
-	finalLiveSessionsList, _ := adb.ListLiveSessions()
+	finalLiveSessionsList, _ := adb.ListLiveSessions(span.Context())
 	assert(t, len(finalLiveSessionsList) == 2, "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["abcdef"].SourceIP == "1.1.1.1", "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["abcdef"].ID == "abcdef", "final livesession assertion failed")

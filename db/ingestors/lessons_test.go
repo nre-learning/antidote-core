@@ -59,7 +59,7 @@ func getValidLesson() models.Lesson {
 			{
 				Name:              "foobar1",
 				Image:             "utility",
-				ConfigurationType: "napalm-junos",
+				ConfigurationType: "napalm",
 				Presentations: []*models.LessonPresentation{
 					{
 						Name: "presentation1",
@@ -147,7 +147,7 @@ func TestInvalidCharInImageName(t *testing.T) {
 	l.Endpoints[0].Image = "antidotelabs/utility:latest"
 	err := validateLesson(&l)
 
-	assert(t, (err == BasicValidationError), "Expected a BasicValidationError")
+	assert(t, (err == errBasicValidation), "Expected errBasicValidation")
 }
 
 // All Presentations must specify a nonzero TCP port
@@ -156,5 +156,5 @@ func TestMissingPresentationPort(t *testing.T) {
 	l.Endpoints[0].Presentations[0].Port = 0
 	err := validateLesson(&l)
 
-	assert(t, (err == BasicValidationError), "Expected a BasicValidationError")
+	assert(t, (err == errBasicValidation), "Expected errBasicValidation")
 }

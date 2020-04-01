@@ -5,11 +5,15 @@ import (
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	services "github.com/nre-learning/antidote-core/services"
+	ot "github.com/opentracing/opentracing-go"
 )
 
 // TestPods is responsible for ensuring kubernetes pods are created as expected, with expected
 // properties set based on Syringe-specific inputs.
 func TestPods(t *testing.T) {
+
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
 
 	// SETUP
 	schedulerSvc := createFakeScheduler()
@@ -18,6 +22,7 @@ func TestPods(t *testing.T) {
 	t.Run("A=1", func(t *testing.T) {
 
 		pod, err := schedulerSvc.createPod(
+			span.Context(),
 			&models.LiveEndpoint{
 				Name:  "linux1",
 				Image: "utility",
@@ -29,6 +34,7 @@ func TestPods(t *testing.T) {
 			[]string{"1", "2", "3"},
 			services.LessonScheduleRequest{
 				LiveLessonID: "asdf",
+				LessonSlug:   "test-lesson",
 			},
 		)
 

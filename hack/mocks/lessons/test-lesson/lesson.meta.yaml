@@ -1,0 +1,15 @@
+---
+slug: test-lesson
+name: Antidote Test Lesson
+category: workflows  # This ensures this lesson shows up in promoted lessons
+tier: prod
+endpoints:
+- name: linux
+  image: utility
+  presentations:
+  - name: cli1
+    port: 22
+    type: ssh
+stages:
+  - description: Stage 0
+    guideType: markdown

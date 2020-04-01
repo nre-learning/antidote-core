@@ -5,10 +5,14 @@ import (
 	"testing"
 
 	services "github.com/nre-learning/antidote-core/services"
+	ot "github.com/opentracing/opentracing-go"
 )
 
 // TestNetworks is responsible for ensuring Syringe-imposed networking policies are working
 func TestNetworks(t *testing.T) {
+
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
 
 	type CniDelegate struct {
 		HairpinMode bool `json:"hairpinMode,omitempty"`
@@ -35,6 +39,7 @@ func TestNetworks(t *testing.T) {
 	t.Run("A=1", func(t *testing.T) {
 
 		network, err := schedulerSvc.createNetwork(
+			span.Context(),
 			0,
 			"vqfx1-vqfx2",
 			services.LessonScheduleRequest{
