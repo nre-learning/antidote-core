@@ -10,7 +10,7 @@ import (
 
 // Image is a resource type that provides metadata for endpoint images in use within Lessons
 type Image struct {
-	Slug string `json:"Slug" yaml:"slug" jsonschema:"Unique identifier for this image"`
+	Slug string `json:"Slug" yaml:"slug" jsonschema:"Unique identifier for this image,pattern=^[A-Za-z0-9\\-]*$"`
 
 	Description string `json:"Description" yaml:"description" jsonschema:"Description of this image"`
 
@@ -18,7 +18,7 @@ type Image struct {
 	Privileged bool `json:"Privileged" yaml:"privileged" jsonschema:"Should this image be granted admin privileges?"`
 
 	// Used to allow authors to know which interfaces are available, and in which order they'll be connected
-	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"required,minItems=1"`
+	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"minItems=1"`
 
 	SSHUser     string `json:"SSHUser" yaml:"sshUser" jsonschema:"minLength=1,description=Username for SSH connections"`
 	SSHPassword string `json:"SSHPassword" yaml:"sshPassword" jsonschema:"minLength=1,Password for SSH Connections"`

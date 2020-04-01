@@ -1,5 +1,7 @@
 slug: utility
-description: A utility image
+description: |
+  An example of a valid image that uses all the features.
+  Tests should ingest this image and tweak in some ways to test validation
 privileged: false
 sshUser: antidote
 sshPassword: antidotepassword
