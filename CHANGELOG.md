@@ -2,7 +2,8 @@
 
 ## In development
 
-- Internal Data Management Re-vamp [#141](https://github.com/nre-learning/antidote-core/pull/141)
+- Make travis happy [#155](https://github.com/nre-learning/antidote-core/pull/155)
+- Top-to-bottom revamp and move to Antidote-Core [#141](https://github.com/nre-learning/antidote-core/pull/141)
 
 ## v0.5.1 - February 17, 2020
 
