@@ -77,8 +77,8 @@ gengo:
 
 install_bins_linux:
 
-	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-grpc-gateway-v1.5.1-linux-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
-	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-swagger-v1.5.1-linux-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.14.3/protoc-gen-grpc-gateway-v1.14.3-linux-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
+	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.14.3/protoc-gen-swagger-v1.14.3-linux-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
 
 install_bins_mac:
 
