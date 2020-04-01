@@ -195,7 +195,7 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 			image.ConfigUser,
 			image.ConfigPassword,
 			napalmDriver,
-			"22",
+			"22", // TODO(mierdin): Need to add port to image meta
 			ep.Host,
 			configFilePath,
 		}
@@ -242,7 +242,9 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 							Command:         configCommand,
 							ImagePullPolicy: pullPolicy,
 							Env: []corev1.EnvVar{
-								{Name: "SYRINGE_TARGET_HOST", Value: ep.Host},
+								{Name: "ANTIDOTE_TARGET_HOST", Value: ep.Host},
+								{Name: "ANTIDOTE_TARGET_USERNAME", Value: image.ConfigUser},
+								{Name: "ANTIDOTE_TARGET_PASSWORD", Value: image.ConfigPassword},
 								{Name: "ANSIBLE_HOST_KEY_CHECKING", Value: "False"},
 							},
 							VolumeMounts: volumeMounts,
