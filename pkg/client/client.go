@@ -1,7 +1,7 @@
 package client
 
 import (
-	crd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	crd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"

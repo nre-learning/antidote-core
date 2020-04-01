@@ -12,3 +12,7 @@ coverage.html
 api/exp/generated/
 *buildinfo.go
 release_assets/
+cover.html
+*.tbd
+test-api.py
+venv/

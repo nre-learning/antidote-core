@@ -1,10 +1,9 @@
 syntax = "proto3";
-package syringe.api.exp;
+package antidote.api.exp;
 
 import "lesson.proto";
 import "collection.proto";
 import "google/api/annotations.proto";
-import "validate/validate.proto";
 
 service CurriculumService {
 
@@ -20,16 +19,16 @@ message CurriculumFilter {}
 
 // Use this to return only metadata about the installed curriculum.
 message CurriculumInfo {
-    string Name = 1 [(validate.rules).string.min_len = 1];
-    string Description = 2 [(validate.rules).string.min_len = 1];
-    string Website = 3 [(validate.rules).string.min_len = 1];
+    string Name = 1;
+    string Description = 2;
+    string Website = 3;
 }
 
 // The full curriculum, including both metadata and loaded resources.
 message Curriculum {
-    string Name = 1 [(validate.rules).string.min_len = 1];
-    string Description = 2 [(validate.rules).string.min_len = 1];
-    string Website = 3 [(validate.rules).string.min_len = 1];
+    string Name = 1;
+    string Description = 2;
+    string Website = 3;
 
     map<int32, Lesson> Lessons = 4;
     map<int32, Collection> Collections = 5;

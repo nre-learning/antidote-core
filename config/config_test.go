@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -41,48 +40,33 @@ func equals(tb testing.TB, exp, act interface{}) {
 
 // TestConfigJSON ensures a given config renders correctly as JSON
 func TestConfigJSON(t *testing.T) {
-	os.Setenv("SYRINGE_CURRICULUM", "/nrelabs-curriculum")
-	os.Setenv("SYRINGE_ID", "syringe-testing")
-	os.Setenv("SYRINGE_DOMAIN", "bar")
-	syringeConfig, err := LoadConfigVars()
+	antidoteConfig, err := LoadConfig("../hack/mocks/sample-antidote-config.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	desired := SyringeConfig{
-		CurriculumDir:       "/nrelabs-curriculum",
-		SyringeID:           "syringe-testing",
-		Tier:                "local",
-		Domain:              "bar",
-		GRPCPort:            50099,
-		HTTPPort:            8086,
-		DeviceGCAge:         0,
-		NonDeviceGCAge:      0,
-		HealthCheckInterval: 0,
-		LiveLessonTTL:       30,
-		InfluxdbEnabled:     false,
-		InfluxURL:           "https://influxdb.networkreliability.engineering/",
-		InfluxUsername:      "admin",
-		InfluxPassword:      "zerocool",
-		TSDBExportInterval:  0,
-		CurriculumVersion:   "latest",
-		AlwaysPull:          true,
-		PrivilegedImages: []string{
-			"antidotelabs/container-vqfx",
-			"antidotelabs/vqfx-snap1",
-			"antidotelabs/vqfx-snap2",
-			"antidotelabs/vqfx-snap3",
-			"antidotelabs/vqfx-full",
-			"antidotelabs/cvx",
-			"antidotelabs/frr",
-		},
-		CertLocation: "tls-certificate",
-		AllowEgress:  false,
+	desired := AntidoteConfig{
+		CurriculumDir:     "/usr/bin/curriculum",
+		InstanceID:        "foobar",
+		Tier:              "prod",
+		ImageOrg:          "antidotelabs",
+		Domain:            "nrelabs.io",
+		GRPCPort:          50099,
+		HTTPPort:          8086,
+		LiveSessionTTL:    1440,
+		LiveLessonTTL:     30,
+		LiveSessionLimit:  0,
+		LiveLessonLimit:   0,
+		CurriculumVersion: "latest",
+		AlwaysPull:        false,
+		CertLocation:      "prod/tls-certificate",
+		AllowEgress:       false,
+		EnabledServices:   []string{"foobarsvc"},
 	}
 
-	t.Log(syringeConfig.JSON())
+	t.Log(antidoteConfig.JSON())
 	t.Log(desired.JSON())
 
 	// Pretty barbaric but works for now
-	assert(t, syringeConfig.JSON() == desired.JSON(), "")
+	assert(t, antidoteConfig.JSON() == desired.JSON(), "")
 }

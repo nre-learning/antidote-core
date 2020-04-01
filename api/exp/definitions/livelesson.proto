@@ -1,21 +1,18 @@
 syntax = "proto3";
-package syringe.api.exp;
+package antidote.api.exp;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-import "lesson.proto";
-
 service LiveLessonsService {
 
-  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckMessage) {
+  rpc HealthCheck(google.protobuf.Empty) returns (LBHealthCheckResponse) {
     option (google.api.http) = {
       get: "/*"
     };
   }
 
   // Request a lab is created, or request the UUID of one that already exists for these parameters.
-  rpc RequestLiveLesson(LessonParams) returns (LessonUUID) {
+  rpc RequestLiveLesson(LiveLessonRequest) returns (LiveLessonId) {
     option (google.api.http) = {
       post: "/exp/livelesson"
       body: "*"
@@ -23,104 +20,84 @@ service LiveLessonsService {
   }
 
   // Retrieve details about a lesson
-  rpc GetLiveLesson(LessonUUID) returns (LiveLesson) {
+  rpc GetLiveLesson(LiveLessonId) returns (LiveLesson) {
     option (google.api.http) = {
       get: "/exp/livelesson/{id}"
     };
   }
 
-  rpc RequestVerification(LessonUUID) returns (VerificationTaskUUID) {
-    option (google.api.http) = {
-      post: "/exp/livelesson/{id}/verify"
-      body: "*"
-    };
-  }
-
-  rpc GetVerification(VerificationTaskUUID) returns (VerificationTask) {
-    option (google.api.http) = {
-      get: "/exp/verification/{id}"
-    };
-  }
-
   // THESE ARE SENSITIVE - do not expose via REST
-  rpc GetSyringeState(google.protobuf.Empty) returns (SyringeState) {}
-  rpc AddSessiontoGCWhitelist(Session) returns (HealthCheckMessage) {}
-  rpc RemoveSessionFromGCWhitelist(Session) returns (HealthCheckMessage) {}
-  rpc GetGCWhitelist(google.protobuf.Empty) returns (Sessions) {}
   rpc ListLiveLessons(google.protobuf.Empty) returns (LiveLessons) {}
-  rpc KillLiveLesson(LessonUUID) returns (KillLiveLessonStatus) {}
+  rpc KillLiveLesson(LiveLessonId) returns (KillLiveLessonStatus) {}
+  rpc CreateLiveLesson(LiveLesson) returns (google.protobuf.Empty) {}
+
 }
+
+message LBHealthCheckResponse {}
 
 message Session {
   string id = 1;
 }
 
-message Sessions {
-  repeated Session sessions = 1;
+// enum Status {
+//   DONOTUSE = 0;   // Protobuf doesn't encode the default value. Throwing this one away.
+//   INITIAL_BOOT = 1;
+//   CONFIGURATION = 2;
+//   READY = 3;
+// }
+
+message LiveEndpoint {
+  string Name = 1;
+  string Image = 2;
+  repeated int32 Ports = 4;
+  repeated LivePresentation LivePresentations = 5;
+  string Host = 6;
+
+  string SSHUser = 7;
+  string SSHPassword = 8;
 }
 
-message HealthCheckMessage {}
-
-message SyringeState {
-
-  // Map that contains a mapping of UUIDs to LiveLesson messages
-  map<string, LiveLesson> Livelessons = 1;
-
+message LivePresentation {
+  string Name = 1;
+  int32 Port = 2;
+  string Type = 3;
 }
 
-enum Status {
-  DONOTUSE = 0;   // Protobuf doesn't encode the default value. Throwing this one away.
-  INITIAL_BOOT = 1;
-  CONFIGURATION = 2;
-  READY = 3;
-}
 
-// A provisioned lab without the scheduler details. The server will translate from an underlying type
-// (i.e. KubeLab) into this, so only the abstract, relevant details are presented.
 message LiveLesson {
-  string LessonUUID = 1;
-  int32 LessonId = 2;
+  string ID = 1;
+  string SessionID = 2;
+  string AntidoteID = 3;
+  string LessonSlug = 4;
 
-  map <string, Endpoint> LiveEndpoints  = 3;
+  map <string, LiveEndpoint> LiveEndpoints  = 5;
 
-  int32 LessonStage = 5;
-  string LabGuide = 6;
-  bool JupyterLabGuide = 7;
+  int32 CurrentStage = 6;
+  string GuideContents = 7;
+  string GuideType = 8;
 
-  Status LiveLessonStatus = 8;
+  string Status = 9;
 
-  google.protobuf.Timestamp createdTime = 9;
-  string LessonDiagram = 10;
-  string LessonVideo = 11;
-  bool Error = 12;
-  int32 HealthyTests = 13;
-  int32 TotalTests = 14;
+  bool Error = 10;
+  int32 HealthyTests = 11;
+  int32 TotalTests = 12;
+
+  string Diagram = 13;
+  string Video = 14;
+  string StageVideo = 15;
 }
 
 message LiveLessons {
-  map<string, LiveLesson> items = 1;
+  map<string, LiveLesson> LiveLessons = 1;
 }
 
-message VerificationTaskUUID {
-  string id = 1;
-}
-
-message VerificationTask {
-  string liveLessonId = 1;
-  int32 liveLessonStage = 2;
-  bool success = 3;
-  bool working = 4;
-  string message = 5;
-  google.protobuf.Timestamp completed = 6;
-}
-
-message LessonParams {
-  int32 lessonId = 1;
+message LiveLessonRequest {
+  string lessonSlug = 1;
   string sessionId = 2;
   int32 lessonStage = 3;
 }
 
-message LessonUUID {
+message LiveLessonId {
   string id = 1;
 }
 

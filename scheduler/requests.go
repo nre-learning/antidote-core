@@ -1,290 +1,338 @@
 package scheduler
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
+	corev1 "k8s.io/api/core/v1"
+
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 )
 
-type LessonScheduleRequest struct {
-	Lesson    *pb.Lesson
-	Operation OperationType
-	Uuid      string
-	Stage     int32
-	Created   time.Time
-}
+func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_create", ot.ChildOf(sc))
+	defer span.Finish()
 
-type LessonScheduleResult struct {
-	Success          bool
-	Stage            int32
-	Lesson           *pb.Lesson
-	Operation        OperationType
-	Message          string
-	ProvisioningTime int
-	Uuid             string
-}
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-func (ls *LessonScheduler) handleRequestCREATE(newRequest *LessonScheduleRequest) {
+	span.LogEvent(fmt.Sprintf("Generated namespace name %s", nsName))
 
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
-
-	// TODO(mierdin): This function returns a pointer, and as a result, we're able to
-	// set properties of newKubeLab and the map that stores these is immediately updated.
-	// This isn't technically goroutine-safe, even though it's more or lesson guaranteed
-	// that only one goroutine will access THIS pointer (since they're separated by
-	// session ID). Not currently encountering issues here, but might want to think about it
-	// longer-term.
-	newKubeLab, err := ls.createKubeLab(newRequest)
+	ll, err := s.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
-		log.Errorf("Error creating lesson: %s", err)
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-		}
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
-	// INITIAL_BOOT is the default status, but sending this to the API after Kubelab creation will
-	// populate the entry in the API server with data about endpoints that it doesn't have yet.
-	log.Debugf("Kubelab creation for %s complete. Moving into INITIAL_BOOT status", newRequest.Uuid)
-	newKubeLab.Status = pb.Status_INITIAL_BOOT
-	newKubeLab.CurrentStage = newRequest.Stage
-	ls.setKubelab(newRequest.Uuid, newKubeLab)
-
-	// Trigger a status update in the API server
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: OperationType_MODIFY,
-		Stage:     newRequest.Stage,
-	}
-
-	liveLesson := newKubeLab.ToLiveLesson()
-
-	var success = false
-	for i := 0; i < 600; i++ {
-		time.Sleep(1 * time.Second)
-
-		log.Debugf("About to test endpoint reachability for livelesson %s with endpoints %v", liveLesson.LessonUUID, liveLesson.LiveEndpoints)
-
-		reachability := ls.testEndpointReachability(liveLesson)
-
-		log.Debugf("Livelesson %s health check results: %v", liveLesson.LessonUUID, reachability)
-
-		// Update reachability status
-		failed := false
-		healthy := 0
-		total := len(reachability)
-		for _, reachable := range reachability {
-			if reachable {
-				healthy++
-			} else {
-				failed = true
-			}
-		}
-		newKubeLab.HealthyTests = healthy
-		newKubeLab.TotalTests = total
-
-		// Trigger a status update in the API server
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
-		}
-
-		// Begin again if one of the endpoints isn't reachable
-		if failed {
-			continue
-		}
-
-		success = true
-		break
-
-	}
-
-	if !success {
-		log.Errorf("Timeout waiting for lesson %d to become reachable", newRequest.Lesson.LessonId)
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-		return
-	} else {
-
-		log.Debugf("Setting status for livelesson %s to CONFIGURATION", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_CONFIGURATION
-
-		// Trigger a status update in the API server
-		ls.Results <- &LessonScheduleResult{
-			Success:   true,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: OperationType_MODIFY,
-			Stage:     newRequest.Stage,
-		}
-	}
-
-	log.Infof("Performing configuration for new instance of lesson %d", newRequest.Lesson.LessonId)
-	err = ls.configureStuff(nsName, liveLesson, newRequest)
+	err = s.createK8sStuff(span.Context(), newRequest)
 	if err != nil {
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
-	} else {
-		log.Debugf("Setting %s to READY", newRequest.Uuid)
-		newKubeLab.Status = pb.Status_READY
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return
+	}
 
-		ls.Results <- &LessonScheduleResult{
-			Success:          true,
-			Lesson:           newRequest.Lesson,
-			Uuid:             newRequest.Uuid,
-			ProvisioningTime: int(time.Since(newRequest.Created).Seconds()),
-			Operation:        newRequest.Operation,
-			Stage:            newRequest.Stage,
-		}
+	err = s.waitUntilReachable(span.Context(), ll)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return
+	}
+
+	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_CONFIGURATION)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return
+	}
+
+	err = s.configureStuff(span.Context(), nsName, ll, newRequest)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return
 	}
 
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
-	if !ls.SyringeConfig.AllowEgress {
-		ls.createNetworkPolicy(nsName)
+	if s.Config.AllowEgress {
+		s.createNetworkPolicy(span.Context(), nsName)
 	}
 
-	ls.setKubelab(newRequest.Uuid, newKubeLab)
+	_ = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
 
+	// Inject span context and send LSR into NATS
+	tracer := ot.GlobalTracer()
+	var t services.TraceMsg
+	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
+	reqBytes, _ := json.Marshal(newRequest)
+	t.Write(reqBytes)
+	s.NC.Publish(services.LsrCompleted, t.Bytes())
 }
 
-func (ls *LessonScheduler) handleRequestMODIFY(newRequest *LessonScheduleRequest) {
+func (s *AntidoteScheduler) handleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_modify", ot.ChildOf(sc))
+	defer span.Finish()
 
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
 
-	// TODO(mierdin): Check for presence first?
-	kl := ls.KubeLabs[newRequest.Uuid]
-	kl.CurrentStage = newRequest.Stage
-	ls.setKubelab(newRequest.Uuid, kl)
-
-	liveLesson := kl.ToLiveLesson()
-
-	log.Infof("Performing configuration of modified instance of lesson %d", newRequest.Lesson.LessonId)
-	err := ls.configureStuff(nsName, liveLesson, newRequest)
+	ll, err := s.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return
 	}
 
-	err = ls.boopNamespace(nsName)
+	err = s.configureStuff(span.Context(), nsName, ll, newRequest)
 	if err != nil {
-		log.Errorf("Problem modify-booping %s: %v", nsName, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+		return
 	}
 
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
+	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
+
+	err = s.boopNamespace(span.Context(), nsName)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 }
 
-func (ls *LessonScheduler) handleRequestVERIFY(newRequest *LessonScheduleRequest) {
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+func (s *AntidoteScheduler) handleRequestBOOP(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_boop", ot.ChildOf(sc))
+	defer span.Finish()
 
-	ls.killAllJobs(nsName, "verify")
-	verifyJob, err := ls.verifyLiveLesson(newRequest)
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
+
+	err := s.boopNamespace(span.Context(), nsName)
 	if err != nil {
-		log.Debugf("Unable to verify: %s", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
+}
 
-		ls.Results <- &LessonScheduleResult{
-			Success:   false,
-			Lesson:    newRequest.Lesson,
-			Uuid:      newRequest.Uuid,
-			Operation: newRequest.Operation,
-			Stage:     newRequest.Stage,
-		}
+// handleRequestDELETE handles a livelesson deletion request by first sending a delete request
+// for the corresponding namespace, and then cleaning up local state.
+func (s *AntidoteScheduler) handleRequestDELETE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+	span := ot.StartSpan("scheduler_lsr_delete", ot.ChildOf(sc))
+	defer span.Finish()
+
+	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
+	err := s.deleteNamespace(span.Context(), nsName)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 	}
 
-	// Quick timeout here. About 30 seconds or so.
-	for i := 0; i < 15; i++ {
+	// Make sure to not return earlier than this, so we make sure the state is cleaned up
+	// no matter what
+	_ = s.Db.DeleteLiveLesson(span.Context(), newRequest.LiveLessonID)
+}
 
-		finished, err := ls.verifyStatus(verifyJob, newRequest)
-		// Return immediately if there was a problem
+// createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
+// of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
+// lesson are all created as part of this workflow.
+func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.LessonScheduleRequest) error {
+	span := ot.StartSpan("scheduler_k8s_create_stuff", ot.ChildOf(sc))
+	defer span.Finish()
+
+	ns, err := s.createNamespace(span.Context(), req)
+	if err != nil {
+		log.Error(err)
+	}
+
+	_ = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
+
+	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
+	if err != nil {
+		return err
+	}
+
+	ll, err := s.Db.GetLiveLesson(span.Context(), req.LiveLessonID)
+	if err != nil {
+		return err
+	}
+
+	// Append endpoint and create ingress for jupyter lab guide if necessary
+	if usesJupyterLabGuide(lesson) {
+
+		jupyterEp := &models.LiveEndpoint{
+			Name:  "jupyterlabguide",
+			Image: fmt.Sprintf("antidotelabs/jupyter:%s", s.BuildInfo["imageVersion"]),
+			Ports: []int32{8888},
+		}
+		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
+
+		_, err := s.createIngress(
+			span.Context(),
+			ns.ObjectMeta.Name,
+			jupyterEp,
+			&models.LivePresentation{
+				Name: "web",
+				Port: 8888,
+			},
+		)
 		if err != nil {
-			ls.Results <- &LessonScheduleResult{
-				Success:   false,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
+			return fmt.Errorf("Unable to create ingress resource - %v", err)
 		}
-
-		// Return immediately if successful and finished
-		if finished == true {
-			ls.Results <- &LessonScheduleResult{
-				Success:   true,
-				Lesson:    newRequest.Lesson,
-				Uuid:      newRequest.Uuid,
-				Operation: newRequest.Operation,
-				Stage:     newRequest.Stage,
-			}
-			return
-		}
-
-		// Not failed or succeeded yet. Try again.
-		time.Sleep(2 * time.Second)
 	}
 
-	// Return failure, there's clearly a problem.
-	ls.Results <- &LessonScheduleResult{
-		Success:   false,
-		Lesson:    newRequest.Lesson,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
-		Stage:     newRequest.Stage,
+	// Create networks from connections property
+	for c := range lesson.Connections {
+		connection := lesson.Connections[c]
+		_, err := s.createNetwork(span.Context(), c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
 	}
-}
 
-func (ls *LessonScheduler) handleRequestBOOP(newRequest *LessonScheduleRequest) {
-	nsName := fmt.Sprintf("%s-ns", newRequest.Uuid)
+	createdPods := make(map[string]*corev1.Pod)
 
-	err := ls.boopNamespace(nsName)
+	// Create pods and services
+	for d := range ll.LiveEndpoints {
+		ep := ll.LiveEndpoints[d]
+
+		// createPod doesn't try to ensure a certain pod status. That's done later
+		newPod, err := s.createPod(span.Context(),
+			ep,
+			getMemberNetworks(ep.Name, lesson.Connections),
+			req,
+		)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		createdPods[newPod.ObjectMeta.Name] = newPod
+
+		// Expose via service if needed
+		if len(newPod.Spec.Containers[0].Ports) > 0 {
+			svc, err := s.createService(
+				span.Context(),
+				newPod,
+				req,
+			)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+
+			// Update livelesson liveendpoint with cluster IP
+			s.Db.UpdateLiveLessonEndpointIP(span.Context(), ll.ID, ep.Name, svc.Spec.ClusterIP)
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+				return err
+			}
+
+		}
+
+		// Create ingresses for http presentations
+		for pr := range ep.Presentations {
+			p := ep.Presentations[pr]
+
+			if p.Type == "http" {
+				_, err := s.createIngress(
+					span.Context(),
+					ns.ObjectMeta.Name,
+					ep,
+					p,
+				)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+			}
+		}
+	}
+
+	err = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_BOOTING)
 	if err != nil {
-		log.Errorf("Problem booping %s: %v", nsName, err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
 	}
-}
 
-func (ls *LessonScheduler) handleRequestDELETE(newRequest *LessonScheduleRequest) {
+	// Before moving forward with network-based health checks, let's look back at the pods
+	// we've deployed, and wait until they're in a "Running" status. This allows us to keep a hold
+	// of maximum amounts of context for troubleshooting while we have it
+	wg := new(sync.WaitGroup)
+	wg.Add(len(createdPods))
 
-	// Delete the namespace object and then clean up our local state
-	// TODO(mierdin): This is an unlikely operation to fail, but maybe add some kind logic here just in case?
-	ls.deleteNamespace(fmt.Sprintf("%s-ns", newRequest.Uuid))
-	ls.deleteKubelab(newRequest.Uuid)
+	failLesson := false
 
-	ls.Results <- &LessonScheduleResult{
-		Success:   true,
-		Uuid:      newRequest.Uuid,
-		Operation: newRequest.Operation,
+	for name, pod := range createdPods {
+		go func(sc ot.SpanContext, name string, pod *corev1.Pod) {
+			span := ot.StartSpan("scheduler_pod_status", ot.ChildOf(sc))
+			defer span.Finish()
+			span.SetTag("podName", name)
+			defer wg.Done()
+
+			for i := 0; i < 150; i++ {
+				rdy, err := s.getPodStatus(pod)
+				if err != nil {
+					s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
+					s.recordPodLogs(span.Context(), ll.ID, pod.Name, "")
+					failLesson = true
+					return
+				}
+
+				if rdy {
+					delete(createdPods, name)
+					return
+				}
+
+				time.Sleep(2 * time.Second)
+			}
+
+			// We would only get to this point if the pod failed to start in the first place.
+			// One potential reason for this is a failure in the init container, so we should attempt
+			// to gather those logs.
+			s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
+
+			err = fmt.Errorf("Timed out waiting for %s to start", name)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			failLesson = true
+			return
+		}(span.Context(), name, pod)
 	}
+
+	wg.Wait()
+
+	// At this point, the only pods left in createdPods should be ones that failed to ready
+	if failLesson || len(createdPods) > 0 {
+
+		failedPodNames := []string{}
+		for k := range createdPods {
+			failedPodNames = append(failedPodNames, k)
+		}
+
+		span.LogFields(log.Object("failedPodNames", failedPodNames))
+		ext.Error.Set(span, true)
+		return errors.New("Some pods failed to start")
+	}
+
+	return nil
 }

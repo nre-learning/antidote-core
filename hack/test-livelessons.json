@@ -1,0 +1,31 @@
+[
+  {
+    "ID": "abcdef",
+    "SessionID": "atotallylegitsessionohyeah",
+    "LessonSlug": "jinja2",
+    "LiveEndpoints": {
+      "linux1": {
+        "Name": "linux1",
+        "Image": "utility",
+        "Ports": [
+          22
+        ],
+        "LivePresentations": [
+          {
+            "Name": "cli",
+            "Port": 22,
+            "Type": "ssh"
+          }
+        ],
+        "Host": "123.123.123.123"
+      }
+    },
+    "LessonStage": 1,
+    "Status": "READY",
+    "Diagram": "a lovely diagram",
+    "Video": "baby shark",
+    "Error": false,
+    "HealthyTests": 4,
+    "TotalTests": 4
+  }
+]

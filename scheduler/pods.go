@@ -1,27 +1,34 @@
 package scheduler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	log "github.com/sirupsen/logrus"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	// Kubernetes Types
-
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// createPod accepts Syringe-specific constructs like Endpoints and network definitions, and translates them
-// into a Kubernetes pod object, and attempts to create it.
-func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *LessonScheduleRequest) (*corev1.Pod, error) {
+func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	span := ot.StartSpan("scheduler_pod_create", ot.ChildOf(sc))
+	defer span.Finish()
+
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+
+	span.SetTag("epName", ep.Name)
+	span.SetTag("nsName", nsName)
 
 	type networkAnnotation struct {
 		Name string `json:"name"`
@@ -38,30 +45,45 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
+	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	if err != nil {
+		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
+	privileged := false
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
 	var imageRef string
 	if strings.Contains(ep.Image, "jupyter") {
-		imageRef = ep.GetImage()
+		imageRef = ep.Image
 	} else {
-		imageRef = fmt.Sprintf("%s:%s", ep.GetImage(), ls.SyringeConfig.CurriculumVersion)
+
+		image, err := s.Db.GetImage(span.Context(), ep.Image)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
+		}
+		privileged = image.Privileged
+		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
 	}
 
-	pullPolicy := v1.PullAlways
-	if !ls.SyringeConfig.AlwaysPull {
-		pullPolicy = v1.PullIfNotPresent
+	pullPolicy := v1.PullIfNotPresent
+	if s.Config.AlwaysPull {
+		pullPolicy = v1.PullAlways
 	}
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ep.GetName(),
+			Name:      ep.Name,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"podName":        ep.GetName(),
-				"syringeManaged": "yes",
+				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+				"podName":         ep.Name,
+				"antidoteManaged": "yes",
 			},
 			Annotations: map[string]string{
 				"k8s.v1.cni.cncf.io/networks": string(netAnnotationsJSON),
@@ -69,7 +91,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 		Spec: corev1.PodSpec{
 
-			// All syringe-created pods are assigned to the same host for a given namespace. This keeps things much simplier, since each
+			// All antidote-created pods are assigned to the same host for a given namespace. This keeps things much simplier, since each
 			// network just uses linux bridges local to that host. Multi-host networking is a bit hit-or-miss when used with multus, so
 			// this just keeps things simpler.
 			// https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
@@ -79,8 +101,9 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-									"syringeManaged": "yes",
+									"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+									"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+									"antidoteManaged": "yes",
 								},
 							},
 							Namespaces: []string{
@@ -95,7 +118,7 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 			InitContainers: initContainers,
 			Containers: []corev1.Container{
 				{
-					Name:            ep.GetName(),
+					Name:            ep.Name,
 					Image:           imageRef,
 					ImagePullPolicy: pullPolicy,
 
@@ -108,71 +131,112 @@ func (ls *LessonScheduler) createPod(ep *pb.Endpoint, networks []string, req *Le
 		},
 	}
 
-	// TODO(mierdin): See Antidote mini-project 6 (MP6) for details on how we're planning to obviate
-	// the need for privileged mode entirely. For now, this mechanism allows us to only grant this to
-	// images that contain a virtualization layer (i.e. network devices).
-	for i := range ls.SyringeConfig.PrivilegedImages {
-		if ep.Image == ls.SyringeConfig.PrivilegedImages[i] {
-			b := true
-			pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-				Privileged:               &b,
-				AllowPrivilegeEscalation: &b,
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{
-						"NET_ADMIN",
-					},
+	// Not all endpoint images come with a hypervisor. For these, we want to be able to conditionally
+	// enable/disable privileged mode based on the relevant field present in the loaded image spec.
+	//
+	// See https://github.com/nre-learning/proposals/pull/7 for plans to standardize the endpoint image
+	// build process, which is likely to include a virtualization layer for safety. However, this option will
+	// likely remain in place regardless.
+	if privileged {
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &privileged,
+			AllowPrivilegeEscalation: &privileged,
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"NET_ADMIN",
 				},
-			}
+			},
 		}
 	}
 
-	// Combine additionalPorts and any other port mentioned explicitly in a Presentation
-	rawPorts := ep.GetAdditionalPorts()
-	for p := range ep.Presentations {
-		rawPorts = append(rawPorts, ep.Presentations[p].Port)
-	}
-	ports := unique(rawPorts)
-
 	// Convert to ContainerPort and attach to pod container
-	for p := range ports {
-		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ports[p]})
+	for p := range ep.Ports {
+		pod.Spec.Containers[0].Ports = append(pod.Spec.Containers[0].Ports, corev1.ContainerPort{ContainerPort: ep.Ports[p]})
 	}
 
 	if len(pod.Spec.Containers[0].Ports) == 0 {
-		return nil, errors.New(fmt.Sprintf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name))
+		return nil, fmt.Errorf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name)
 	}
 
-	result, err := ls.Client.CoreV1().Pods(nsName).Create(pod)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-			"networks":  string(netAnnotationsJSON),
-		}).Infof("Created pod: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Pod %s already exists.", ep.GetName())
-
-		result, err := ls.Client.CoreV1().Pods(nsName).Get(ep.GetName(), metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve pod after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating pod %s: %s", ep.GetName(), err)
+	result, err := s.Client.CoreV1().Pods(nsName).Create(pod)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
-	return result, err
+
+	return result, nil
 }
 
-func unique(intSlice []int32) []int32 {
-	keys := make(map[int32]bool)
-	list := []int32{}
-	for _, entry := range intSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
+// getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
+// kubernetes perspective, before we move forward with network-based health checks. It is not meant to capture
+// all potential failure scenarios, only those that result in the Pod failing to start in the first place.
+func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
+	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	// We expect to see an init container status, so if we don't see one, we know we're not
+	// ready yet. Also useful to ensure we don't get an "index out of range" panic
+	if len(pod.Status.InitContainerStatuses) == 0 {
+		return false, nil
+	}
+
+	if pod.Status.InitContainerStatuses[0].State.Terminated != nil {
+		if pod.Status.InitContainerStatuses[0].State.Terminated.ExitCode != 0 {
+			return false, errors.New("Init container failed")
 		}
 	}
-	return list
+
+	if pod.Status.Phase == corev1.PodFailed {
+		return false, errors.New("Pod in failure state")
+	}
+	if pod.Status.Phase == corev1.PodRunning {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// recordPodLogs allows us to record the logs for a given pod (typically as a result of a failure of some kind),
+// such as an endpoint pod or a pod spawned by a Job during configuration. These logs are retrieved,
+// and then exported via a dedicated OpenTracing span.
+func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
+	span := ot.StartSpan("scheduler_pod_logs", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("podName", podName)
+	span.SetTag("container", container)
+
+	nsName := generateNamespaceName(s.Config.InstanceID, llID)
+	pod, err := s.Client.CoreV1().Pods(nsName).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return
+	}
+
+	var plo = corev1.PodLogOptions{}
+	if container != "" {
+		plo.Container = container
+	}
+	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &plo)
+	podLogs, err := req.Stream()
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return
+	}
+	str := buf.String()
+
+	span.LogEventWithPayload("logs", services.SafePayload(str))
 }

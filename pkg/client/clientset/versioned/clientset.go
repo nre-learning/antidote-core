@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	k8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+	k8sv1 "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

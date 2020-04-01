@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	k8sv1 "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	k8sv1 "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

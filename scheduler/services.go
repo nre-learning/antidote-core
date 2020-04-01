@@ -1,42 +1,45 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/nre-learning/antidote-core/services"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
 	// Kubernetes types
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (ls *LessonScheduler) deleteService(name string) error {
-	return nil
-}
-
-func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleRequest) (*corev1.Service, error) {
+func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
+	span := ot.StartSpan("scheduler_service_create", ot.ChildOf(sc))
+	defer span.Finish()
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"syringeManaged": "yes",
+				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
+				"antidoteManaged": "yes",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"lessonId": fmt.Sprintf("%d", req.Lesson.LessonId),
-				"podName":  pod.ObjectMeta.Name,
+				"liveLesson":  fmt.Sprintf("%s", req.LiveLessonID),
+				"liveSession": fmt.Sprintf("%s", req.LiveSessionID),
+				"podName":     pod.ObjectMeta.Name,
 			},
 			Ports: []corev1.ServicePort{}, // will fill out below
 
@@ -55,22 +58,20 @@ func (ls *LessonScheduler) createService(pod *corev1.Pod, req *LessonScheduleReq
 		})
 	}
 
-	result, err := ls.Client.CoreV1().Services(nsName).Create(svc)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created service: %s", result.ObjectMeta.Name)
+	result, err := s.Client.CoreV1().Services(nsName).Create(svc)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
 
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Service %s already exists.", serviceName)
-		result, err := ls.Client.CoreV1().Services(nsName).Get(serviceName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve service after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Error creating service: %s", err)
+	// This is a corner case that has yet to occur (the svc creation taking place without having a clusterIP
+	// assigned) but it's easy for us to just check for it really quick, and this is important to properly set
+	// up the liveendpoints later.
+	if result.Spec.ClusterIP == "" {
+		err = errors.New("Service was created but no ClusterIP was assigned")
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 

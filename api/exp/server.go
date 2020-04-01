@@ -7,49 +7,39 @@ import (
 	"mime"
 	"net"
 	"net/http"
-	"os"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/golang/glog"
-	swag "github.com/nre-learning/syringe/api/exp/swagger"
+	nats "github.com/nats-io/nats.go"
+	swag "github.com/nre-learning/antidote-core/api/exp/swagger"
+	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
 
-	"github.com/nre-learning/syringe/pkg/ui/data/swagger"
+	"github.com/nre-learning/antidote-core/pkg/ui/data/swagger"
 
-	ghandlers "github.com/gorilla/handlers"
 	runtime "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	scheduler "github.com/nre-learning/syringe/scheduler"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	assetfs "github.com/philips/go-bindata-assetfs"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
 
-	gw "github.com/nre-learning/syringe/api/exp/generated"
+	gw "github.com/nre-learning/antidote-core/api/exp/generated"
 )
 
-// this will keep our state.
-type SyringeAPIServer struct {
+// AntidoteAPI handles incoming requests from antidote-web, or other gRPC clients
+type AntidoteAPI struct {
+	Db     db.DataManager
+	Config config.AntidoteConfig
+	NC     *nats.Conn
 
-	// in-memory map of liveLessons, indexed by UUID
-	// LiveLesson UUID is a string composed of the lesson ID and the session ID together,
-	// separated by a single hyphen. For instance, user session ID 582k2aidfjekxefi and lesson 19
-	// will result in 19-582k2aidfjekxefi.
-	LiveLessonState map[string]*pb.LiveLesson
-	LiveLessonsMu   *sync.Mutex
-
-	// in-memory map of verification tasks, indexed by UUID+stage
-	// Similar to livelesson but with stage at the end, e.g. 19-582k2aidfjekxefi-1
-	VerificationTasks   map[string]*pb.VerificationTask
-	VerificationTasksMu *sync.Mutex
-
-	Scheduler *scheduler.LessonScheduler
+	BuildInfo map[string]string
 }
 
-func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, buildInfo map[string]string) error {
+// Start runs the API server. Meant to be executed in a goroutine, as it will block indefinitely
+func (apiServer *AntidoteAPI) Start() error {
 
-	grpcPort := apiServer.Scheduler.SyringeConfig.GRPCPort
-	httpPort := apiServer.Scheduler.SyringeConfig.HTTPPort
+	grpcPort := apiServer.Config.GRPCPort
+	httpPort := apiServer.Config.HTTPPort
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
 	if err != nil {
@@ -58,11 +48,11 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterLiveLessonsServiceServer(grpcServer, apiServer)
+	pb.RegisterLiveSessionsServiceServer(grpcServer, apiServer)
 	pb.RegisterCurriculumServiceServer(grpcServer, apiServer)
 	pb.RegisterCollectionServiceServer(grpcServer, apiServer)
 	pb.RegisterLessonServiceServer(grpcServer, apiServer)
-	pb.RegisterSyringeInfoServiceServer(grpcServer, apiServer)
-	pb.RegisterKubeLabServiceServer(grpcServer, apiServer)
+	pb.RegisterAntidoteInfoServiceServer(grpcServer, apiServer)
 	defer grpcServer.Stop()
 
 	// Start grpc server
@@ -81,11 +71,15 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	if err != nil {
 		return err
 	}
+	err = gw.RegisterLiveSessionsServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	if err != nil {
+		return err
+	}
 	err = gw.RegisterLessonServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
-	err = gw.RegisterSyringeInfoServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
+	err = gw.RegisterAntidoteInfoServiceHandlerFromEndpoint(ctx, gwmux, fmt.Sprintf(":%d", grpcPort), opts)
 	if err != nil {
 		return err
 	}
@@ -104,11 +98,14 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	mux.HandleFunc("/livelesson.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Livelesson))
 	})
+	mux.HandleFunc("/livesession.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Livelesson))
+	})
 	mux.HandleFunc("/lesson.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Lesson))
 	})
-	mux.HandleFunc("/syringeinfo.json", func(w http.ResponseWriter, req *http.Request) {
-		io.Copy(w, strings.NewReader(swag.Syringeinfo))
+	mux.HandleFunc("/antidoteinfo.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(swag.Antidoteinfo))
 	})
 	mux.HandleFunc("/collection.json", func(w http.ResponseWriter, req *http.Request) {
 		io.Copy(w, strings.NewReader(swag.Collection))
@@ -127,97 +124,13 @@ func (apiServer *SyringeAPIServer) StartAPI(ls *scheduler.LessonScheduler, build
 	log.WithFields(log.Fields{
 		"gRPC Port": grpcPort,
 		"HTTP Port": httpPort,
-	}).Info("Syringe API started.")
+	}).Info("Antidote API started.")
 
-	// Begin periodically exporting metrics to TSDB
-	if apiServer.Scheduler.SyringeConfig.InfluxdbEnabled {
-		go apiServer.startTSDBExport()
-	}
+	// Wait forever
+	ch := make(chan struct{})
+	<-ch
 
-	// Periodic clean-up of verification tasks
-	go func() {
-		for {
-			for id, vt := range apiServer.VerificationTasks {
-				if !vt.Working && time.Now().Unix()-vt.Completed.GetSeconds() > 15 {
-					apiServer.DeleteVerificationTask(id)
-				}
-			}
-			time.Sleep(time.Second * 5)
-		}
-	}()
-
-	// Handle results from scheduler asynchronously
-	var handlers = map[scheduler.OperationType]interface{}{
-		scheduler.OperationType_CREATE: apiServer.handleResultCREATE,
-		scheduler.OperationType_DELETE: apiServer.handleResultDELETE,
-		scheduler.OperationType_MODIFY: apiServer.handleResultMODIFY,
-		scheduler.OperationType_BOOP:   apiServer.handleResultBOOP,
-		scheduler.OperationType_VERIFY: apiServer.handleResultVERIFY,
-	}
-	for {
-		result := <-ls.Results
-
-		log.WithFields(log.Fields{
-			"Operation": result.Operation,
-			"Success":   result.Success,
-			"Uuid":      result.Uuid,
-		}).Debug("Received result from scheduler.")
-
-		handleFunc := handlers[result.Operation].(func(*scheduler.LessonScheduleResult))
-		handleFunc(result)
-
-	}
 	return nil
-}
-
-func (s *SyringeAPIServer) LiveLessonExists(uuid string) bool {
-	_, ok := s.LiveLessonState[uuid]
-	return ok
-}
-
-func (s *SyringeAPIServer) SetLiveLesson(uuid string, ll *pb.LiveLesson) {
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-
-	s.LiveLessonState[uuid] = ll
-}
-
-func (s *SyringeAPIServer) UpdateLiveLessonStage(uuid string, stage int32) {
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-
-	s.LiveLessonState[uuid].LessonStage = stage
-	s.LiveLessonState[uuid].LiveLessonStatus = pb.Status_CONFIGURATION
-}
-
-func (s *SyringeAPIServer) DeleteLiveLesson(uuid string) {
-	if _, ok := s.LiveLessonState[uuid]; !ok {
-		// Nothing to do
-		log.Debug("DeleteLiveLesson - Returning early.")
-		return
-	}
-	s.LiveLessonsMu.Lock()
-	defer s.LiveLessonsMu.Unlock()
-	log.Debugf("DeleteLiveLesson - About to Delete. Current state: %s", s.LiveLessonState)
-	delete(s.LiveLessonState, uuid)
-	log.Debugf("DeleteLiveLesson - FINISHED. Current state: %s", s.LiveLessonState)
-}
-
-func (s *SyringeAPIServer) SetVerificationTask(uuid string, vt *pb.VerificationTask) {
-	s.VerificationTasksMu.Lock()
-	defer s.VerificationTasksMu.Unlock()
-
-	s.VerificationTasks[uuid] = vt
-}
-
-func (s *SyringeAPIServer) DeleteVerificationTask(uuid string) {
-	if _, ok := s.VerificationTasks[uuid]; !ok {
-		// Nothing to do
-		return
-	}
-	s.VerificationTasksMu.Lock()
-	defer s.VerificationTasksMu.Unlock()
-	delete(s.VerificationTasks, uuid)
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
@@ -226,8 +139,6 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 
 	// Add handler for grpc server
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO(tamird): point to merged gRPC code rather than a PR.
-		// This is a partial recreation of gRPC's internal checks https://github.com/grpc/grpc-go/pull/514/files#diff-95e9a25b738459a2d3030e1e6fa2a718R61
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
 			grpcServer.ServeHTTP(w, r)
 		} else {
@@ -235,9 +146,13 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 		}
 	})
 
-	// Allow CORS (ONLY IN PREPROD)
 	// Add gorilla's logging handler for standards-based access logging
-	return ghandlers.LoggingHandler(os.Stdout, allowCORS(handlerFunc))
+	// (disabled for now because we have tracing in place, and this was just noise in the logs)
+	// return ghandlers.LoggingHandler(os.Stdout, allowCORS(handlerFunc))
+
+	// Allow CORS (ONLY IN PREPROD)
+	return allowCORS(handlerFunc)
+
 }
 
 // allowCORS allows Cross Origin Resoruce Sharing from any origin.

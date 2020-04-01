@@ -3,39 +3,44 @@ package scheduler
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 
 	// Custom Network CRD Types
-	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	networkcrd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (ls *LessonScheduler) createNetworkCrd() error {
+func (s *AntidoteScheduler) createNetworkCrd() error {
 
-	// note: if the CRD exist our CreateCRD function is set to exit without an error
-	err := networkcrd.CreateCRD(ls.ClientExt)
+	// NOTE: if the CRD already exists, this function will return with no error. The idea is
+	// that we run this every time Antidote starts just to make sure our CRD is installed in the cluster.
+	//
+	// Note the import path - this is code that we control, so if we desire a different
+	// outcome, it's possible. Just be aware this function is called early, so changes in behavior will be
+	// noticed.
+	err := networkcrd.CreateCRD(s.ClientExt)
 	if err != nil {
-		panic(err)
+		return err
 	}
-
-	// Wait for the CRD to be created before we use it (only needed if its a new one)
-	// TODO(mierdin): This really shouldn't be necessary. Let's try removing it.
-	// time.Sleep(3 * time.Second)
-
 	return nil
 }
 
-// createNetworkPolicy applies a kubernetes networkpolicy object to prohibit traffic out of the created namespace, for all
-// pods that aren't used for configuration purposes.
-func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPolicy, error) {
+// createNetworkPolicy applies a kubernetes networkpolicy object control traffic out of the namespace.
+// The main use case is to restrict access for lesson users to only resources in that lesson,
+// with some exceptions.
+func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
+	span := ot.StartSpan("scheduler_networkpolicy_create", ot.ChildOf(sc))
+	defer span.Finish()
 
 	var tcp corev1.Protocol = "TCP"
 	var udp corev1.Protocol = "UDP"
@@ -46,14 +51,14 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 			Name:      "stoneage",
 			Namespace: nsName,
 			Labels: map[string]string{
-				"syringeManaged": "yes",
+				"antidoteManaged": "yes",
 			},
 		},
 		Spec: netv1.NetworkPolicySpec{
 			PodSelector: meta_v1.LabelSelector{
 				MatchExpressions: []meta_v1.LabelSelectorRequirement{
 					{
-						Key:      "syringeManaged",
+						Key:      "antidoteManaged",
 						Operator: meta_v1.LabelSelectorOpIn,
 						Values: []string{
 							"yes",
@@ -66,21 +71,12 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 							"yes",
 						},
 					},
-					{ // do not apply network policy to verify pods, they need to get to internet for configs
-						Key:      "verifyPod",
-						Operator: meta_v1.LabelSelectorOpNotIn,
-						Values: []string{
-							"yes",
-						},
-					},
 				},
 			},
 			PolicyTypes: []netv1.PolicyType{
-				// Apply only egress policy here. We want to permit all ingress traffic,
-				// so that Syringe and Guacamole can reach these endpoints unhindered.
-				//
 				// We really only care about restricting what the pods can access, especially
-				// the internet.
+				// the internet. Everything else should be able to access into the namespace
+				// unrestricted. Thus, applying only in the egress direction.
 				"Egress",
 			},
 			Egress: []netv1.NetworkPolicyEgressRule{
@@ -115,22 +111,10 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 		},
 	}
 
-	newnp, err := ls.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Info("Created networkpolicy")
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Warn("networkpolicy already exists.")
-		return newnp, nil
-	} else {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Errorf("Problem creating networkpolicy: %s", err)
-
+	newnp, err := s.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return newnp, nil
@@ -138,16 +122,26 @@ func (ls *LessonScheduler) createNetworkPolicy(nsName string) (*netv1.NetworkPol
 }
 
 // createNetwork
-func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
+	defer span.Finish()
+
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
 	// Max of 15 characters in the bridge name - https://access.redhat.com/solutions/652593
-	bridgeName := fmt.Sprintf("%d-%s", netIndex, req.Uuid)
-	if len(bridgeName) > 15 {
-		bridgeName = bridgeName[0:15]
+	livelesson := req.LiveLessonID
+	if len(livelesson) > 6 {
+		livelesson = livelesson[0:6]
 	}
+	antidoteId := s.Config.InstanceID
+	if len(antidoteId) > 6 {
+		antidoteId = antidoteId[0:6]
+	}
+	// Combined, these use no more than 12 characters. This leaves three digits for the netIndex, which
+	// should be way more than enough.
+	bridgeName := fmt.Sprintf("%d%s%s", netIndex, antidoteId, livelesson)
 
 	// NOTE that this is just a placeholder, not necessarily the actual subnet in use on this segment.
 	// We have to put SOMETHING here, but because we're using the bridge plugin, this isn't actually
@@ -170,15 +164,13 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 			}
 		}`, networkName, bridgeName, subnet)
 
-	// Create a new Network object and write to k8s
 	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      netName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"syringeManaged": "yes",
+				"antidoteManaged": "yes",
 			},
 		},
 		Kind: "NetworkAttachmentDefinition",
@@ -187,31 +179,19 @@ func (ls *LessonScheduler) createNetwork(netIndex int, netName string, req *Less
 		},
 	}
 
-	nadClient := ls.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
+	nadClient := s.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
 
 	result, err := nadClient.Create(network)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created network: %s", result.ObjectMeta.Name)
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Network %s already exists.", network.ObjectMeta.Name)
-
-		result, err := nadClient.Get(network.ObjectMeta.Name, meta_v1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve network after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating network %s: %s", netName, err)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return nil, err
 	}
 	return result, err
 }
 
 // getMemberNetworks gets the names of all networks an endpoint belongs to based on definition.
-func getMemberNetworks(epName string, connections []*pb.Connection) []string {
+func getMemberNetworks(epName string, connections []*models.LessonConnection) []string {
 	// We want the management network to be first always.
 	// EDIT: Commented out since the management network is provided implicitly for now. We may want to move to an explicit model soon.
 	// memberNets := []string{

@@ -1,24 +1,32 @@
-// Responsible for creating all resources for a lab. Pods, services, networks, etc.
 package scheduler
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	config "github.com/nre-learning/syringe/config"
+	nats "github.com/nats-io/nats.go"
+	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 
 	// Custom Network CRD Types
-	networkcrd "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
+	networkcrd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
 
 	// Kubernetes Types
 	corev1 "k8s.io/api/core/v1"
@@ -26,21 +34,13 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	// Kubernetes clients
-	kubernetesCrd "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
+
+	kubernetesCrd "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 )
 
-type OperationType int32
-
-var (
-	OperationType_CREATE OperationType = 1
-	OperationType_DELETE OperationType = 2
-	OperationType_MODIFY OperationType = 3
-	OperationType_BOOP   OperationType = 4
-	OperationType_VERIFY OperationType = 5
-	defaultGitFileMode   int32         = 0755
-)
+const initContainerName string = "copy-local-files"
 
 // NetworkCrdClient is an interface for the client for our custom
 // network CRD. Allows for injection of mocks at test time.
@@ -53,21 +53,18 @@ type NetworkCrdClient interface {
 	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
 }
 
-type LessonScheduler struct {
+// AntidoteScheduler is an Antidote service that receives commands for things like creating new lesson instances,
+// moving existing livelessons to a different stage, deleting old lessons, etc.
+type AntidoteScheduler struct {
 	KubeConfig    *rest.Config
-	Requests      chan *LessonScheduleRequest
-	Results       chan *LessonScheduleResult
-	Curriculum    *pb.Curriculum
-	SyringeConfig *config.SyringeConfig
-	GcWhiteList   map[string]*pb.Session
-	GcWhiteListMu *sync.Mutex
-	KubeLabs      map[string]*KubeLab
-	KubeLabsMu    *sync.Mutex
+	NC            *nats.Conn
+	Config        config.AntidoteConfig
+	Db            db.DataManager
 	HealthChecker LessonHealthChecker
 
 	// Allows us to disable GC for testing. Production code should leave this at
 	// false
-	DisableGC bool
+	// DisableGC bool
 
 	// Client for interacting with normal Kubernetes resources
 	Client kubernetes.Interface
@@ -83,124 +80,162 @@ type LessonScheduler struct {
 
 // Start is meant to be run as a goroutine. The "requests" channel will wait for new requests, attempt to schedule them,
 // and put a results message on the "results" channel when finished (success or fail)
-func (ls *LessonScheduler) Start() error {
-	// Ensure cluster is cleansed before we start the scheduler
-	// TODO(mierdin): need to clearly document this behavior and warn to not edit kubernetes resources with the syringeManaged label
-	ls.nukeFromOrbit()
-	// I have taken this out now that garbage collection is in place. We should probably not have this in here, in case syringe panics, and then restarts, nuking everything.
+func (s *AntidoteScheduler) Start() error {
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
-	ls.createNetworkCrd()
-
-	// TODO(mierdin): Maybe not an issue right now, but should consider if we should check if another Syringe is operating with
-	// our configured ID.
+	err := s.createNetworkCrd()
+	if err != nil {
+		return err
+	}
 
 	// Garbage collection
-	if !ls.DisableGC {
-		go func() {
-			for {
+	go func() {
+		for {
 
-				cleaned, err := ls.PurgeOldLessons()
-				if err != nil {
-					log.Error("Problem with GCing lessons")
-				}
-
-				for i := range cleaned {
-
-					// Clean up local kubelab state
-					ls.deleteKubelab(cleaned[i])
-
-					// Send result to API server to clean up livelesson state
-					ls.Results <- &LessonScheduleResult{
-						Success:   true,
-						Lesson:    nil,
-						Uuid:      cleaned[i],
-						Operation: OperationType_DELETE,
-					}
-				}
-				time.Sleep(1 * time.Minute)
-
+			span := ot.StartSpan("scheduler_gc")
+			// Clean up any old lesson namespaces
+			llToDelete, err := s.PurgeOldLessons(span.Context())
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
 			}
-		}()
+
+			// Clean up local state based on purge results
+			for i := range llToDelete {
+				err := s.Db.DeleteLiveLesson(span.Context(), llToDelete[i])
+				if err != nil {
+					span.LogFields(log.Error(err))
+					ext.Error.Set(span, true)
+				}
+			}
+
+			// Clean up old sessions
+			err = s.PurgeOldSessions(span.Context())
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+			}
+
+			span.Finish()
+			time.Sleep(1 * time.Minute)
+
+		}
+	}()
+
+	var handlers = map[services.OperationType]interface{}{
+		services.OperationType_CREATE: s.handleRequestCREATE,
+		services.OperationType_DELETE: s.handleRequestDELETE,
+		services.OperationType_MODIFY: s.handleRequestMODIFY,
+		services.OperationType_BOOP:   s.handleRequestBOOP,
 	}
 
-	// Handle incoming requests asynchronously
-	var handlers = map[OperationType]interface{}{
-		OperationType_CREATE: ls.handleRequestCREATE,
-		OperationType_DELETE: ls.handleRequestDELETE,
-		OperationType_MODIFY: ls.handleRequestMODIFY,
-		OperationType_BOOP:   ls.handleRequestBOOP,
-		OperationType_VERIFY: ls.handleRequestVERIFY,
-	}
-	for {
-		newRequest := <-ls.Requests
+	s.NC.Subscribe(services.LsrIncoming, func(msg *nats.Msg) {
+		t := services.NewTraceMsg(msg)
+		tracer := ot.GlobalTracer()
+		sc, err := tracer.Extract(ot.Binary, t)
+		if err != nil {
+			logrus.Errorf("Failed to extract for %s: %v", services.LsrIncoming, err)
+		}
 
-		log.WithFields(log.Fields{
-			"Operation": newRequest.Operation,
-			"Uuid":      newRequest.Uuid,
-			"Stage":     newRequest.Stage,
-		}).Debug("Scheduler received new request. Sending to handle function.")
+		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
+		defer span.Finish()
+		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
 
-		go func() {
-			handlers[newRequest.Operation].(func(*LessonScheduleRequest))(newRequest)
-		}()
-	}
+		rem := t.Bytes()
+		var lsr services.LessonScheduleRequest
+		_ = json.Unmarshal(rem, &lsr)
+
+		go handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
+	})
+
+	// Wait forever
+	ch := make(chan struct{})
+	<-ch
+
 	return nil
 }
 
-func (ls *LessonScheduler) setKubelab(uuid string, kl *KubeLab) {
-	ls.KubeLabsMu.Lock()
-	defer ls.KubeLabsMu.Unlock()
-	ls.KubeLabs[uuid] = kl
-}
+// PurgeOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
+	span := ot.StartSpan("scheduler_purgeoldsessions", ot.ChildOf(sc))
+	defer span.Finish()
 
-func (ls *LessonScheduler) deleteKubelab(uuid string) {
-	if _, ok := ls.KubeLabs[uuid]; !ok {
-		return
+	lsList, err := s.Db.ListLiveSessions(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
 	}
-	ls.KubeLabsMu.Lock()
-	defer ls.KubeLabsMu.Unlock()
-	delete(ls.KubeLabs, uuid)
+
+	for _, ls := range lsList {
+		if time.Since(ls.CreatedTime) > time.Duration(s.Config.LiveSessionTTL)*time.Minute {
+			err := s.Db.DeleteLiveSession(span.Context(), ls.ID)
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
-func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLesson, newRequest *LessonScheduleRequest) error {
+func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("llID", ll.ID)
+	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
 
-	ls.killAllJobs(nsName, "config")
+	s.killAllJobs(span.Context(), nsName, "config")
 
 	wg := new(sync.WaitGroup)
-	log.Debugf("Endpoints length: %d", len(liveLesson.LiveEndpoints))
-	wg.Add(len(liveLesson.LiveEndpoints))
+	wg.Add(len(ll.LiveEndpoints))
 	allGood := true
-	for i := range liveLesson.LiveEndpoints {
+	for i := range ll.LiveEndpoints {
 
 		// Ignore any endpoints that don't have a configuration option
-		if liveLesson.LiveEndpoints[i].ConfigurationType == "" {
-			log.Debugf("No configuration option specified for %s - skipping.", liveLesson.LiveEndpoints[i].Name)
+		if ll.LiveEndpoints[i].ConfigurationType == "" {
 			wg.Done()
 			continue
 		}
 
-		job, err := ls.configureEndpoint(liveLesson.LiveEndpoints[i], newRequest)
+		job, err := s.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
 		if err != nil {
-			log.Errorf("Problem configuring endpoint %s", liveLesson.LiveEndpoints[i].Name)
-			continue // TODO(mierdin): should quit entirely and return an error result to the channel
-			// though this error is only immediate errors creating the job. This will succeed even if
-			// the eventually configuration fails. See below for a better handle on configuration failures.
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
 		}
+
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < 120; i++ {
-				completed, err := ls.isCompleted(job, newRequest)
+			oldStatusCount := map[string]int32{
+				"active":    0,
+				"succeeded": 0,
+				"failed":    0,
+			}
+			for i := 0; i < 600; i++ {
+				completed, statusCount, err := s.getJobStatus(span, job, newRequest)
 				if err != nil {
 					allGood = false
 					return
 				}
 
-				time.Sleep(5 * time.Second)
+				// The use of this map[string]int32 and comparing old with new using DeepEqual
+				// allows us to only log changes in status, rather than the periodic spam
+				if !reflect.DeepEqual(oldStatusCount, statusCount) {
+					span.LogFields(
+						log.String("jobName", job.Name),
+						log.Object("statusCount", statusCount),
+					)
+				}
+
 				if completed {
 					return
 				}
+				oldStatusCount = statusCount
+				time.Sleep(1 * time.Second)
 			}
 			allGood = false
 			return
@@ -220,14 +255,22 @@ func (ls *LessonScheduler) configureStuff(nsName string, liveLesson *pb.LiveLess
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
 // This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container) {
+func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
+	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
+	defer span.Finish()
+
+	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 	initContainers := []corev1.Container{}
 
 	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
 	initContainers = append(initContainers, corev1.Container{
-		Name:  "copy-local-files",
+		Name:  initContainerName,
 		Image: "bash",
 		Command: []string{
 			"bash",
@@ -255,7 +298,7 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 		Name: "host-volume",
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: ls.SyringeConfig.CurriculumDir,
+				Path: s.Config.CurriculumDir,
 			},
 		},
 	})
@@ -273,92 +316,89 @@ func (ls *LessonScheduler) getVolumesConfiguration(lesson *pb.Lesson) ([]corev1.
 		Name:      "local-copy",
 		ReadOnly:  false,
 		MountPath: "/antidote",
-		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(ls.SyringeConfig.CurriculumDir))),
+		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
 	})
 
-	return volumes, volumeMounts, initContainers
+	return volumes, volumeMounts, initContainers, nil
 
 }
 
-func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[string]bool {
+func (s *AntidoteScheduler) isEpReachable(ep *models.LiveEndpoint) (bool, error) {
 
-	// Prepare the reachability map as well as the waitgroup to handle the concurrency
-	// of our health checks. We want to pre-populate every possible health check with a
-	// false value, so we don't accidentally "pass" a livelesson reachability test by
-	// omission.
-	reachableMap := map[string]bool{}
-	wg := new(sync.WaitGroup)
-	for n := range ll.LiveEndpoints {
-
-		ep := ll.LiveEndpoints[n]
-
-		// Add one delta value to the waitgroup and prepopulate the reachability map
-		// with a "false" value based on the endpoint name, since it doesn't
-		// have any presentations.
-		if len(ll.LiveEndpoints[n].Presentations) == 0 {
-			wg.Add(1)
-			reachableMap[ep.Name] = false
-			continue
-		}
-
-		// For each presentation, add one delta value to the waitgroup
-		// and add an entry to the reachability map based on the endpoint
-		// and presentation names
-		for p := range ep.Presentations {
-			wg.Add(1)
-			reachableMap[fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name)] = false
-		}
+	// rTest is used to give structure to the reachability tests we want to run.
+	// This function will first construct a slice of rTests based on information available in the
+	// LiveLesson, and then will subsequently run tests based on each rTest.
+	type rTest struct {
+		name   string
+		method string
+		host   string
+		port   int32
 	}
 
-	// Now that we have a properly sized waitgroup and a prepared reachability map, we can perform the health checks.
+	rTests := []rTest{}
 	var mapMutex = &sync.Mutex{}
-	for n := range ll.LiveEndpoints {
+	reachableMap := map[string]bool{}
+	for _, rt := range rTests {
+		reachableMap[rt.name] = false
+	}
 
-		ep := ll.LiveEndpoints[n]
+	// If no presentations, add a single rTest using the first available Port.
+	// (we aren't currently testing for all Ports)
+	if len(ep.Presentations) == 0 {
 
-		// If no presentations, we can just test the first port in the additionalPorts list.
-		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) != 0 {
-
-			go func() {
-				defer wg.Done()
-				testResult := false
-
-				log.Debugf("Performing basic connectivity test against endpoint %s via %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
-				testResult = ls.HealthChecker.tcpTest(ep.Host, int(ep.AdditionalPorts[0]))
-
-				if testResult {
-					log.Debugf("%s is live at %s:%d", ep.Name, ep.Host, ep.AdditionalPorts[0])
-				}
-
-				mapMutex.Lock()
-				defer mapMutex.Unlock()
-				reachableMap[ep.Name] = testResult
-			}()
+		if len(ep.Ports) == 0 {
+			// Should never happen due to earlier code, but good to be safe
+			return false, errors.New("Endpoint has no Ports")
 		}
 
-		for i := range ep.Presentations {
+		rTests = append(rTests, rTest{
+			name:   ep.Name,
+			method: "tcp",
+			host:   ep.Host,
+			port:   ep.Ports[0],
+		})
+	}
+	for p := range ep.Presentations {
+		rTests = append(rTests, rTest{
+			name:   fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name),
+			method: string(ep.Presentations[p].Type),
+			host:   ep.Host,
+			port:   ep.Presentations[p].Port,
+		})
+	}
 
-			lp := ep.Presentations[i]
+	// Last, iterate over the rTests and spawn goroutines for each test
+	wg := new(sync.WaitGroup)
+	wg.Add(len(rTests))
+	for _, rt := range rTests {
+		ctx := context.Background()
 
-			go func() {
-				defer wg.Done()
+		// Timeout for an individual test
+		ctx, _ = context.WithTimeout(ctx, 10*time.Second)
+		go func(ctx context.Context, rt rTest) {
+			defer wg.Done()
 
-				testResult := false
+			testResult := false
 
-				// TODO(mierdin): Switching to TCP testing for all endpoints for now. The SSH health check doesn't seem to respect the
-				// timeout settings I'm passing, and the regular TCP test does, so I'm using that for now. It's good enough for the time being.
-				log.Debugf("Performing basic connectivity test against %s-%s via %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
-				testResult = ls.HealthChecker.tcpTest(ep.Host, int(lp.Port))
-				if testResult {
-					log.Debugf("%s-%s is live at %s:%d", ep.Name, lp.Name, ep.Host, lp.Port)
-				}
+			// Not currently doing an HTTP health check, but one could easily be added.
+			// rt.method is already being set to "http" for corresponding presentations
+			if rt.method == "ssh" {
+				testResult = s.HealthChecker.sshTest(rt.host, int(rt.port))
+			} else {
+				testResult = s.HealthChecker.tcpTest(rt.host, int(rt.port))
+			}
+			// span.LogFields(
+			// 	log.String("rtName", rt.name),
+			// 	log.String("rtMethod", rt.method),
+			// 	log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
+			// 	log.Bool("testResult", testResult),
+			// )
 
-				mapMutex.Lock()
-				defer mapMutex.Unlock()
-				reachableMap[fmt.Sprintf("%s-%s", ep.Name, lp.Name)] = testResult
+			mapMutex.Lock()
+			defer mapMutex.Unlock()
+			reachableMap[rt.name] = testResult
 
-			}()
-		}
+		}(ctx, rt)
 	}
 
 	c := make(chan struct{})
@@ -369,10 +409,113 @@ func (ls *LessonScheduler) testEndpointReachability(ll *pb.LiveLesson) map[strin
 
 	select {
 	case <-c:
-		return reachableMap
-	case <-time.After(time.Second * 10):
-		return reachableMap
+		for _, r := range reachableMap {
+			if !r {
+				return false, nil
+			}
+		}
+		return true, nil
+	case <-time.After(time.Second * 5):
+		return false, nil
 	}
+
+}
+
+// waitUntilReachable waits until an entire livelesson is reachable
+func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.LiveLesson) error {
+	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("liveLessonID", ll.ID)
+	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
+
+	// reachableTimeLimit controls how long we wait for each goroutine to finish
+	// as well as in general how long we wait for all of them to finish. If this is exceeded,
+	// the livelesson is marked as failed.
+	reachableTimeLimit := time.Second * 600
+
+	finishedEps := map[string]bool{}
+	wg := new(sync.WaitGroup)
+	wg.Add(len(ll.LiveEndpoints))
+	for n := range ll.LiveEndpoints {
+		ep := ll.LiveEndpoints[n]
+		ctx := context.Background()
+		ctx, _ = context.WithTimeout(ctx, reachableTimeLimit)
+
+		go func(sc ot.SpanContext, ctx context.Context, ep *models.LiveEndpoint) {
+			span := ot.StartSpan("scheduler_ep_reachable_test", ot.ChildOf(sc))
+			defer span.Finish()
+			span.SetTag("epName", ep.Name)
+
+			defer wg.Done()
+			for {
+				epr, err := s.isEpReachable(ep)
+				if err != nil {
+					span.LogFields(log.Error(err))
+					ext.Error.Set(span, true)
+					return
+				}
+				if epr {
+					finishedEps[ep.Name] = true
+					_ = s.Db.UpdateLiveLessonTests(span.Context(), ll.ID, int32(len(finishedEps)), int32(len(ll.LiveEndpoints)))
+					span.LogEvent("Endpoint has become reachable")
+					return
+				}
+
+				select {
+				case <-time.After(1 * time.Second):
+					continue
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(span.Context(), ctx, ep)
+	}
+
+	// Wait for each endpoint's goroutine to finish, either through completion,
+	// or through context cancelation due to timer expiring.
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		//
+	case <-time.After(reachableTimeLimit):
+		//
+	}
+
+	if len(finishedEps) != len(ll.LiveEndpoints) {
+		// Record pod logs for all failed endpoints for later troubleshooting
+		for _, ep := range ll.LiveEndpoints {
+			if _, ok := finishedEps[ep.Name]; !ok {
+				s.recordPodLogs(span.Context(), ll.ID, ep.Name, "")
+			}
+		}
+
+		err := errors.New("Timeout waiting for LiveEndpoints to become reachable")
+		span.LogFields(
+			log.Error(err),
+			log.Object("failedEps", finishedEps),
+		)
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	return nil
+}
+
+// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
+// jupyter notebook as a lab guide in any stage.
+func usesJupyterLabGuide(lesson models.Lesson) bool {
+
+	for i := range lesson.Stages {
+		if lesson.Stages[i].GuideType == models.GuideJupyter {
+			return true
+		}
+	}
+
+	return false
 }
 
 // LessonHealthChecker describes a struct which offers a variety of reachability
@@ -382,21 +525,34 @@ type LessonHealthChecker interface {
 	tcpTest(string, int) bool
 }
 
+// LessonHealthCheck performs network tests to determine health of endpoints within a running lesson
 type LessonHealthCheck struct{}
 
+// sshTest is an important health check to run especially for interactive endpoints,
+// so that we know the endpoint is not only online but ready to receive SSH connections
+// from the user via the Web UI
 func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
 	strPort := strconv.Itoa(int(port))
+
+	// Using made-up creds, since we only care that SSH is viable for this simple health test.
 	sshConfig := &ssh.ClientConfig{
-		User:            "antidote",
+		User:            "foobar",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
-			ssh.Password("antidotepassword"),
+			ssh.Password("foobar"),
 		},
+		// TODO(mierdin): This still doesn't seem to work properly for "hung" ssh servers. Having to rely
+		// on the outer select/case timeout at the moment.
 		Timeout: time.Second * 2,
 	}
 
 	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
 	if err != nil {
+		// For a simple health check, we only care that SSH is responding, not that auth is solid.
+		// Thus the made-up creds. If we get this message, then all is good.
+		if strings.Contains(err.Error(), "unable to authenticate") {
+			return true
+		}
 		return false
 	}
 	defer conn.Close()
@@ -412,16 +568,4 @@ func (lhc *LessonHealthCheck) tcpTest(host string, port int) bool {
 	}
 	defer conn.Close()
 	return true
-}
-
-// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
-// jupyter notebook as a lab guide in any stage.
-func usesJupyterLabGuide(ld *pb.Lesson) bool {
-	for i := range ld.Stages {
-		if ld.Stages[i].JupyterLabGuide {
-			return true
-		}
-	}
-
-	return false
 }

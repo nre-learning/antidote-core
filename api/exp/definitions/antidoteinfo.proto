@@ -1,0 +1,22 @@
+syntax = "proto3";
+package antidote.api.exp;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service AntidoteInfoService {
+
+  rpc GetAntidoteInfo(google.protobuf.Empty) returns (AntidoteInfo) {
+    option (google.api.http) = {
+        get: "/exp/antidoteinfo"
+      };
+  }
+}
+
+message AntidoteInfo {
+  string buildSha = 1;
+  string buildVersion = 2;
+  string curriculumVersion = 3;
+}
+
+

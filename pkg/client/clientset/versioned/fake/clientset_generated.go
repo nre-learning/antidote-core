@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
-	k8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
-	fakek8sv1 "github.com/nre-learning/syringe/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake"
+	clientset "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
+	k8sv1 "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
+	fakek8sv1 "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

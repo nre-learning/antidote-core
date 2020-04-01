@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	kcom "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io"
+	kcom "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io"
 )
 
 // SchemeGroupVersion is group version used to register these objects

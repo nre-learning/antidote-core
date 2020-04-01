@@ -7,163 +7,229 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	log "github.com/sirupsen/logrus"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
+	ot "github.com/opentracing/opentracing-go"
+	ext "github.com/opentracing/opentracing-go/ext"
+	log "github.com/opentracing/opentracing-go/log"
+	logrus "github.com/sirupsen/logrus"
 
 	// Kubernetes types
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ls *LessonScheduler) killAllJobs(nsName, jobType string) error {
+// JobBackoff controls the number of times a job is retried before we consider it failed.
+const JobBackoff = 2
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
+
+	span := ot.StartSpan("scheduler_job_killall", ot.ChildOf(sc))
+	defer span.Finish()
+
+	result, err := s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 	})
 	if err != nil {
-		log.Errorf("Unable to list Jobs: %s", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
 		return err
 	}
 
 	existingJobs := result.Items
+	if len(existingJobs) == 0 {
+		return nil
+	}
 
 	for i := range existingJobs {
-		err = ls.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
+		err = s.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
 	}
 
-	// Block until the jobs are cleaned up, so we don't cause a race condition when the scheduler moves forward with trying to create new jobs
-	for {
-		//TODO(mierdin): add timeout
-		time.Sleep(time.Second * 5)
-		result, err = ls.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+	// Block until the jobs are cleaned up, so we don't cause a race
+	// condition when the scheduler moves forward with trying to create new jobs
+	for i := 0; i < 60; i++ {
+		result, err = s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
 		if err != nil {
-			log.Errorf("Unable to list Jobs: %s", err)
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			return err
 		}
 		if len(result.Items) == 0 {
-			break
+			return nil
 		}
+
+		time.Sleep(time.Second * 1)
 	}
 
-	return nil
+	err = errors.New("Timed out waiting for old jobs to be cleaned up")
+	span.LogFields(log.Error(err))
+	ext.Error.Set(span, true)
+	return err
 }
 
-func (ls *LessonScheduler) isCompleted(job *batchv1.Job, req *LessonScheduleRequest) (bool, error) {
+func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, map[string]int32, error) {
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
-		return false, err
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return false,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			err
 	}
-	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
-	log.WithFields(log.Fields{
-		"jobName":    result.Name,
-		"active":     result.Status.Active,
-		"successful": result.Status.Succeeded,
-		"failed":     result.Status.Failed,
-	}).Info("Job Status")
 
-	if result.Status.Failed >= 3 {
-		log.Errorf("Problem configuring with %s", result.Name)
-		return true, errors.New(fmt.Sprintf("Problem configuring with %s", result.Name))
+	if result.Status.Failed >= JobBackoff+1 {
+
+		// Get logs for failed configuration job/pod for troubleshooting purposes later
+		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("job-name=%s", job.Name),
+		})
+		if err != nil || len(pods.Items) == 0 {
+			logrus.Debugf("Unable to retrieve logs for failed configuration pod in livelesson %s", req.LiveLessonID)
+		} else {
+			s.recordPodLogs(span.Context(), req.LiveLessonID, pods.Items[len(pods.Items)-1].Name, "")
+		}
+
+		// Log error to span and return
+		err = fmt.Errorf("Too many failures when trying to configure %s", result.Name)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return true,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			err
 	}
 
 	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
 	// conditional will return true. So let's also check to see if failed or successful is 0
-	// TODO(mierdin): Should also return error if Failed jobs is not 0
 	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false, nil
+		return false,
+			map[string]int32{
+				"active":    result.Status.Active,
+				"succeeded": result.Status.Succeeded,
+				"failed":    result.Status.Failed,
+			},
+			nil
 	}
 
-	return (result.Status.Active == 0), nil
+	return (result.Status.Active == 0), map[string]int32{
+		"active":    result.Status.Active,
+		"succeeded": result.Status.Succeeded,
+		"failed":    result.Status.Failed,
+	}, nil
 
 }
 
-func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonScheduleRequest) (*batchv1.Job, error) {
+func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
+	span := ot.StartSpan("scheduler_configure_endpoint", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("endpointName", ep.Name)
 
-	log.Debugf("Configuring endpoint %s", ep.Name)
+	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
+	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
+	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
-	jobName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
-	podName := fmt.Sprintf("config-%s-%d", ep.GetName(), req.Stage)
+	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	if err != nil {
+		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+	}
 
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
+	image, err := s.Db.GetImage(span.Context(), ep.Image)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
 
 	var configCommand []string
+	configFilePath := fmt.Sprintf("/antidote/stage%d/configs/%s", req.Stage, ep.ConfigurationFile)
 
 	if ep.ConfigurationType == "python" {
 		configCommand = []string{
 			"python",
-			fmt.Sprintf("/antidote/stage%d/configs/%s.py", req.Stage, ep.Name),
+			configFilePath,
 		}
-
-		// Not yet.
-		// } else if ep.ConfigurationType == "bash" {
-		// 	configCommand = []string{
-		// 		"bash",
-		// 		fmt.Sprintf("/antidote/stage%d/configs/%s.sh", req.Stage, ep.Name),
-		// 	}
-
 	} else if ep.ConfigurationType == "ansible" {
 		configCommand = []string{
 			"ansible-playbook",
 			"-vvvv",
 			"-i",
 			fmt.Sprintf("%s,", ep.Host),
-			fmt.Sprintf("/antidote/stage%d/configs/%s.yml", req.Stage, ep.Name),
+			configFilePath,
 		}
-	} else if strings.HasPrefix(ep.ConfigurationType, "napalm") {
+	} else if ep.ConfigurationType == "napalm" {
 
-		separated := strings.Split(ep.ConfigurationType, "-")
-		if len(separated) < 2 {
+		// determine NAPALM driver from filename. Structure is:
+		// <endpoint>-<napalmDriver>.txt. This is enforced on ingest, so as
+		// long as we do basic sanity checks on how many results we get from a split
+		// using . and - as delimiters, we should be okay.
+		separated := strings.FieldsFunc(configFilePath, func(r rune) bool {
+			return r == '-' || r == '.'
+		})
+		if len(separated) < 3 {
 			return nil, errors.New("Invalid napalm driver string")
 		}
+
+		napalmDriver := separated[1]
 		configCommand = []string{
 			"/configure.py",
-			"antidote",
-			"antidotepassword",
-			separated[1],
-			"22",
+			image.ConfigUser,
+			image.ConfigPassword,
+			napalmDriver,
+			"22", // TODO(mierdin): Need to add port to image meta
 			ep.Host,
-			fmt.Sprintf("/antidote/stage%d/configs/%s.txt", req.Stage, ep.Name),
+			configFilePath,
 		}
 	} else {
 		return nil, errors.New("Unknown config type")
 	}
 
+	pullPolicy := v1.PullIfNotPresent
+	if s.Config.AlwaysPull {
+		pullPolicy = v1.PullAlways
+	}
+
+	backoff := int32(JobBackoff)
 	configJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"syringeManaged": "yes",
-				"jobType":        "config",
-				"stageId":        strconv.Itoa(int(req.Stage)),
+				"antidoteManaged": "yes",
+				"jobType":         "config",
+				"stageId":         strconv.Itoa(int(req.Stage)),
 			},
 		},
 
 		Spec: batchv1.JobSpec{
-			// BackoffLimit: int32(3),
+			BackoffLimit: &backoff,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
 					Namespace: nsName,
 					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-						"syringeManaged": "yes",
-						"configPod":      "yes",
-						"stageId":        strconv.Itoa(int(req.Stage)),
+						"antidoteManaged": "yes",
+						"configPod":       "yes",
+						"stageId":         strconv.Itoa(int(req.Stage)),
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -171,17 +237,14 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 					InitContainers: initContainers,
 					Containers: []corev1.Container{
 						{
-							Name:    "configurator",
-							Image:   fmt.Sprintf("antidotelabs/configurator:%s", ls.BuildInfo["imageVersion"]),
-							Command: configCommand,
-
-							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
-							ImagePullPolicy: "Always",
+							Name:            "configurator",
+							Image:           fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
+							Command:         configCommand,
+							ImagePullPolicy: pullPolicy,
 							Env: []corev1.EnvVar{
-
-								// Providing intended host to configurator
-								{Name: "SYRINGE_TARGET_HOST", Value: ep.Host},
-
+								{Name: "ANTIDOTE_TARGET_HOST", Value: ep.Host},
+								{Name: "ANTIDOTE_TARGET_USERNAME", Value: image.ConfigUser},
+								{Name: "ANTIDOTE_TARGET_PASSWORD", Value: image.ConfigPassword},
 								{Name: "ANSIBLE_HOST_KEY_CHECKING", Value: "False"},
 							},
 							VolumeMounts: volumeMounts,
@@ -194,138 +257,11 @@ func (ls *LessonScheduler) configureEndpoint(ep *pb.Endpoint, req *LessonSchedul
 		},
 	}
 
-	result, err := ls.Client.BatchV1().Jobs(nsName).Create(configJob)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created job: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Job %s already exists.", jobName)
-
-		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating job %s: %s", jobName, err)
-		return nil, err
-	}
-	return result, err
-}
-
-func (ls *LessonScheduler) verifyLiveLesson(req *LessonScheduleRequest) (*batchv1.Job, error) {
-
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-
-	jobName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
-	podName := fmt.Sprintf("verify-%d-%d", req.Lesson.LessonId, req.Stage)
-
-	var retry int32 = 1
-
-	volumes, volumeMounts, initContainers := ls.getVolumesConfiguration(req.Lesson)
-
-	verifyJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: nsName,
-			Labels: map[string]string{
-				"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-				"syringeManaged": "yes",
-				"jobType":        "verify",
-				"stageId":        strconv.Itoa(int(req.Stage)),
-			},
-		},
-		Spec: batchv1.JobSpec{
-			BackoffLimit: &retry,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      podName,
-					Namespace: nsName,
-					Labels: map[string]string{
-						"lessonId":       fmt.Sprintf("%d", req.Lesson.LessonId),
-						"syringeManaged": "yes",
-						"verifyPod":      "yes",
-						"stageId":        strconv.Itoa(int(req.Stage)),
-					},
-				},
-				Spec: corev1.PodSpec{
-					InitContainers: initContainers,
-					Containers: []corev1.Container{
-						{
-							Name:  "verifier",
-							Image: "antidotelabs/utility",
-							Command: []string{
-								"python",
-								fmt.Sprintf("/antidote/lessons/lesson-%d/stage%d/verify.py", req.Lesson.LessonId, req.Stage),
-							},
-
-							// TODO(mierdin): ONLY for test/dev. Should re-evaluate for prod
-							ImagePullPolicy: "Always",
-							VolumeMounts:    volumeMounts,
-						},
-					},
-					RestartPolicy: "Never",
-					Volumes:       volumes,
-				},
-			},
-		},
-	}
-
-	// if config.SkipLessonClone, use read-only volume mount to local filesystem?
-
-	result, err := ls.Client.BatchV1().Jobs(nsName).Create(verifyJob)
-	if err == nil {
-		log.WithFields(log.Fields{
-			"namespace": nsName,
-		}).Infof("Created job: %s", result.ObjectMeta.Name)
-
-	} else if apierrors.IsAlreadyExists(err) {
-		log.Warnf("Job %s already exists.", jobName)
-
-		result, err := ls.Client.BatchV1().Jobs(nsName).Get(jobName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("Couldn't retrieve job after failing to create a duplicate: %s", err)
-			return nil, err
-		}
-		return result, nil
-	} else {
-		log.Errorf("Problem creating job %s: %s", jobName, err)
-		return nil, err
-	}
-	return result, err
-}
-
-func (ls *LessonScheduler) verifyStatus(job *batchv1.Job, req *LessonScheduleRequest) (finished bool, err error) {
-
-	nsName := fmt.Sprintf("%s-ns", req.Uuid)
-
-	result, err := ls.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := s.Client.BatchV1().Jobs(nsName).Create(configJob)
 	if err != nil {
-		log.Errorf("Couldn't retrieve job %s for status update: %s", job.Name, err)
-		return false, err
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
 	}
-	// https://godoc.org/k8s.io/api/batch/v1#JobStatus
-	log.WithFields(log.Fields{
-		"jobName":    result.Name,
-		"active":     result.Status.Active,
-		"successful": result.Status.Succeeded,
-		"failed":     result.Status.Failed,
-	}).Info("Job Status")
-
-	if result.Status.Failed > 0 {
-		log.Errorf("Problem verifying with %s", result.Name)
-		return true, fmt.Errorf("Problem verifying with %s", result.Name)
-	}
-
-	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
-	// conditional will return true. So let's also check to see if failed or successful is 0
-	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false, nil
-	}
-
-	return (result.Status.Active == 0), nil
-
+	return result, err
 }

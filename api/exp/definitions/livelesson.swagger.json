@@ -22,7 +22,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expHealthCheckMessage"
+              "$ref": "#/definitions/expLBHealthCheckResponse"
             }
           }
         },
@@ -39,7 +39,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/expLessonUUID"
+              "$ref": "#/definitions/expLiveLessonId"
             }
           }
         },
@@ -49,7 +49,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/expLessonParams"
+              "$ref": "#/definitions/expLiveLessonRequest"
             }
           }
         ],
@@ -82,100 +82,9 @@
           "LiveLessonsService"
         ]
       }
-    },
-    "/exp/livelesson/{id}/verify": {
-      "post": {
-        "operationId": "RequestVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTaskUUID"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/expLessonUUID"
-            }
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
-    },
-    "/exp/verification/{id}": {
-      "get": {
-        "operationId": "GetVerification",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/expVerificationTask"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "LiveLessonsService"
-        ]
-      }
     }
   },
   "definitions": {
-    "expEndpoint": {
-      "type": "object",
-      "properties": {
-        "Name": {
-          "type": "string"
-        },
-        "Image": {
-          "type": "string"
-        },
-        "ConfigurationType": {
-          "type": "string",
-          "title": "Validation for this field will be done post-validation"
-        },
-        "AdditionalPorts": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "title": "Handles any ports not explicitly mentioned in a presentation"
-        },
-        "Presentations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expPresentation"
-          }
-        },
-        "Host": {
-          "type": "string"
-        }
-      }
-    },
-    "expHealthCheckMessage": {
-      "type": "object"
-    },
     "expKillLiveLessonStatus": {
       "type": "object",
       "properties": {
@@ -185,26 +94,38 @@
         }
       }
     },
-    "expLessonParams": {
+    "expLBHealthCheckResponse": {
+      "type": "object"
+    },
+    "expLiveEndpoint": {
       "type": "object",
       "properties": {
-        "lessonId": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "sessionId": {
+        "Name": {
           "type": "string"
         },
-        "lessonStage": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "expLessonUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
+        "Image": {
+          "type": "string"
+        },
+        "Ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "LivePresentations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expLivePresentation"
+          }
+        },
+        "Host": {
+          "type": "string"
+        },
+        "SSHUser": {
+          "type": "string"
+        },
+        "SSHPassword": {
           "type": "string"
         }
       }
@@ -212,41 +133,35 @@
     "expLiveLesson": {
       "type": "object",
       "properties": {
-        "LessonUUID": {
+        "ID": {
           "type": "string"
         },
-        "LessonId": {
-          "type": "integer",
-          "format": "int32"
+        "SessionID": {
+          "type": "string"
+        },
+        "AntidoteID": {
+          "type": "string"
+        },
+        "LessonSlug": {
+          "type": "string"
         },
         "LiveEndpoints": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/expEndpoint"
+            "$ref": "#/definitions/expLiveEndpoint"
           }
         },
-        "LessonStage": {
+        "CurrentStage": {
           "type": "integer",
           "format": "int32"
         },
-        "LabGuide": {
+        "GuideContents": {
           "type": "string"
         },
-        "JupyterLabGuide": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "LiveLessonStatus": {
-          "$ref": "#/definitions/expStatus"
-        },
-        "createdTime": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "LessonDiagram": {
+        "GuideType": {
           "type": "string"
         },
-        "LessonVideo": {
+        "Status": {
           "type": "string"
         },
         "Error": {
@@ -260,14 +175,45 @@
         "TotalTests": {
           "type": "integer",
           "format": "int32"
+        },
+        "Diagram": {
+          "type": "string"
+        },
+        "Video": {
+          "type": "string"
+        },
+        "StageVideo": {
+          "type": "string"
         }
-      },
-      "description": "A provisioned lab without the scheduler details. The server will translate from an underlying type\n(i.e. KubeLab) into this, so only the abstract, relevant details are presented."
+      }
+    },
+    "expLiveLessonId": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "expLiveLessonRequest": {
+      "type": "object",
+      "properties": {
+        "lessonSlug": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "lessonStage": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
     },
     "expLiveLessons": {
       "type": "object",
       "properties": {
-        "items": {
+        "LiveLessons": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/expLiveLesson"
@@ -275,7 +221,7 @@
         }
       }
     },
-    "expPresentation": {
+    "expLivePresentation": {
       "type": "object",
       "properties": {
         "Name": {
@@ -286,82 +232,6 @@
           "format": "int32"
         },
         "Type": {
-          "type": "string"
-        }
-      }
-    },
-    "expSession": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      }
-    },
-    "expSessions": {
-      "type": "object",
-      "properties": {
-        "sessions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/expSession"
-          }
-        }
-      }
-    },
-    "expStatus": {
-      "type": "string",
-      "enum": [
-        "DONOTUSE",
-        "INITIAL_BOOT",
-        "CONFIGURATION",
-        "READY"
-      ],
-      "default": "DONOTUSE"
-    },
-    "expSyringeState": {
-      "type": "object",
-      "properties": {
-        "Livelessons": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/expLiveLesson"
-          },
-          "title": "Map that contains a mapping of UUIDs to LiveLesson messages"
-        }
-      }
-    },
-    "expVerificationTask": {
-      "type": "object",
-      "properties": {
-        "liveLessonId": {
-          "type": "string"
-        },
-        "liveLessonStage": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "success": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "working": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "message": {
-          "type": "string"
-        },
-        "completed": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "expVerificationTaskUUID": {
-      "type": "object",
-      "properties": {
-        "id": {
           "type": "string"
         }
       }

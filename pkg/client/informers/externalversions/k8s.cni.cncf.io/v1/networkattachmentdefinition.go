@@ -21,10 +21,10 @@ package v1
 import (
 	time "time"
 
-	k8scnicncfiov1 "github.com/nre-learning/syringe/pkg/apis/k8s.cni.cncf.io/v1"
-	versioned "github.com/nre-learning/syringe/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/nre-learning/syringe/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/nre-learning/syringe/pkg/client/listers/k8s.cni.cncf.io/v1"
+	k8scnicncfiov1 "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
+	versioned "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/nre-learning/antidote-core/pkg/client/informers/externalversions/internalinterfaces"
+	v1 "github.com/nre-learning/antidote-core/pkg/client/listers/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

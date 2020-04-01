@@ -2,261 +2,458 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	pb "github.com/nre-learning/syringe/api/exp/generated"
-	scheduler "github.com/nre-learning/syringe/scheduler"
-	log "github.com/sirupsen/logrus"
+	copier "github.com/jinzhu/copier"
+	pb "github.com/nre-learning/antidote-core/api/exp/generated"
+	db "github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
+	log "github.com/opentracing/opentracing-go/log"
+	codes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	status "google.golang.org/grpc/status"
+
+	ot "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 )
 
-func (s *SyringeAPIServer) RequestLiveLesson(ctx context.Context, lp *pb.LessonParams) (*pb.LessonUUID, error) {
+// RequestLiveLesson allows the client to get a handle on a livelesson when they only know their session ID
+// and the desired lesson slug and stage ID. This is typically the first call on antidote-web's lab interface, since these
+// pieces of information are typically known, but a specific livelesson ID is not. There are three main reasons
+// why you would want to call this endpoint:
+//
+// - Request that a livelesson is created, such as when you initially load a lesson
+// - Modify an existing livelesson - such as moving to a different stage ID
+// - Refreshing the lastUsed timestamp on the livelesson, which lets the back-end know it's still in use.
+func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRequest) (*pb.LiveLessonId, error) {
+	span := ot.StartSpan("api_livelesson_request", ext.SpanKindRPCClient)
+	defer span.Finish()
 
-	// TODO(mierdin): need to perform some basic security checks here. Need to check incoming IP address
-	// and do some rate-limiting if possible. Alternatively you could perform this on the Ingress
+	// Important to set these tags, since this span is likely to have many, many child spans
+	// Get all the useful context embedded here at the top.
+	span.SetTag("antidote_lesson_slug", lp.LessonSlug)
+	span.SetTag("antidote_stage", lp.LessonStage)
+	span.SetTag("antidote_session_id", lp.SessionId)
+	md, _ := metadata.FromIncomingContext(ctx)
+	// x-forwarded-host gets you IP+port, FWIW.
+	forwardedFor := md["x-forwarded-for"]
+	if len(forwardedFor) == 0 {
+		span.LogEvent("Unable to determine source IP address")
+	}
+	span.SetTag("antidote_request_source_ip", forwardedFor[0])
+
+	span.LogEvent("Received LiveLesson Request")
+
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
-		log.Error(msg)
-		return nil, errors.New(msg)
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	if lp.LessonId == 0 {
-		msg := "Lesson ID cannot be nil"
-		log.Error(msg)
-		return nil, errors.New(msg)
+	_, err := s.Db.GetLiveSession(span.Context(), lp.SessionId)
+	if err != nil {
+		// WARNING - the front-end relies on this string (minus the actual ID) to identify
+		// if a new session ID should be requested. If you want to change this message, make sure
+		// to change the front-end as well! Otherwise, the front-end won't know to request a valid
+		// session ID before retrying the livelesson request
+		msg := fmt.Sprintf("Invalid session ID %s", lp.SessionId)
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	if lp.LessonStage == 0 {
-		msg := "Stage ID cannot be nil"
-		log.Error(msg)
-		return nil, errors.New(msg)
+	if lp.LessonSlug == "" {
+		msg := "Lesson Slug cannot be nil"
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	// A livelesson's UUID is formed with the lesson ID and the session ID together.
-	// This allows us to store all livelessons within a flat key-value structure while maintaining
-	// uniqueness.
-	lessonUuid := fmt.Sprintf("%d-%s", lp.LessonId, lp.SessionId)
-
-	// Identify lesson definition - return error if doesn't exist by ID
-	if _, ok := s.Scheduler.Curriculum.Lessons[lp.LessonId]; !ok {
-		log.Errorf("Couldn't find lesson ID %d", lp.LessonId)
-		return &pb.LessonUUID{}, errors.New("Failed to find referenced lesson ID")
+	lesson, err := s.Db.GetLesson(span.Context(), lp.LessonSlug)
+	if err != nil {
+		msg := fmt.Sprintf("Couldn't find lesson slug '%s'", lp.LessonSlug)
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.NotFound, msg)
 	}
 
-	// Ensure requested stage is present. We add a zero-index stage on import to each lesson so that
-	// stage ID 1 refers to the second index (1) in the stage slice.
-	// So, to check that the requested stage exists, the length of the slice must be equal or greater than the
-	// requested stage + 1. I.e. if there's only one stage, the slice will have a length of 2
-	if len(s.Scheduler.Curriculum.Lessons[lp.LessonId].Stages) < int(lp.LessonStage) {
+	// Ensure requested stage is present.
+	if len(lesson.Stages) < 1+int(lp.LessonStage) {
 		msg := "Invalid stage ID for this lesson"
-		log.Error(msg)
-		return nil, errors.New(msg)
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.InvalidArgument, msg)
 	}
 
-	// Check to see if the livelesson already exists in an errored state.
-	// If so, clear it out so we can treat it like a new creation in the following logic.
-	// TODO(mierdin): What if the namespace and resources still exist? Should we delete them first?
-	// Maybe we should just return an error to the user and say "try again later"? Then let this get GC'd as normal?
-	if s.LiveLessonExists(lessonUuid) {
-		if s.LiveLessonState[lessonUuid].Error {
-			s.DeleteLiveLesson(lessonUuid)
+	// Determine if a livelesson exists that matches this sessionid and lesson slug
+	llExists := false
+	var existingLL *models.LiveLesson
+	liveLessons, err := s.Db.ListLiveLessons(span.Context())
+	for _, ll := range liveLessons {
+		if ll.SessionID == lp.SessionId && ll.LessonSlug == lp.LessonSlug {
+			existingLL = &ll
+			llExists = true
 		}
 	}
 
-	// Check to see if it already exists in memory. If it does, don't send provision request.
-	// Just look it up and send UUID
-	if s.LiveLessonExists(lessonUuid) {
+	// LiveLesson already exists, so we should handle this accordingly
+	if llExists {
 
-		if s.LiveLessonState[lessonUuid].LessonStage != lp.LessonStage {
+		// Check to see if the livelesson already exists in an errored state. If so,
+		// tell the user to try later. In the future we may add some functionality to clean up lessons
+		// that have problems so the user doesn't have to wait for the GC interval, but currently that's what
+		// we're doing
+		if existingLL.Error {
+			return &pb.LiveLessonId{}, errors.New("Sorry, this lesson is having some problems. Please try again later")
+		}
 
-			// Update in-memory state
-			s.UpdateLiveLessonStage(lessonUuid, lp.LessonStage)
+		// If the incoming requested LessonStage is different from the current livelesson state,
+		// tell the scheduler to change the state
+		if existingLL.CurrentStage != lp.LessonStage {
 
-			// Request the schedule move forward with stage change activities
-			req := &scheduler.LessonScheduleRequest{
-				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
-				Operation: scheduler.OperationType_MODIFY,
-				Stage:     lp.LessonStage,
-				Uuid:      lessonUuid,
+			// We want to make sure the livelesson is in a READY state, so we don't cause problems trying
+			// to change the stage when an existing operation is ongoing
+			if existingLL.Status != models.Status_READY {
+				return &pb.LiveLessonId{}, errors.New("LiveLesson is currently busy. Can't make changes yet. Try later")
 			}
 
-			s.Scheduler.Requests <- req
+			_ = s.Db.UpdateLiveLessonStatus(span.Context(), existingLL.ID, models.Status_CONFIGURATION)
+			_ = s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
+			_ = s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
+
+			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
+			req := services.LessonScheduleRequest{
+				Operation:     services.OperationType_MODIFY,
+				Stage:         lp.LessonStage,
+				LessonSlug:    lp.LessonSlug,
+				LiveSessionID: lp.SessionId,
+				LiveLessonID:  existingLL.ID,
+			}
+
+			// Inject span context and send LSR into NATS
+			var t services.TraceMsg
+			tracer := ot.GlobalTracer()
+			if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+			}
+			reqBytes, _ := json.Marshal(req)
+			t.Write(reqBytes)
+			s.NC.Publish(services.LsrIncoming, t.Bytes())
 
 		} else {
 
 			// Nothing to do but the user did interact with this lesson so we should boop it.
-			req := &scheduler.LessonScheduleRequest{
-				Operation: scheduler.OperationType_BOOP,
-				Uuid:      lessonUuid,
-				Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
+			req := services.LessonScheduleRequest{
+				Operation:     services.OperationType_BOOP,
+				LiveLessonID:  existingLL.ID,
+				LessonSlug:    lp.LessonSlug,
+				LiveSessionID: lp.SessionId,
 			}
 
-			s.Scheduler.Requests <- req
+			// Inject span context and send LSR into NATS
+			var t services.TraceMsg
+			tracer := ot.GlobalTracer()
+			if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+				span.LogFields(log.Error(err))
+			}
+			reqBytes, _ := json.Marshal(req)
+			t.Write(reqBytes)
+			s.NC.Publish(services.LsrIncoming, t.Bytes())
 		}
 
-		return &pb.LessonUUID{Id: lessonUuid}, nil
+		return &pb.LiveLessonId{Id: existingLL.ID}, nil
 	}
 
-	// 3 - if doesn't already exist, put together schedule request and send to channel
-	req := &scheduler.LessonScheduleRequest{
-		Lesson:    s.Scheduler.Curriculum.Lessons[lp.LessonId],
-		Operation: scheduler.OperationType_CREATE,
-		Stage:     lp.LessonStage,
-		Uuid:      lessonUuid,
-		Created:   time.Now(),
-	}
-	s.Scheduler.Requests <- req
-
-	// Pre-emptively populate livelessons map with initial status.
-	// This will be updated when the Scheduler response comes back.
-	s.SetLiveLesson(lessonUuid, &pb.LiveLesson{
-		LiveLessonStatus: pb.Status_INITIAL_BOOT,
-		LessonId:         lp.LessonId,
-		LessonUUID:       lessonUuid,
-		LessonStage:      lp.LessonStage,
-	})
-
-	return &pb.LessonUUID{Id: lessonUuid}, nil
-}
-
-func (s *SyringeAPIServer) GetSyringeState(ctx context.Context, _ *empty.Empty) (*pb.SyringeState, error) {
-	return &pb.SyringeState{
-		Livelessons: s.LiveLessonState,
-	}, nil
-}
-
-func (s *SyringeAPIServer) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.HealthCheckMessage, error) {
-	return &pb.HealthCheckMessage{}, nil
-}
-
-func (s *SyringeAPIServer) GetLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.LiveLesson, error) {
-
-	if uuid.Id == "" {
-		msg := "Lesson UUID cannot be empty"
-		log.Error(msg)
-		return nil, errors.New(msg)
+	// Figure out how many livelessons this session has opened, if enabled
+	// (limit must be > 0)
+	if s.Config.LiveLessonLimit > 0 {
+		llList, _ := s.Db.ListLiveLessons(span.Context())
+		llCount := 0
+		for _, ll := range llList {
+			if ll.SessionID == lp.SessionId {
+				llCount++
+			}
+		}
+		if llCount >= s.Config.LiveLessonLimit {
+			span.LogFields(
+				log.String("sessionId", lp.SessionId),
+				log.Int("llCount", llCount),
+			)
+			ext.Error.Set(span, true)
+			return nil, errors.New("This session address has exceeded the maximum number of liveLessons")
+		}
 	}
 
-	if !s.LiveLessonExists(uuid.Id) {
+	// Initialize new LiveLesson
+	newID := db.RandomID(10)
+
+	liveEndpoints, err := s.initializeLiveEndpoints(span, lesson)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, errors.New("Unable to initialize new livelesson")
+	}
+
+	newLL := &models.LiveLesson{
+		ID:            newID,
+		SessionID:     lp.SessionId,
+		AntidoteID:    s.Config.InstanceID,
+		LessonSlug:    lp.LessonSlug,
+		GuideType:     string(lesson.Stages[lp.LessonStage].GuideType),
+		LiveEndpoints: liveEndpoints,
+		CurrentStage:  lp.LessonStage,
+		Status:        models.Status_INITIALIZED,
+		CreatedTime:   time.Now(),
+	}
+
+	if newLL.GuideType == "markdown" {
+		newLL.GuideContents = lesson.Stages[lp.LessonStage].GuideContents
+	}
+
+	s.Db.CreateLiveLesson(span.Context(), newLL)
+
+	req := services.LessonScheduleRequest{
+		Operation:     services.OperationType_CREATE,
+		Stage:         lp.LessonStage,
+		LessonSlug:    lp.LessonSlug,
+		LiveLessonID:  newID,
+		LiveSessionID: lp.SessionId,
+	}
+
+	// Inject span context and send LSR into NATS
+	var t services.TraceMsg
+	tracer := ot.GlobalTracer()
+	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+		span.LogFields(log.Error(err))
+	}
+	reqBytes, _ := json.Marshal(req)
+	t.Write(reqBytes)
+	s.NC.Publish(services.LsrIncoming, t.Bytes())
+
+	return &pb.LiveLessonId{Id: newID}, nil
+}
+
+func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson models.Lesson) (map[string]*models.LiveEndpoint, error) {
+	liveEps := map[string]*models.LiveEndpoint{}
+
+	for i := range lesson.Endpoints {
+		ep := lesson.Endpoints[i]
+
+		epImageDef, err := s.Db.GetImage(span.Context(), ep.Image)
+		if err != nil {
+			return nil, err
+		}
+
+		lep := &models.LiveEndpoint{
+			Name:              ep.Name,
+			Image:             ep.Image,
+			Ports:             []int32{},
+			Presentations:     []*models.LivePresentation{},
+			ConfigurationType: ep.ConfigurationType,
+			ConfigurationFile: ep.ConfigurationFile,
+			SSHUser:           epImageDef.SSHUser,
+			SSHPassword:       epImageDef.SSHPassword,
+			Host:              "", // Will be populated by scheduler once service is created for this endpoint
+		}
+
+		for p := range ep.Presentations {
+			lep.Presentations = append(lep.Presentations, &models.LivePresentation{
+				Name: ep.Presentations[p].Name,
+				Port: ep.Presentations[p].Port,
+				Type: ep.Presentations[p].Type,
+			})
+
+			lep.Ports = append(lep.Ports, ep.Presentations[p].Port)
+		}
+
+		for pt := range ep.AdditionalPorts {
+			lep.Ports = append(lep.Ports, ep.AdditionalPorts[pt])
+		}
+
+		lep.Ports = unique(lep.Ports)
+
+		liveEps[lep.Name] = lep
+
+		// the flattened "Ports" property will be used by the scheduler to know what ports to open
+		// in the kubernetes service. Once it does this, the scheduler will update the "Host" property with
+		// the IP address to use for the endpoint (all ports)
+
+	}
+	return liveEps, nil
+}
+
+func unique(intSlice []int32) []int32 {
+	keys := make(map[int32]bool)
+	list := []int32{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
+}
+
+// HealthCheck provides an endpoint for retuning 200K for load balancer health checks
+func (s *AntidoteAPI) HealthCheck(ctx context.Context, _ *empty.Empty) (*pb.LBHealthCheckResponse, error) {
+	return &pb.LBHealthCheckResponse{}, nil
+}
+
+// CreateLiveLesson is a HIGHLY non-production function for inserting livelesson state directly
+// for debugging or test purposes. Use this at your own peril.
+func (s *AntidoteAPI) CreateLiveLesson(ctx context.Context, ll *pb.LiveLesson) (*empty.Empty, error) {
+	span := ot.StartSpan("api_livelesson_create", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	llDB := liveLessonAPIToDB(ll)
+	llDB.CreatedTime = time.Now()
+
+	err := s.Db.CreateLiveLesson(span.Context(), llDB)
+	if err != nil {
+		return nil, err
+	}
+	return &empty.Empty{}, nil
+}
+
+// GetLiveLesson retrieves a single LiveLesson via ID
+func (s *AntidoteAPI) GetLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.LiveLesson, error) {
+	span := ot.StartSpan("api_livelesson_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	if llID.Id == "" {
+		msg := "LiveLesson ID cannot be empty"
+		span.LogFields(log.Error(errors.New(msg)))
+		ext.Error.Set(span, true)
+		return nil, status.Error(codes.InvalidArgument, msg)
+	}
+
+	llDb, err := s.Db.GetLiveLesson(span.Context(), llID.Id)
+	if err != nil {
 		return nil, errors.New("livelesson not found")
 	}
 
-	ll := s.LiveLessonState[uuid.Id]
-
-	if ll.Error {
-		return nil, errors.New("Livelesson encountered errors during provisioning. See syringe logs")
+	if llDb.Error {
+		return nil, errors.New("Livelesson encountered errors during provisioning. See antidote logs")
 	}
-	return ll, nil
 
+	return liveLessonDBToAPI(llDb), nil
 }
 
-func (s *SyringeAPIServer) AddSessiontoGCWhitelist(ctx context.Context, session *pb.Session) (*pb.HealthCheckMessage, error) {
-	s.Scheduler.GcWhiteListMu.Lock()
-	defer s.Scheduler.GcWhiteListMu.Unlock()
+// ListLiveLessons returns a list of LiveLessons present in the data store
+func (s *AntidoteAPI) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
+	span := ot.StartSpan("api_livelesson_list", ext.SpanKindRPCClient)
+	defer span.Finish()
 
-	if _, ok := s.Scheduler.GcWhiteList[session.Id]; ok {
-		return nil, fmt.Errorf("session %s already present in whitelist", session.Id)
+	lls, err := s.Db.ListLiveLessons(span.Context())
+	if err != nil {
+		return nil, errors.New("Unable to list livelessons")
 	}
 
-	s.Scheduler.GcWhiteList[session.Id] = session
+	pblls := map[string]*pb.LiveLesson{}
 
-	return nil, nil
+	for _, ll := range lls {
+		pblls[ll.ID] = liveLessonDBToAPI(ll)
+	}
+
+	return &pb.LiveLessons{LiveLessons: pblls}, nil
 }
 
-func (s *SyringeAPIServer) RemoveSessionFromGCWhitelist(ctx context.Context, session *pb.Session) (*pb.HealthCheckMessage, error) {
-	s.Scheduler.GcWhiteListMu.Lock()
-	defer s.Scheduler.GcWhiteListMu.Unlock()
+// KillLiveLesson allows a client to request that a livelesson is killed, meaning the underlying
+// resources (like kubernetes namespace) are deleted, and local state is cleaned up appropriately
+func (s *AntidoteAPI) KillLiveLesson(ctx context.Context, llID *pb.LiveLessonId) (*pb.KillLiveLessonStatus, error) {
+	span := ot.StartSpan("api_livelesson_kill", ext.SpanKindRPCClient)
+	defer span.Finish()
 
-	if _, ok := s.Scheduler.GcWhiteList[session.Id]; !ok {
-		return nil, fmt.Errorf("session %s not found in whitelist", session.Id)
+	ll, err := s.Db.GetLiveLesson(span.Context(), llID.Id)
+	if err != nil {
+		return nil, errors.New("livelesson not found")
 	}
 
-	delete(s.Scheduler.GcWhiteList, session.Id)
-
-	return nil, nil
-
-}
-
-func (s *SyringeAPIServer) GetGCWhitelist(ctx context.Context, _ *empty.Empty) (*pb.Sessions, error) {
-	sessions := []*pb.Session{}
-
-	for id := range s.Scheduler.GcWhiteList {
-		sessions = append(sessions, &pb.Session{Id: id})
+	// Send deletion request to scheduler. It will take care of sending the appropriate delete commands to
+	// kubernetes, and if successful, removing the livelesson state.
+	var t services.TraceMsg
+	tracer := ot.GlobalTracer()
+	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+		span.LogFields(log.Error(err))
 	}
+	reqBytes, _ := json.Marshal(services.LessonScheduleRequest{
+		Operation:    services.OperationType_DELETE,
+		LiveLessonID: ll.ID,
+	})
+	t.Write(reqBytes)
+	s.NC.Publish(services.LsrIncoming, t.Bytes())
 
-	return &pb.Sessions{
-		Sessions: sessions,
-	}, nil
-}
-
-func (s *SyringeAPIServer) ListLiveLessons(ctx context.Context, _ *empty.Empty) (*pb.LiveLessons, error) {
-	return &pb.LiveLessons{Items: s.LiveLessonState}, nil
-}
-
-func (s *SyringeAPIServer) KillLiveLesson(ctx context.Context, uuid *pb.LessonUUID) (*pb.KillLiveLessonStatus, error) {
-
-	if _, ok := s.LiveLessonState[uuid.Id]; !ok {
-		return nil, errors.New("Livelesson not found")
-	}
-
-	s.Scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		Operation: scheduler.OperationType_DELETE,
-		Uuid:      uuid.Id,
-	}
-
+	// Note that this success message only means we successfully received the command.
+	// The scheduler will provide details on kill progress via OpenTracing spans.
 	return &pb.KillLiveLessonStatus{Success: true}, nil
 }
 
-func (s *SyringeAPIServer) RequestVerification(ctx context.Context, uuid *pb.LessonUUID) (*pb.VerificationTaskUUID, error) {
+// liveLessonDBToAPI translates a single LiveLesson from the `db` package models into the
+// api package's equivalent
+func liveLessonDBToAPI(dbLL models.LiveLesson) *pb.LiveLesson {
 
-	if _, ok := s.LiveLessonState[uuid.Id]; !ok {
-		return nil, errors.New("Livelesson not found")
-	}
-	ll := s.LiveLessonState[uuid.Id]
+	// Copy the majority of like-named fields
+	var llAPI pb.LiveLesson
+	copier.Copy(&llAPI, dbLL)
 
-	if ld, ok := s.Scheduler.Curriculum.Lessons[ll.LessonId]; !ok {
-		// Unlikely to happen since we've verified the livelesson exists,
-		// but easy to check
-		return nil, errors.New("Invalid lesson ID")
-	} else {
-		if !ld.Stages[ll.LessonStage].VerifyCompleteness {
-			return nil, errors.New("This lesson's stage doesn't include a completeness verification check")
+	// Handle the one-offs
+	llAPI.Status = string(dbLL.Status)
+
+	eps := map[string]*pb.LiveEndpoint{}
+
+	for k, v := range dbLL.LiveEndpoints {
+		var lep pb.LiveEndpoint
+		copier.Copy(&lep, v)
+
+		for _, c := range v.Presentations {
+
+			var lp pb.LivePresentation
+
+			lp.Name = c.Name
+			lp.Type = string(c.Type)
+			lp.Port = c.Port
+
+			lep.LivePresentations = append(lep.LivePresentations, &lp)
 		}
+
+		eps[k] = &lep
 	}
 
-	vtUUID := fmt.Sprintf("%s-%d", uuid.Id, ll.LessonStage)
+	llAPI.LiveEndpoints = eps
 
-	// If it already exists we can return it right away
-	if _, ok := s.VerificationTasks[vtUUID]; ok {
-		return &pb.VerificationTaskUUID{Id: vtUUID}, nil
-	}
-
-	// Proceed with the creation of a new verification task
-	newVt := &pb.VerificationTask{
-		LiveLessonId:    ll.LessonUUID,
-		LiveLessonStage: ll.LessonStage,
-		Working:         true,
-		Success:         false,
-		Message:         "Starting verification",
-	}
-	s.SetVerificationTask(vtUUID, newVt)
-
-	s.Scheduler.Requests <- &scheduler.LessonScheduleRequest{
-		Lesson:    s.Scheduler.Curriculum.Lessons[ll.LessonId],
-		Operation: scheduler.OperationType_VERIFY,
-		Stage:     ll.LessonStage,
-		Uuid:      uuid.Id,
-		Created:   time.Now(),
-	}
-
-	return &pb.VerificationTaskUUID{Id: vtUUID}, nil
+	return &llAPI
 }
 
-func (s *SyringeAPIServer) GetVerification(ctx context.Context, vtUUID *pb.VerificationTaskUUID) (*pb.VerificationTask, error) {
-	if _, ok := s.VerificationTasks[vtUUID.Id]; !ok {
-		return nil, errors.New("verification task UUID not found")
+// liveLessonAPIToDB translates a single LiveLesson from the `api` package models into the
+// `db` package's equivalent
+func liveLessonAPIToDB(pbLiveLesson *pb.LiveLesson) *models.LiveLesson {
+	liveLessonDB := &models.LiveLesson{}
+	copier.Copy(&liveLessonDB, pbLiveLesson)
+
+	liveLessonDB.LiveEndpoints = map[string]*models.LiveEndpoint{}
+
+	for _, lep := range pbLiveLesson.LiveEndpoints {
+
+		lepDB := &models.LiveEndpoint{}
+
+		copier.Copy(&lepDB, lep)
+
+		for _, lp := range lep.LivePresentations {
+			lpDB := &models.LivePresentation{}
+			copier.Copy(&lpDB, lp)
+			lepDB.Presentations = append(lepDB.Presentations, lpDB)
+		}
+
+		liveLessonDB.LiveEndpoints[lep.Name] = lepDB
+
 	}
-	return s.VerificationTasks[vtUUID.Id], nil
+
+	return liveLessonDB
 }

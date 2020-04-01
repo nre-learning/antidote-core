@@ -14,7 +14,9 @@ required = [
 
   # Fixing dumb issue with codegangsta/cli
   "github.com/cpuguy83/go-md2man",
-  "github.com/russross/blackfriday"
+  "github.com/russross/blackfriday",
+
+  "github.com/AlecAivazis/survey",
 ]
 
 [[constraint]]
@@ -24,6 +26,11 @@ required = [
 [[constraint]]
   branch = "master"
   name = "github.com/fatih/color"
+
+[[constraint]]
+  name = "github.com/alecthomas/jsonschema"
+  revision = "7152f22193c99d748515db8612354f96c5e2c71a"
+  # revision = "4bb6e3fae4f22dac4e1ecbeb001cfcf46ebbfba0"
 
 # [[constraint]]
 #   name = "github.com/golang/protobuf"
@@ -82,7 +89,7 @@ required = [
   name = "github.com/sirupsen/logrus"
   branch = "master"
 
-# github.com/nre-learning/syringe/vendor/google.golang.org/grpc/internal/channelz
+# github.com/nre-learning/antidote-core/vendor/google.golang.org/grpc/internal/channelz
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:41:15: undefined: unix.GetsockoptLinger
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:44:15: undefined: unix.GetsockoptTimeval
 # vendor/google.golang.org/grpc/internal/channelz/types_linux.go:47:15: undefined: unix.GetsockoptTimeval

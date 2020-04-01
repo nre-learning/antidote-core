@@ -4,27 +4,19 @@ TARGET_VERSION ?= latest
 
 all: compile
 
-clean:
-	rm -f $(GOPATH)/bin/syringed
-	rm -f $(GOPATH)/bin/syrctl
-
 compile:
 
 	@echo "Generating protobuf code..."
 	@rm -f pkg/ui/data/swagger/datafile.go
 	@rm -f /tmp/datafile.go
-	@rm -f cmd/syringed/buildinfo.go
-	@rm -f cmd/syrctl/buildinfo.go
+	@rm -f cmd/antidote/buildinfo.go
+	@rm -f cmd/antidoted/buildinfo.go
+	@rm -f cmd/antictl/buildinfo.go
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 	@./compile-proto.sh
 
-	@# Adding equivalent YAML tags so we can import lesson definitions into protobuf-created structs
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/lesson.pb.go
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/curriculum.pb.go
-	@sed -i'.bak' -e 's/\(protobuf.*json\):"\([^,]*\)/\1:"\2,omitempty" yaml:"\l\2/' api/exp/generated/collection.pb.go
-	@rm -f api/exp/generated/lesson.pb.go.bak
-	@rm -f api/exp/generated/curriculum.pb.go.bak
-	@rm -f api/exp/generated/collection.pb.go.bak
+	@#https://stackoverflow.com/questions/34716238/golang-protobuf-remove-omitempty-tag-from-generated-json-tags/37335452#37335452
+	@ls api/exp/generated/*.pb.go | xargs -n1 -IX bash -c 'sed s/,omitempty// X > X.tmp && mv X{.tmp,}'
 
 	@echo "Generating swagger definitions..."
 	@go generate ./api/exp/swagger/
@@ -33,19 +25,21 @@ compile:
 	@echo "Generating build info file..."
 	@hack/gen-build-info.sh
 
-	@echo "Compiling syringe binaries..."
+	@echo "Compiling antidote binaries..."
 
-	@go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+	@#go install -ldflags "-linkmode external -extldflags -static" ./cmd/...
+	@go install ./cmd/...
 
 docker:
-	docker build -t antidotelabs/syringe:$(TARGET_VERSION) .
-	docker push antidotelabs/syringe:$(TARGET_VERSION)
+	docker build -t antidotelabs/antidote:$(TARGET_VERSION) .
+	docker push antidotelabs/antidote:$(TARGET_VERSION)
 
-test: 
-	@go test ./api/... ./cmd/... ./config/... ./scheduler/... -cover -coverprofile=coverage.out
+test:
+	@#This will run tests on all but the pkg package, if you want to limit this in the future.
+	@#go test `go list ./... | grep -v pkg`
+
+	@go test ./... -cover -coverprofile=coverage.out
 	@go tool cover -html=coverage.out -o=coverage.html
-
-	@# This is causing problems - go test ./pkg/... -cover 
 
 update:
 	dep ensure
@@ -57,8 +51,8 @@ gengo:
 	rm -rf pkg/client/clientset && rm -rf pkg/client/informers && rm -rf pkg/client/listers
 	
 	vendor/k8s.io/code-generator/generate-groups.sh all \
-	github.com/nre-learning/syringe/pkg/client \
-	github.com/nre-learning/syringe/pkg/apis \
+	github.com/nre-learning/antidote-core/pkg/client \
+	github.com/nre-learning/antidote-core/pkg/apis \
 	k8s.cni.cncf.io:v1
 
 	@# We need to play doctor on some of these files. Haven't figured out yet how to ensure hyphens are preserved in the

@@ -1,0 +1,7 @@
+---
+curriculumDir: /home/mierdin/Code/GO/src/github.com/nre-learning/antidote-test-curriculum
+instanceId: antidote-dev
+enabledServices:
+- api
+- stats
+- scheduler

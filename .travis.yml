@@ -9,9 +9,6 @@ before_install:
   - go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
   - make install_bins_linux
   - go get -u github.com/golang/protobuf/protoc-gen-go
-  - go get -d github.com/envoyproxy/protoc-gen-validate
-  - cd $GOPATH/src/github.com/envoyproxy/protoc-gen-validate && make build && cd -
-
   - go get github.com/jteeuwen/go-bindata/...
 install:
   - hack/check-changelog.sh

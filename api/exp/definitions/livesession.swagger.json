@@ -1,0 +1,74 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "livesession.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/exp/livesession": {
+      "post": {
+        "summary": "Request a lab is created, or request the UUID of one that already exists for these parameters.",
+        "operationId": "RequestLiveSession",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/expLiveSession"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "LiveSessionsService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "expLiveSession": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "string"
+        },
+        "SourceIP": {
+          "type": "string"
+        },
+        "Persistent": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "expLiveSessions": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/expLiveSession"
+          }
+        }
+      }
+    }
+  }
+}

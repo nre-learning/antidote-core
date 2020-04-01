@@ -2,6 +2,21 @@
 
 
 [[projects]]
+  digest = "1:16375790b6f3663cb532e1a8f72a053208661e28cd56a24758c373152980e7a0"
+  name = "github.com/AlecAivazis/survey"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "da50ccef2fd74048e26b7846a731da4254035115"
+  version = "v1.8.8"
+
+[[projects]]
+  digest = "1:1e32045857542ded7d2725c108422b8c09d0544bf97aeaaa1e216a244501cd96"
+  name = "github.com/alecthomas/jsonschema"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7152f22193c99d748515db8612354f96c5e2c71a"
+
+[[projects]]
   digest = "1:d856fd4ca70fd10ce09eaea2bac3e8b55adbcbf62433d3a75e5ea1660d2a013f"
   name = "github.com/cpuguy83/go-md2man"
   packages = [
@@ -19,14 +34,6 @@
   pruneopts = "UT"
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
-
-[[projects]]
-  digest = "1:743f8008a7fed04ef0d52261aef346766bbd5b3e360b90296d85289f8ef5c2e2"
-  name = "github.com/envoyproxy/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "UT"
-  revision = "9eff07ddfcb4001aa1aab280648153f46e1a8ddc"
-  version = "v0.1.0"
 
 [[projects]]
   digest = "1:ac425d784b13d49b37a5bbed3ce022677f8f3073b216f05d6adcb9303e27fa0f"
@@ -165,6 +172,22 @@
   version = "v0.5.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:3ce584ef2a91ca82a3350c20257e06a6c4b7ea1510b12a6c5d2018e9aaeb4c5c"
+  name = "github.com/iancoleman/orderedmap"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ac98e3ecb4b017efb5c5d0fc075c2ded1f5d500d"
+
+[[projects]]
+  digest = "1:78d28d5b84a26159c67ea51996a230da4bc07cac648adaae1dfb5fc0ec8e40d3"
+  name = "github.com/imdario/mergo"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "1afb36080aec31e0d1528973ebe6721b191b0369"
+  version = "v0.3.8"
+
+[[projects]]
   digest = "1:65b0a07f85f7b5cc019c26775efc278a155a5dea0a8aa617c980e8308d16bc55"
   name = "github.com/influxdata/influxdb"
   packages = [
@@ -193,6 +216,14 @@
   version = "v1.1.7"
 
 [[projects]]
+  branch = "master"
+  digest = "1:400e113a367b511b9b09ca642ee11d9885485a93838526d697033af334a2fdde"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
+
+[[projects]]
   digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -217,6 +248,14 @@
   version = "v0.0.9"
 
 [[projects]]
+  branch = "master"
+  digest = "1:2b32af4d2a529083275afc192d1067d8126b578c7a9613b26600e4df9c735155"
+  name = "github.com/mgutz/ansi"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9520e82c474b0a04dd04f8a40959027271bab992"
+
+[[projects]]
   digest = "1:33422d238f147d247752996a26574ac48dcf472976eda7f5134015f06bf16563"
   name = "github.com/modern-go/concurrent"
   packages = ["."]
@@ -231,6 +270,54 @@
   pruneopts = "UT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:9b8ee267e79a1730cde2e326cc53035913fce52ceef48142c24f3a15e3c65cb3"
+  name = "github.com/nats-io/jwt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0c3fc7aed8bb2534e7bfdf0968a75890402d48cd"
+  version = "v0.3.2"
+
+[[projects]]
+  digest = "1:fabb58b7de2951b05fbe8e1f7c98e449f650883ac15763aeb54ab9afe7be20de"
+  name = "github.com/nats-io/nats.go"
+  packages = [
+    ".",
+    "encoders/builtin",
+    "util",
+  ]
+  pruneopts = "UT"
+  revision = "6063d679d23ae5b3edb4030d5e89a6e30ea53bc6"
+  version = "v1.9.1"
+
+[[projects]]
+  digest = "1:229998a2544a3cc03959600ac0869eb2e0b6c2ec7a8999ff8dd98e5aa6d35d62"
+  name = "github.com/nats-io/nkeys"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f1930e19b436412202ab130a733187cc6f40ba7e"
+  version = "v0.1.3"
+
+[[projects]]
+  digest = "1:599f3202ce0a754144ddc4be4c6df9c6ab27b1d722a63ede6b2e0c3a2cc338a8"
+  name = "github.com/nats-io/nuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4b96681fa6d28dd0ab5fe79bac63b3a493d9ee94"
+  version = "v1.0.1"
+
+[[projects]]
+  digest = "1:11e62d6050198055e6cd87ed57e5d8c669e84f839c16e16f192374d913d1a70d"
+  name = "github.com/opentracing/opentracing-go"
+  packages = [
+    ".",
+    "ext",
+    "log",
+  ]
+  pruneopts = "UT"
+  revision = "659c90643e714681897ec2521c60567dd21da733"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -289,12 +376,79 @@
   version = "v1.0.5"
 
 [[projects]]
+  digest = "1:54bf58828a4074c2304fcc52f018eb19fc02d5853ebd5121817330792c776734"
+  name = "github.com/uber/jaeger-client-go"
+  packages = [
+    ".",
+    "config",
+    "internal/baggage",
+    "internal/baggage/remote",
+    "internal/reporterstats",
+    "internal/spanlog",
+    "internal/throttler",
+    "internal/throttler/remote",
+    "log",
+    "rpcmetrics",
+    "thrift",
+    "thrift-gen/agent",
+    "thrift-gen/baggage",
+    "thrift-gen/jaeger",
+    "thrift-gen/sampling",
+    "thrift-gen/zipkincore",
+    "transport",
+    "utils",
+  ]
+  pruneopts = "UT"
+  revision = "2d55657eac169e2a86b4fcc1a421e26a9a485b63"
+  version = "v2.22.1"
+
+[[projects]]
+  digest = "1:d7b6fd08442b8d26882fae2c859a0d63962d72a533476a217d46743ed30cb803"
+  name = "github.com/uber/jaeger-lib"
+  packages = ["metrics"]
+  pruneopts = "UT"
+  revision = "a87ae9d84fb038a8d79266298970720be7c80fcd"
+  version = "v2.2.0"
+
+[[projects]]
   digest = "1:1d3ef3dd057d2eb1819e945f88cc83835296c9b7fb13ad3194c937c4e2891fee"
   name = "github.com/urfave/cli"
   packages = ["."]
   pruneopts = "UT"
   revision = "bfe2e925cfb6d44b40ad3a779165ea7e8aff9212"
   version = "v1.22.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:87fe9bca786484cef53d52adeec7d1c52bc2bfbee75734eddeb75fc5c7023871"
+  name = "github.com/xeipuuv/gojsonpointer"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "02993c407bfbf5f6dae44c4f4b1cf6a39b5fc5bb"
+
+[[projects]]
+  branch = "master"
+  digest = "1:dc6a6c28ca45d38cfce9f7cb61681ee38c5b99ec1425339bfc1e1a7ba769c807"
+  name = "github.com/xeipuuv/gojsonreference"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bd5ef7bd5415a7ac448318e64f11a24cd21e594b"
+
+[[projects]]
+  digest = "1:a8a0ed98532819a3b0dc5cf3264a14e30aba5284b793ba2850d6f381ada5f987"
+  name = "github.com/xeipuuv/gojsonschema"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "82fcdeb203eb6ab2a67d0a623d9c19e5e5a64927"
+  version = "v1.2.0"
+
+[[projects]]
+  digest = "1:19525e48b45af69339bd7c2812137dbd1e650a78fc09c7c75482e307d51aa28d"
+  name = "go.uber.org/atomic"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "845920076a298bdb984fb0f1b86052e4ca0a281c"
+  version = "v1.6.0"
 
 [[projects]]
   branch = "master"
@@ -482,6 +636,17 @@
   version = "v1.27.0"
 
 [[projects]]
+  digest = "1:a8136ab6079cc7a9de8d8665e6757b506bf2bb4c88014a4dc1e35eaaa449dfc0"
+  name = "gopkg.in/AlecAivazis/survey.v1"
+  packages = [
+    "core",
+    "terminal",
+  ]
+  pruneopts = "UT"
+  revision = "da50ccef2fd74048e26b7846a731da4254035115"
+  version = "v1.8.8"
+
+[[projects]]
   digest = "1:2d1fbdc6777e5408cabeb02bf336305e724b925ff4546ded0fa8715a7267922a"
   name = "gopkg.in/inf.v0"
   packages = ["."]
@@ -606,7 +771,7 @@
   version = "kubernetes-1.13.3"
 
 [[projects]]
-  digest = "1:3673cd8225b27f1b7af128f3f821eccc5be6ef405d13195b4fad1180673faaf1"
+  digest = "1:92521c8ced8ca83a1e6be715c321ca4f814669a19d91b0ec83e2e3a039b098eb"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -686,8 +851,12 @@
     "rest",
     "rest/watch",
     "testing",
+    "tools/auth",
     "tools/cache",
+    "tools/clientcmd",
     "tools/clientcmd/api",
+    "tools/clientcmd/api/latest",
+    "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/pager",
     "tools/reference",
@@ -696,6 +865,7 @@
     "util/cert",
     "util/connrotation",
     "util/flowcontrol",
+    "util/homedir",
     "util/integer",
     "util/retry",
   ]
@@ -763,33 +933,40 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/AlecAivazis/survey",
+    "github.com/alecthomas/jsonschema",
     "github.com/cpuguy83/go-md2man",
-    "github.com/envoyproxy/protoc-gen-validate/validate",
     "github.com/fatih/color",
     "github.com/ghodss/yaml",
     "github.com/golang/glog",
     "github.com/golang/protobuf/descriptor",
-    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
-    "github.com/golang/protobuf/protoc-gen-go/descriptor",
-    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/empty",
-    "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/gorilla/handlers",
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
     "github.com/jinzhu/copier",
+    "github.com/nats-io/nats.go",
+    "github.com/opentracing/opentracing-go",
+    "github.com/opentracing/opentracing-go/ext",
     "github.com/philips/go-bindata-assetfs",
     "github.com/russross/blackfriday",
     "github.com/sirupsen/logrus",
+    "github.com/uber/jaeger-client-go",
+    "github.com/uber/jaeger-client-go/config",
+    "github.com/uber/jaeger-client-go/log",
+    "github.com/uber/jaeger-lib/metrics",
     "github.com/urfave/cli",
+    "github.com/xeipuuv/gojsonschema",
     "golang.org/x/crypto/ssh",
     "google.golang.org/genproto/googleapis/api/annotations",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/status",
+    "gopkg.in/AlecAivazis/survey.v1/terminal",
     "gopkg.in/yaml.v2",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
@@ -816,6 +993,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator/cmd/client-gen",
   ]
