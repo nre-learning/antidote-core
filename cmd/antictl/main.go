@@ -121,6 +121,7 @@ func main() {
 
 					},
 				},
+				// TODO (mierdin): Add command to make a session persistent
 			},
 		},
 		{

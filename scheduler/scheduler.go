@@ -108,6 +108,14 @@ func (s *AntidoteScheduler) Start() error {
 					ext.Error.Set(span, true)
 				}
 			}
+
+			// Clean up old sessions
+			err = s.PurgeOldSessions(span.Context())
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+			}
+
 			span.Finish()
 			time.Sleep(1 * time.Minute)
 
@@ -143,6 +151,32 @@ func (s *AntidoteScheduler) Start() error {
 	// Wait forever
 	ch := make(chan struct{})
 	<-ch
+
+	return nil
+}
+
+// PurgeOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
+	span := ot.StartSpan("scheduler_purgeoldsessions", ot.ChildOf(sc))
+	defer span.Finish()
+
+	lsList, err := s.Db.ListLiveSessions(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	for _, ls := range lsList {
+		if time.Since(ls.CreatedTime) > time.Duration(s.Config.LiveSessionTTL)*time.Minute {
+			err := s.Db.DeleteLiveSession(span.Context(), ls.ID)
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+				return err
+			}
+		}
+	}
 
 	return nil
 }

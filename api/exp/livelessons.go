@@ -171,6 +171,26 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		return &pb.LiveLessonId{Id: existingLL.ID}, nil
 	}
 
+	// Figure out how many livelessons this session has opened, if enabled
+	// (limit must be > 0)
+	if s.Config.LiveLessonLimit > 0 {
+		llList, _ := s.Db.ListLiveLessons(span.Context())
+		llCount := 0
+		for _, ll := range llList {
+			if ll.SessionID == lp.SessionId {
+				llCount++
+			}
+		}
+		if llCount >= s.Config.LiveLessonLimit {
+			span.LogFields(
+				log.String("sessionId", lp.SessionId),
+				log.Int("llCount", llCount),
+			)
+			ext.Error.Set(span, true)
+			return nil, errors.New("This session address has exceeded the maximum number of liveLessons")
+		}
+	}
+
 	// Initialize new LiveLesson
 	newID := db.RandomID(10)
 

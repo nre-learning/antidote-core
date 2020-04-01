@@ -12,12 +12,24 @@ import (
 type AntidoteConfig struct {
 	InstanceID string `yaml:"instanceId"`
 
-	Tier          string `yaml:"tier"`
-	Domain        string `yaml:"domain"`
-	ImageOrg      string `yaml:"imageOrg"`
-	GRPCPort      int    `yaml:"grpcPort"`
-	HTTPPort      int    `yaml:"httpPort"`
-	LiveLessonTTL int    `yaml:"liveLessonTTL"`
+	Tier     string `yaml:"tier"`
+	Domain   string `yaml:"domain"`
+	ImageOrg string `yaml:"imageOrg"`
+	GRPCPort int    `yaml:"grpcPort"`
+	HTTPPort int    `yaml:"httpPort"`
+
+	// Both TTL options are in minutes
+	LiveSessionTTL int `yaml:"liveSessionTTL"`
+	LiveLessonTTL  int `yaml:"liveLessonTTL"`
+
+	// Limits the number of sessions that can be requested by a single IP address
+	LiveSessionLimit int `yaml:"liveSessionLimit"`
+
+	// Less important but still useful. LiveLessons are already bound to a session ID, so the
+	// number of livelessons that can be spun up by a single session is bound to the number of
+	// lessons in a given curriculum. This option, however, can be used to further limit the number
+	// of concurrent livelessons for a single session
+	LiveLessonLimit int `yaml:"liveLessonLimit"`
 
 	Stats struct {
 		URL      string `yaml:"url"`
@@ -44,7 +56,10 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		ImageOrg:          "antidotelabs",
 		GRPCPort:          50099,
 		HTTPPort:          8086,
+		LiveSessionTTL:    1440,
 		LiveLessonTTL:     30,
+		LiveSessionLimit:  0,
+		LiveLessonLimit:   0,
 		AlwaysPull:        false,
 		AllowEgress:       false,
 		CertLocation:      "prod/tls-certificate",
