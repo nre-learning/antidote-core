@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -62,33 +63,30 @@ Please replace this text with a NAPALM-compatible configuration for this endpoin
 Also, don't forget to update the name of the file to include the desired NAPALM driver (i.e. "junos", "ios", etc.)
 
 `
+
+	curriculumHelp = `This is the path on your local filesystem to an Antidote-compatible curriculum.
+This tool needs to know where this is in order to generate the curriculum resources you're defining.
+
+If you haven't already done this, open another terminal window/tab and follow the instructions
+at https://docs.nrelabs.io/ to clone the NRE Labs curriculum to a location of your choosing. Once
+you've done this, provide that location here.
+`
 )
 
 func renderLessonFiles(lesson *models.Lesson) error {
 
-	// We need this to make the directory name, and we don't currently enforce schema compliance within
-	// the wizard, so this is a quick check to ensure we have this required field.
-	if lesson.Slug == "" {
-		return errors.New("Cannot create a lesson without the required field 'Slug'")
-	}
-
 	var curriculumDir string
 
 	for {
-		curriculumDir = askSimpleValue("Please provide path to the curriculum", "")
-		if _, err := os.Stat(fmt.Sprintf("%s%slessons%s", curriculumDir, string(os.PathSeparator), string(os.PathSeparator))); os.IsNotExist(err) {
+		curriculumDir = askSimpleValue("Please provide path to the curriculum", "", curriculumHelp)
+		if _, err := os.Stat(filepath.FromSlash(fmt.Sprintf("%s/lessons/", curriculumDir))); os.IsNotExist(err) {
 			color.Red("This path does not appear to be a valid curriculum. Please select another location.")
 			continue
 		}
 		break
 	}
 
-	// TODO(mierdin): Append slash to end of path if it doesn't exist
-	if string(curriculumDir[len(curriculumDir)-1]) != string(os.PathSeparator) {
-		curriculumDir = fmt.Sprintf("%s%s", curriculumDir, string(os.PathSeparator))
-	}
-
-	lessonDir := fmt.Sprintf("%s%slessons%s%s%s", curriculumDir, string(os.PathSeparator), string(os.PathSeparator), lesson.Slug, string(os.PathSeparator))
+	lessonDir := filepath.FromSlash(fmt.Sprintf("%s/lessons/%s/", curriculumDir, lesson.Slug))
 
 	color.Green("--- ** WRITING SKELETON LESSON TO DISK **")
 
@@ -105,7 +103,7 @@ func renderLessonFiles(lesson *models.Lesson) error {
 		return err
 	}
 
-	meta := fmt.Sprintf("%s%slesson.meta.yaml", lessonDir, string(os.PathSeparator))
+	meta := filepath.FromSlash(fmt.Sprintf("%slesson.meta.yaml", lessonDir))
 	err = writeToFile(meta, string(yamlOutput))
 	if err != nil {
 		return err
@@ -129,10 +127,10 @@ func renderLessonFiles(lesson *models.Lesson) error {
 		switch stage.GuideType {
 		case "jupyter":
 			fileContents = defaultJupyterContents
-			fileLocation = fmt.Sprintf("%s%sguide.ipynb", stageDirectory, string(os.PathSeparator))
+			fileLocation = filepath.FromSlash(fmt.Sprintf("%s/guide.ipynb", stageDirectory))
 		default:
 			fileContents = defaultMarkdownContents
-			fileLocation = fmt.Sprintf("%s%sguide.md", stageDirectory, string(os.PathSeparator))
+			fileLocation = filepath.FromSlash(fmt.Sprintf("%s/guide.md", stageDirectory))
 		}
 
 		err = writeToFile(fileLocation, fileContents)
@@ -142,7 +140,7 @@ func renderLessonFiles(lesson *models.Lesson) error {
 
 		color.Green("--- Created lesson guide %s", fileLocation)
 
-		configsDirectory := fmt.Sprintf("%s%sconfigs", stageDirectory, string(os.PathSeparator))
+		configsDirectory := filepath.FromSlash(fmt.Sprintf("%s/configs", stageDirectory))
 		err = os.MkdirAll(configsDirectory, os.ModePerm)
 		if err != nil {
 			return err
@@ -156,13 +154,13 @@ func renderLessonFiles(lesson *models.Lesson) error {
 			switch stage.GuideType {
 			case "ansible":
 				fileContents = defaultAnsibleContents
-				fileLocation = fmt.Sprintf("%s%s%s.yaml", configsDirectory, string(os.PathSeparator), ep.Name)
+				fileLocation = filepath.FromSlash(fmt.Sprintf("%s/%s.yaml", configsDirectory, ep.Name))
 			case "python":
 				fileContents = defaultPythonContents
-				fileLocation = fmt.Sprintf("%s%s%s.py", configsDirectory, string(os.PathSeparator), ep.Name)
+				fileLocation = filepath.FromSlash(fmt.Sprintf("%s/%s.py", configsDirectory, ep.Name))
 			case "napalm":
 				fileContents = defaultNapalmContents
-				fileLocation = fmt.Sprintf("%s%s%s-<napalm-driver-here>.txt", configsDirectory, string(os.PathSeparator), ep.Name)
+				fileLocation = filepath.FromSlash(fmt.Sprintf("%s/%s-<napalm-driver-here>.txt", configsDirectory, ep.Name))
 			default:
 				continue
 			}
@@ -197,20 +195,15 @@ func renderCollectionFiles(collection *models.Collection) error {
 	var curriculumDir string
 
 	for {
-		curriculumDir = askSimpleValue("Please provide path to the curriculum", "")
-		if _, err := os.Stat(fmt.Sprintf("%s%scollections%s", curriculumDir, string(os.PathSeparator), string(os.PathSeparator))); os.IsNotExist(err) {
+		curriculumDir = askSimpleValue("Please provide path to the curriculum", "", curriculumHelp)
+		if _, err := os.Stat(filepath.FromSlash(fmt.Sprintf("%s/collections/", curriculumDir))); os.IsNotExist(err) {
 			color.Red("This path does not appear to be a valid curriculum. Please select another location.")
 			continue
 		}
 		break
 	}
 
-	// TODO(mierdin): Append slash to end of path if it doesn't exist
-	if string(curriculumDir[len(curriculumDir)-1]) != string(os.PathSeparator) {
-		curriculumDir = fmt.Sprintf("%s%s", curriculumDir, string(os.PathSeparator))
-	}
-
-	collectionDir := fmt.Sprintf("%s%scollections%s%s%s", curriculumDir, string(os.PathSeparator), string(os.PathSeparator), collection.Slug, string(os.PathSeparator))
+	collectionDir := filepath.FromSlash(fmt.Sprintf("%s/collections/%s/", curriculumDir, collection.Slug))
 
 	color.Green("--- ** WRITING COLLECTION TO DISK **")
 
@@ -227,7 +220,7 @@ func renderCollectionFiles(collection *models.Collection) error {
 		return err
 	}
 
-	meta := fmt.Sprintf("%s/collection.meta.yaml", collectionDir)
+	meta := fmt.Sprintf("%scollection.meta.yaml", collectionDir)
 	err = writeToFile(meta, string(yamlOutput))
 	if err != nil {
 		return err

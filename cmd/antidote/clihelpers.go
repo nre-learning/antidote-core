@@ -8,12 +8,13 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1/terminal"
 )
 
-func askSimpleValue(prompt, defaultValue string) string {
+func askSimpleValue(prompt, defaultValue, help string) string {
 	var val survey.Validator
 	resp := ""
 	q := &survey.Input{
 		Message: fmt.Sprintf("%s:", prompt),
 		Default: defaultValue,
+		Help:    help,
 	}
 	err := survey.AskOne(q, &resp, val)
 	if err == terminal.InterruptErr {

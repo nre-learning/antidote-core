@@ -96,7 +96,23 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 		v := vpre.(*jsonschema.Type)
 
 		if v.Type != "array" {
-			retString := promptForValue(typeName, v)
+
+			var retString string
+			for {
+				retString = promptForValue(typeName, v)
+
+				// Minlength is a pretty important requirement, especially for slugs, since they're
+				// used to generate paths later. So rather than breaking the user's flow late, let's
+				// provide early feedback here. However, we should consider extending this idea to all
+				// schema validation in the wizard at some point. For now, this is the most important one
+				// DO NOT remove this or construction will break.
+				if retString == "" && v.MinLength > 0 {
+					fmt.Printf("%s must be longer than 0 characters.\n", typeName)
+					continue
+				}
+				break
+			}
+
 			if v.Type == "integer" {
 				i, err := strconv.Atoi(retString)
 				if err != nil {
