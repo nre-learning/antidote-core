@@ -5,3 +5,7 @@ enabledServices:
 - api
 - stats
 - scheduler
+
+# for dev
+k8sInCluster: false
+k8sOutOfClusterConfigPath: "/home/mierdin/.kube/selfmedicateconfig"

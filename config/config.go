@@ -45,6 +45,17 @@ type AntidoteConfig struct {
 	CurriculumVersion string `yaml:"curriculumVersion"`
 
 	EnabledServices []string `yaml:"enabledServices"`
+
+	// K8sInCluster controls whether or not the scheduler service uses an in-cluster
+	// configuration for communicating with kubernetes. Since this is the typical deployment
+	// scenario, this defaults to true.
+	//
+	// However, for development, it may be useful to use an out of cluster configuration,
+	// so you can run antidoted directly instead of packaging it in a container image and deploying
+	// to your cluster. In this case, set K8sInCluster to false, and provide the path to
+	// your kubeconfig via K8sOutOfClusterConfigPath
+	K8sInCluster              bool   `yaml:"k8sInCluster"`
+	K8sOutOfClusterConfigPath string `yaml:"k8sOutOfClusterConfigPath"`
 }
 
 func LoadConfig(configFile string) (AntidoteConfig, error) {
@@ -69,6 +80,8 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 			"api",
 			"stats",
 		},
+		K8sInCluster:              true,
+		K8sOutOfClusterConfigPath: "",
 	}
 
 	yamlDef, err := ioutil.ReadFile(configFile)

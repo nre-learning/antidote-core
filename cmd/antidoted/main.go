@@ -11,6 +11,7 @@ import (
 	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubernetes "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	nats "github.com/nats-io/nats.go"
 	api "github.com/nre-learning/antidote-core/api/exp"
@@ -74,19 +75,18 @@ func main() {
 
 		if config.IsServiceEnabled("scheduler") {
 
-			// OUT OF CLUSTER CONFIG FOR TESTING
-			// Uncomment this and comment the next block to do this
-			// kubeConfig, err := clientcmd.BuildConfigFromFlags("", "/home/mierdin/.kube/selfmedicateconfig")
-			// if err != nil {
-			// 	panic(err.Error())
-			// }
-
 			var kubeConfig *rest.Config
-			kubeConfig, err = rest.InClusterConfig()
-			if err != nil {
-				log.Fatal(err)
+			if !config.K8sInCluster {
+				kubeConfig, err = clientcmd.BuildConfigFromFlags("", config.K8sOutOfClusterConfigPath)
+				if err != nil {
+					log.Fatalf("Problem using external k8s configuration %s - %v", config.K8sOutOfClusterConfigPath, err)
+				}
+			} else {
+				kubeConfig, err = rest.InClusterConfig()
+				if err != nil {
+					log.Fatalf("Problem using in-cluster k8s configuration - %v", err)
+				}
 			}
-
 			cs, err := kubernetes.NewForConfig(kubeConfig) // Client for working with standard kubernetes resources
 			if err != nil {
 				log.Fatalf("Unable to create new kubernetes client - %v", err)
