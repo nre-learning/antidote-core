@@ -17,12 +17,12 @@ type Lesson struct {
 	Video            string              `json:"Video" yaml:"video" jsonschema:"description=YouTube URL to lesson video"`
 	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"description=Tier for this lesson (you probably want 'prod') ,enum=prod,enum=ptr,enum=local"`
 	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty" jsonschema:"description=The slug for the collection this lesson should belong to"`
-	Description      string              `json:"Description,omitempty" yaml:"description,omitempty" jsonschema:"minLength=1,description=A helpful description for what the learner should expect to get from this lesson"`
-	ShortDescription string              `json:"ShortDescription,omitempty" yaml:"shortDescription,omitempty" jsonschema:"minLength=1,description=A brief description for this lesson. One or two words"`
+	Description      string              `json:"Description" yaml:"description" jsonschema:"minLength=1,description=A helpful description for what the learner should expect to get from this lesson"`
+	ShortDescription string              `json:"ShortDescription" yaml:"shortDescription" jsonschema:"minLength=1,description=A brief description for this lesson. One or two words"`
 	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty" jsonschema:"description=A list of slugs for other lessons that are prerequisite to this lesson"`
 	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty" jsonschema:"description=A list of tags to apply to this lesson for categorization purposes"`
 	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=Logical sections or chapters of a lesson,additionalProperties=false"`
-	Endpoints        []*LessonEndpoint   `json:"Endpoints,omitempty" yaml:"endpoints,omitempty" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
+	Endpoints        []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
 
 	// NOTE - any time you see these dashes, it means this field is used for internal purposes only.

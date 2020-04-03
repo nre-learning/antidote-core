@@ -606,9 +606,9 @@ Lesson = `{
         "Prereqs": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int32"
-          }
+            "type": "string"
+          },
+          "title": "this field ONLY contains immediately listed prereqs from the lesson meta.\nfor a full flattened tree of all prereqs, see GetAllLessonPrereqs"
         },
         "Tags": {
           "type": "array",

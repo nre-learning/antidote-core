@@ -51,7 +51,11 @@ message Lesson {
   string Diagram = 10;
   string Video = 11;
   string Tier = 12;
-  repeated int32 Prereqs = 13;
+
+  // this field ONLY contains immediately listed prereqs from the lesson meta.
+  // for a full flattened tree of all prereqs, see GetAllLessonPrereqs
+  repeated string Prereqs = 13;
+
   repeated string Tags = 14;
   int32 Collection = 15;
   string Description = 16;
