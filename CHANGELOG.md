@@ -6,6 +6,7 @@
 - Top-to-bottom revamp and move to Antidote-Core [#141](https://github.com/nre-learning/antidote-core/pull/141)
 - Add protections to antidote CLI to protect against landmines [#156](https://github.com/nre-learning/antidote-core/pull/156)
 - Minor lesson model updates [#157](https://github.com/nre-learning/antidote-core/pull/157)
+- Add mutex to podready function [#158](https://github.com/nre-learning/antidote-core/pull/158)
 
 ## v0.5.1 - February 17, 2020
 
