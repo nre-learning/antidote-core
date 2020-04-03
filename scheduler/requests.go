@@ -279,6 +279,7 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	// of maximum amounts of context for troubleshooting while we have it
 	wg := new(sync.WaitGroup)
 	wg.Add(len(createdPods))
+	cp := &sync.Mutex{}
 
 	failLesson := false
 
@@ -299,7 +300,9 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 				}
 
 				if rdy {
+					cp.Lock()
 					delete(createdPods, name)
+					cp.Unlock()
 					return
 				}
 
