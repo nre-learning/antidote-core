@@ -2,7 +2,7 @@ slug: valid-lesson
 description: |
   An example of a valid lesson that uses all the features.
   Tests should ingest this lesson and tweak in some ways to test validation
-
+shortDescription: Valid Example
 category: fundamentals
 diagram:  https://example.com/diagram.png
 video:    https://example.com/video.png
