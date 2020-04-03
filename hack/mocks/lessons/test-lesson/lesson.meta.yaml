@@ -2,6 +2,8 @@
 slug: test-lesson
 name: Antidote Test Lesson
 category: workflows  # This ensures this lesson shows up in promoted lessons
+description: "foo bar"
+shortDescription: "foobar"
 tier: prod
 endpoints:
 - name: linux
