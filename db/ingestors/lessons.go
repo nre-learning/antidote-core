@@ -1,7 +1,6 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -46,7 +45,7 @@ func ReadLessons(cfg config.AntidoteConfig) ([]*models.Lesson, error) {
 		yamlDef, err := ioutil.ReadFile(file)
 		if err != nil {
 			log.Errorf("Encountered problem %s", err)
-			continue
+			return nil, err
 		}
 
 		var lesson models.Lesson
@@ -60,7 +59,7 @@ func ReadLessons(cfg config.AntidoteConfig) ([]*models.Lesson, error) {
 		err = validateLesson(&lesson)
 		if err != nil {
 			log.Errorf("Lesson '%s' failed to validate", lesson.Slug)
-			continue
+			return nil, err
 		}
 
 		if tierMap[lesson.Tier] < tierMap[cfg.Tier] {
@@ -68,7 +67,7 @@ func ReadLessons(cfg config.AntidoteConfig) ([]*models.Lesson, error) {
 			continue
 		}
 
-		log.Infof("Successfully imported lesson '%s'  with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
+		log.Infof("Successfully imported lesson '%s' with %d endpoints.", lesson.Slug, len(lesson.Endpoints))
 		retLds = append(retLds, &lesson)
 	}
 
@@ -83,14 +82,8 @@ func ReadLessons(cfg config.AntidoteConfig) ([]*models.Lesson, error) {
 		}
 	}
 
-	if len(fileList) != len(retLds) {
-		log.Warnf("Imported %d lesson definitions with errors.", len(retLds))
-		return retLds, errors.New("Not all lesson definitions were imported")
-	}
-
 	log.Infof("Imported %d lesson definitions.", len(retLds))
 	return retLds, nil
-
 }
 
 func lessonInSlice(lessons []*models.Lesson, slug string) bool {
@@ -129,6 +122,9 @@ func validateLesson(lesson *models.Lesson) error {
 	// Endpoint-specific checks
 	for i := range lesson.Endpoints {
 		ep := lesson.Endpoints[i]
+
+		// TODO(mierdin): Check to ensure the referenced image has been imported. This will require DB access
+		// from this function.
 
 		// Must EITHER provide additionalPorts, or Presentations. Endpoints without either are invalid.
 		if len(ep.Presentations) == 0 && len(ep.AdditionalPorts) == 0 {
