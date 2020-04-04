@@ -22,17 +22,17 @@ func ImportCurriculum(dm db.DataManager, cfg config.AntidoteConfig) error {
 	}
 	dm.InsertCollections(span.Context(), collections)
 
-	lessons, err := ReadLessons(cfg)
-	if err != nil {
-		return err
-	}
-	dm.InsertLessons(span.Context(), lessons)
-
 	images, err := ReadImages(cfg)
 	if err != nil {
 		return err
 	}
 	dm.InsertImages(span.Context(), images)
+
+	lessons, err := ReadLessons(cfg)
+	if err != nil {
+		return err
+	}
+	dm.InsertLessons(span.Context(), lessons)
 
 	return nil
 }

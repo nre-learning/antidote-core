@@ -39,7 +39,7 @@ type Lesson struct {
 // A Lesson might have one or more LessonStages.
 type LessonStage struct {
 	Description   string          `json:"Description,omitempty" yaml:"description,omitempty"`
-	GuideType     LessonGuideType `json:"GuideType,omitempty" yaml:"guideType,omitempty" jsonschema:"required,enum=markdown,enum=jupyter"`
+	GuideType     LessonGuideType `json:"GuideType" yaml:"guideType" jsonschema:"required,enum=markdown,enum=jupyter"`
 	GuideContents string          `json:"-"  yaml:"-" jsonschema:"-"`
 	StageVideo    string          `json:"StageVideo" yaml:"stageVideo" jsonschema:"description=URL to lesson stage video"`
 }
