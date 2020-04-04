@@ -46,7 +46,8 @@ message Lesson {
   repeated LessonStage Stages = 2;
   string Name = 3;
   repeated Endpoint Endpoints = 4;
-  repeated Connection Connections = 8;
+  repeated Connection Connections = 7;
+  repeated Author authors = 8;
   string Category = 9;
   string Diagram = 10;
   string Video = 11;
@@ -95,4 +96,9 @@ message Presentation {
 message Connection {
   string A = 1;
   string B = 2;
+}
+
+message Author {
+  string Name = 1;
+  string Link = 2;
 }

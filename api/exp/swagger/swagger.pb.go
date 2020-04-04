@@ -523,6 +523,17 @@ Lesson = `{
     }
   },
   "definitions": {
+    "expAuthor": {
+      "type": "object",
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Link": {
+          "type": "string"
+        }
+      }
+    },
     "expConnection": {
       "type": "object",
       "properties": {
@@ -589,6 +600,12 @@ Lesson = `{
           "type": "array",
           "items": {
             "$ref": "#/definitions/expConnection"
+          }
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/expAuthor"
           }
         },
         "Category": {
