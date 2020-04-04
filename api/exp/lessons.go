@@ -3,12 +3,13 @@ package api
 import (
 	"context"
 	"errors"
-	"time"
 
 	copier "github.com/jinzhu/copier"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	models "github.com/nre-learning/antidote-core/db/models"
@@ -94,11 +95,9 @@ func (s *AntidoteAPI) GetLesson(ctx context.Context, lessonSlug *pb.LessonSlug) 
 	span := ot.StartSpan("api_lesson_get", ext.SpanKindRPCClient)
 	defer span.Finish()
 
-	time.Sleep(2 * time.Second)
 	dbLesson, err := s.Db.GetLesson(span.Context(), lessonSlug.Slug)
 	if err != nil {
-		log.Error(err)
-		return nil, errors.New("Error retrieving specified lesson")
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	lesson := lessonDBToAPI(dbLesson)
