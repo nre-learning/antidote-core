@@ -307,6 +307,12 @@ Curriculum = `{
         },
         "Website": {
           "type": "string"
+        },
+        "AVer": {
+          "type": "string"
+        },
+        "GitRoot": {
+          "type": "string"
         }
       },
       "description": "Use this to return only metadata about the installed curriculum."

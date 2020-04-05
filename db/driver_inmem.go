@@ -243,7 +243,7 @@ func (a *ADMInMem) SetCurriculum(sc ot.SpanContext, curriculum *models.Curriculu
 	span.LogFields(log.Object("curriculum", curriculum))
 
 	a.curriculumMu.Lock()
-	defer a.collectionsMu.Unlock()
+	defer a.curriculumMu.Unlock()
 	a.curriculum = curriculum
 	return nil
 }
