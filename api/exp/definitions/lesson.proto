@@ -47,7 +47,7 @@ message Lesson {
   string Name = 3;
   repeated Endpoint Endpoints = 4;
   repeated Connection Connections = 7;
-  repeated Author authors = 8;
+  repeated Author Authors = 8;
   string Category = 9;
   string Diagram = 10;
   string Video = 11;

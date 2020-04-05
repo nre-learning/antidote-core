@@ -602,7 +602,7 @@ Lesson = `{
             "$ref": "#/definitions/expConnection"
           }
         },
-        "authors": {
+        "Authors": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/expAuthor"
