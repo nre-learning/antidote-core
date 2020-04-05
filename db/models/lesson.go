@@ -24,6 +24,7 @@ type Lesson struct {
 	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=Logical sections or chapters of a lesson,additionalProperties=false"`
 	Endpoints        []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
+	Authors          []*LessonAuthor     `json:"Authors,omitempty" yaml:"authors,omitempty" jsonschema:"description=A list of authors for this lesson"`
 
 	// NOTE - any time you see these dashes, it means this field is used for internal purposes only.
 	// When we were using protobuf models for everything, we couldn't do this. But by separating internal
@@ -96,6 +97,12 @@ const (
 	// PresentationType_ssh is for presentations that provide an interactive terminal
 	PresentationType_ssh PresentationType = "ssh"
 )
+
+// LessonAuthor represents details about an individual who participated in authoring this lesson
+type LessonAuthor struct {
+	Name string `jsonschema:"description=Full name of this author"`
+	Link string `jsonschema:"description=URL to this author's profile such as Twitter or Github"`
+}
 
 // GetSchema returns a Schema to be used in creation wizards
 func (l Lesson) GetSchema() *jsonschema.Schema {

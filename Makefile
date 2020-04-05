@@ -31,8 +31,8 @@ compile:
 	@go install ./cmd/...
 
 docker:
-	docker build -t antidotelabs/antidote:$(TARGET_VERSION) .
-	docker push antidotelabs/antidote:$(TARGET_VERSION)
+	docker build -t antidotelabs/antidote-core:$(TARGET_VERSION) .
+	docker push antidotelabs/antidote-core:$(TARGET_VERSION)
 
 test:
 	@#This will run tests on all but the pkg package, if you want to limit this in the future.
