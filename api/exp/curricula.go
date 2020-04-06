@@ -24,8 +24,10 @@ func (s *AntidoteAPI) GetCurriculumInfo(ctx context.Context, filter *pb.Curricul
 	}
 
 	return &pb.CurriculumInfo{
-		Name:        curriculum.Slug,
+		Name:        curriculum.Name,
 		Description: curriculum.Description,
 		Website:     curriculum.Website,
+		AVer:        curriculum.AVer,
+		GitRoot:     curriculum.GitRoot,
 	}, nil
 }

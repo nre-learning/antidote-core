@@ -34,7 +34,13 @@ func main() {
 					Tier:          "local",
 				}
 
-				_, err := ingestors.ReadImages(cfg)
+				_, err := ingestors.ReadCurriculum(cfg)
+				if err != nil {
+					color.Red("Some curriculum resources failed to validate.")
+					os.Exit(1)
+				}
+
+				_, err = ingestors.ReadImages(cfg)
 				if err != nil {
 					color.Red("Some curriculum resources failed to validate.")
 					os.Exit(1)

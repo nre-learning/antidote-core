@@ -10,6 +10,7 @@
 - Make k8s configuration configurable at Antidote level [#159](https://github.com/nre-learning/antidote-core/pull/159)
 - Changed resource order on ingest, and added early return on error [#160](https://github.com/nre-learning/antidote-core/pull/160)
 - Add "Authors" to lesson metadata [#162](https://github.com/nre-learning/antidote-core/pull/162)
+- Ingest curriculum info, offer via API [#163](https://github.com/nre-learning/antidote-core/pull/163)
 
 ## v0.5.1 - February 17, 2020
 

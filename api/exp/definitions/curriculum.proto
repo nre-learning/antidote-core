@@ -1,8 +1,6 @@
 syntax = "proto3";
 package antidote.api.exp;
 
-import "lesson.proto";
-import "collection.proto";
 import "google/api/annotations.proto";
 
 service CurriculumService {
@@ -22,14 +20,7 @@ message CurriculumInfo {
     string Name = 1;
     string Description = 2;
     string Website = 3;
+    string AVer = 4;
+    string GitRoot = 5;
 }
 
-// The full curriculum, including both metadata and loaded resources.
-message Curriculum {
-    string Name = 1;
-    string Description = 2;
-    string Website = 3;
-
-    map<int32, Lesson> Lessons = 4;
-    map<int32, Collection> Collections = 5;
-}
