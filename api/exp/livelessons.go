@@ -99,6 +99,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 		if ll.SessionID == lp.SessionId && ll.LessonSlug == lp.LessonSlug {
 			existingLL = &ll
 			llExists = true
+			break
 		}
 	}
 
