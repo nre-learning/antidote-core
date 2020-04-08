@@ -104,11 +104,13 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		return AntidoteConfig{}, errors.New("CurriculumDir has no default and must be provided")
 	}
 
-	if len(strings.Split(config.CertLocation, "/")) != 2 {
+	// Helper functions to give early feedback on any formatting problems. We are still checking
+	// within the code to ensure the post-split length is correct, however - please do not only rely
+	// on these checks.
+	if config.CertLocation != "" && len(strings.Split(config.CertLocation, "/")) != 2 {
 		return AntidoteConfig{}, errors.New("Invalid format for CertLocation")
 	}
-
-	if len(strings.Split(config.PullCredsLocation, "/")) != 2 {
+	if config.PullCredsLocation != "" && len(strings.Split(config.PullCredsLocation, "/")) != 2 {
 		return AntidoteConfig{}, errors.New("Invalid format for PullCredsLocation")
 	}
 

@@ -60,6 +60,7 @@ func TestConfigJSON(t *testing.T) {
 		CurriculumVersion:         "latest",
 		AlwaysPull:                false,
 		CertLocation:              "prod/tls-certificate",
+		PullCredsLocation:         "",
 		AllowEgress:               false,
 		EnabledServices:           []string{"foobarsvc"},
 		K8sInCluster:              true,
