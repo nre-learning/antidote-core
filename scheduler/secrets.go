@@ -82,8 +82,6 @@ func (s *AntidoteScheduler) syncPullCreds(sc ot.SpanContext, nsName string) erro
 		return nil
 	}
 
-	var secretNs, secretName string
-
 	locs := strings.Split(s.Config.PullCredsLocation, "/")
 	if len(locs) != 2 {
 		err := errors.New("Improper configuration for pull creds")
@@ -118,7 +116,7 @@ func (s *AntidoteScheduler) syncPullCreds(sc ot.SpanContext, nsName string) erro
 		Type:       pullSecret.Type,
 	}
 
-	result, err := s.Client.CoreV1().Secrets(nsName).Create(&newCert)
+	_, err = s.Client.CoreV1().Secrets(nsName).Create(&newCert)
 	if err != nil {
 		span.LogFields(
 			log.String("message", fmt.Sprintf("Problem creating secret %s: %s", newCert.ObjectMeta.Name, err)),

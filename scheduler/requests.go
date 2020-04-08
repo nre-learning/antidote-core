@@ -161,7 +161,8 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		log.Error(err)
 	}
 
-	_ = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
+	_ = s.syncCertificate(span.Context(), ns.ObjectMeta.Name)
+	_ = s.syncPullCreds(span.Context(), ns.ObjectMeta.Name)
 
 	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
 	if err != nil {
