@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -39,6 +40,9 @@ type AntidoteConfig struct {
 
 	AlwaysPull  bool `yaml:"alwaysPull"`
 	AllowEgress bool `yaml:"allowEgress"`
+
+	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	PullCredsLocation string `yaml:"pullCredsLocation"`
 
 	CertLocation      string `yaml:"certLocation"`
 	CurriculumDir     string `yaml:"curriculumDir"`
@@ -98,6 +102,14 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 	}
 	if config.CurriculumDir == "" {
 		return AntidoteConfig{}, errors.New("CurriculumDir has no default and must be provided")
+	}
+
+	if len(strings.Split(config.CertLocation, "/")) != 2 {
+		return AntidoteConfig{}, errors.New("Invalid format for CertLocation")
+	}
+
+	if len(strings.Split(config.PullCredsLocation, "/")) != 2 {
+		return AntidoteConfig{}, errors.New("Invalid format for PullCredsLocation")
 	}
 
 	log.Debugf("Antidote config: %s", config.JSON())
