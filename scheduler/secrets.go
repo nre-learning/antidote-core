@@ -74,7 +74,7 @@ func (s *AntidoteScheduler) syncCertificate(sc ot.SpanContext, nsName string) er
 // syncPullCreds takes care of copying pull credentials into the lesson namespace, per
 // https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 func (s *AntidoteScheduler) syncPullCreds(sc ot.SpanContext, nsName string) error {
-	span := ot.StartSpan("scheduler_secret_certificate_sync", ot.ChildOf(sc))
+	span := ot.StartSpan("scheduler_secret_pullcreds_sync", ot.ChildOf(sc))
 	defer span.Finish()
 
 	if s.Config.PullCredsLocation == "" {
@@ -116,7 +116,7 @@ func (s *AntidoteScheduler) syncPullCreds(sc ot.SpanContext, nsName string) erro
 		Type:       pullSecret.Type,
 	}
 
-	_, err = s.Client.CoreV1().Secrets(nsName).Create(&newCert)
+	result, err := s.Client.CoreV1().Secrets(nsName).Create(&newCert)
 	if err != nil {
 		span.LogFields(
 			log.String("message", fmt.Sprintf("Problem creating secret %s: %s", newCert.ObjectMeta.Name, err)),
@@ -125,5 +125,6 @@ func (s *AntidoteScheduler) syncPullCreds(sc ot.SpanContext, nsName string) erro
 		ext.Error.Set(span, true)
 		return err
 	}
+	span.LogEvent(fmt.Sprintf("Successfully copied secret %s", result.ObjectMeta.Name))
 	return nil
 }

@@ -134,7 +134,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	span.SetTag("pullCredsLocation", s.Config.PullCredsLocation)
 	locs := strings.Split(s.Config.PullCredsLocation, "/")
 	if len(locs) == 2 {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{locs[1]})
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: locs[1]})
 	} else {
 		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
 	}

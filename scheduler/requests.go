@@ -66,7 +66,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
-	if s.Config.AllowEgress {
+	if !s.Config.AllowEgress {
 		s.createNetworkPolicy(span.Context(), nsName)
 	}
 
