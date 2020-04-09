@@ -226,7 +226,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if container != "" {
 		plo.Container = container
 	}
-	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &plo)
+	req := s.Client.CoreV1().Pods(nsName).GetLogs(pod.Name, &plo)
 	podLogs, err := req.Stream()
 	if err != nil {
 		span.LogFields(log.Error(err))
