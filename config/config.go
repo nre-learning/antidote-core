@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -41,10 +40,11 @@ type AntidoteConfig struct {
 	AlwaysPull  bool `yaml:"alwaysPull"`
 	AllowEgress bool `yaml:"allowEgress"`
 
+	SecretsNamespace string `yaml:"secretsNamespace"`
+	TLSCertName      string `yaml:"tlsCertName"`
+	PullCredName     string `yaml:"pullCredName"`
 	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-	PullCredsLocation string `yaml:"pullCredsLocation"`
 
-	CertLocation      string `yaml:"certLocation"`
 	CurriculumDir     string `yaml:"curriculumDir"`
 	CurriculumVersion string `yaml:"curriculumVersion"`
 
@@ -77,7 +77,9 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		LiveLessonLimit:   0,
 		AlwaysPull:        false,
 		AllowEgress:       false,
-		CertLocation:      "prod/tls-certificate",
+		SecretsNamespace:  "prod",
+		TLSCertName:       "tls-certificate",
+		PullCredName:      "",
 		CurriculumVersion: "latest",
 		EnabledServices: []string{
 			"scheduler",
@@ -102,16 +104,6 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 	}
 	if config.CurriculumDir == "" {
 		return AntidoteConfig{}, errors.New("CurriculumDir has no default and must be provided")
-	}
-
-	// Helper functions to give early feedback on any formatting problems. We are still checking
-	// within the code to ensure the post-split length is correct, however - please do not only rely
-	// on these checks.
-	if config.CertLocation != "" && len(strings.Split(config.CertLocation, "/")) != 2 {
-		return AntidoteConfig{}, errors.New("Invalid format for CertLocation")
-	}
-	if config.PullCredsLocation != "" && len(strings.Split(config.PullCredsLocation, "/")) != 2 {
-		return AntidoteConfig{}, errors.New("Invalid format for PullCredsLocation")
 	}
 
 	log.Debugf("Antidote config: %s", config.JSON())

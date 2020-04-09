@@ -161,8 +161,11 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		log.Error(err)
 	}
 
-	_ = s.syncCertificate(span.Context(), ns.ObjectMeta.Name)
-	_ = s.syncPullCreds(span.Context(), ns.ObjectMeta.Name)
+	// Sync TLS certificate into the lesson namespace (and optionally, docker pull credentials)
+	_ = s.syncSecret(span.Context(), s.Config.SecretsNamespace, ns.ObjectMeta.Name, s.Config.TLSCertName)
+	if s.Config.PullCredName != "" {
+		_ = s.syncSecret(span.Context(), s.Config.SecretsNamespace, ns.ObjectMeta.Name, s.Config.PullCredName)
+	}
 
 	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
 	if err != nil {
