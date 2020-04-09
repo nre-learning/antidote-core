@@ -387,12 +387,6 @@ func (s *AntidoteScheduler) isEpReachable(ep *models.LiveEndpoint) (bool, error)
 			} else {
 				testResult = s.HealthChecker.tcpTest(rt.host, int(rt.port))
 			}
-			// span.LogFields(
-			// 	log.String("rtName", rt.name),
-			// 	log.String("rtMethod", rt.method),
-			// 	log.String("testTarget", fmt.Sprintf("%s:%d", rt.host, rt.port)),
-			// 	log.Bool("testResult", testResult),
-			// )
 
 			mapMutex.Lock()
 			defer mapMutex.Unlock()
@@ -445,6 +439,7 @@ func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.Live
 			span := ot.StartSpan("scheduler_ep_reachable_test", ot.ChildOf(sc))
 			defer span.Finish()
 			span.SetTag("epName", ep.Name)
+			span.SetTag("epSSHCreds", fmt.Sprintf("%s:%s", ep.SSHUser, ep.SSHPassword))
 
 			defer wg.Done()
 			for {

@@ -66,7 +66,7 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
-	if s.Config.AllowEgress {
+	if !s.Config.AllowEgress {
 		s.createNetworkPolicy(span.Context(), nsName)
 	}
 
@@ -161,7 +161,11 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		log.Error(err)
 	}
 
-	_ = s.syncSecret(span.Context(), ns.ObjectMeta.Name)
+	// Sync TLS certificate into the lesson namespace (and optionally, docker pull credentials)
+	_ = s.syncSecret(span.Context(), s.Config.SecretsNamespace, ns.ObjectMeta.Name, s.Config.TLSCertName)
+	if s.Config.PullCredName != "" {
+		_ = s.syncSecret(span.Context(), s.Config.SecretsNamespace, ns.ObjectMeta.Name, s.Config.PullCredName)
+	}
 
 	lesson, err := s.Db.GetLesson(span.Context(), req.LessonSlug)
 	if err != nil {

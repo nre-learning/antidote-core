@@ -131,6 +131,12 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		},
 	}
 
+	if s.Config.PullCredName != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: s.Config.PullCredName})
+	} else {
+		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
+	}
+
 	// Not all endpoint images come with a hypervisor. For these, we want to be able to conditionally
 	// enable/disable privileged mode based on the relevant field present in the loaded image spec.
 	//
@@ -220,7 +226,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if container != "" {
 		plo.Container = container
 	}
-	req := s.Client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &plo)
+	req := s.Client.CoreV1().Pods(nsName).GetLogs(pod.Name, &plo)
 	podLogs, err := req.Stream()
 	if err != nil {
 		span.LogFields(log.Error(err))

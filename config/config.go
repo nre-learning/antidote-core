@@ -40,7 +40,11 @@ type AntidoteConfig struct {
 	AlwaysPull  bool `yaml:"alwaysPull"`
 	AllowEgress bool `yaml:"allowEgress"`
 
-	CertLocation      string `yaml:"certLocation"`
+	SecretsNamespace string `yaml:"secretsNamespace"`
+	TLSCertName      string `yaml:"tlsCertName"`
+	PullCredName     string `yaml:"pullCredName"`
+	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+
 	CurriculumDir     string `yaml:"curriculumDir"`
 	CurriculumVersion string `yaml:"curriculumVersion"`
 
@@ -73,7 +77,9 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		LiveLessonLimit:   0,
 		AlwaysPull:        false,
 		AllowEgress:       false,
-		CertLocation:      "prod/tls-certificate",
+		SecretsNamespace:  "prod",
+		TLSCertName:       "tls-certificate",
+		PullCredName:      "",
 		CurriculumVersion: "latest",
 		EnabledServices: []string{
 			"scheduler",
