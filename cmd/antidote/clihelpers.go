@@ -26,11 +26,12 @@ func askSimpleValue(prompt, defaultValue, help string) string {
 	return resp
 }
 
-func simpleConfirm(msg string) bool {
+func simpleConfirm(msg, help string) bool {
 	var val survey.Validator
 	resp := false
 	prompt := &survey.Confirm{
 		Message: msg,
+		Help:    help,
 	}
 	err := survey.AskOne(prompt, &resp, val)
 	if err == terminal.InterruptErr {

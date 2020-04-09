@@ -151,11 +151,11 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 			subTypeName := splitSlice[len(splitSlice)-1]
 
 			if v.MinItems == 0 {
-				if !simpleConfirm(fmt.Sprintf("--- Do you wish to create any %s? ---", typeName)) {
+				if !simpleConfirm(fmt.Sprintf("--- Do you wish to create any %s? ---", typeName), v.Description) {
 					continue
 				}
 			}
-			color.Yellow("You will now be prompted to create a series of %s (%s)\n", typeName, v.Description)
+			color.Yellow("You will now be prompted to create a series of %s\n%s\n", typeName, v.Description)
 
 			var members []interface{}
 
@@ -164,7 +164,7 @@ func schemaWizard(schema *jsonschema.Schema, root, typePrefix string) (map[strin
 				innerMap, _ := schemaWizard(schema, subTypeName, fmt.Sprintf("%s[%d].", typeName, i))
 				members = append(members, innerMap)
 
-				if !simpleConfirm(fmt.Sprintf("--- Do you want to add more %s? ---", typeName)) {
+				if !simpleConfirm(fmt.Sprintf("--- Do you want to add more %s? ---", typeName), "Type 'y' to create additional items in this list") {
 					break
 				}
 

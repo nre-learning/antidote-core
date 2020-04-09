@@ -21,10 +21,10 @@ type Lesson struct {
 	ShortDescription string              `json:"ShortDescription" yaml:"shortDescription" jsonschema:"minLength=1,description=A brief description for this lesson. One or two words"`
 	Prereqs          []string            `json:"Prereqs,omitempty" yaml:"prereqs,omitempty" jsonschema:"description=A list of slugs for other lessons that are prerequisite to this lesson"`
 	Tags             []string            `json:"Tags,omitempty" yaml:"tags,omitempty" jsonschema:"description=A list of tags to apply to this lesson for categorization purposes"`
-	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=Logical sections or chapters of a lesson,additionalProperties=false"`
-	Endpoints        []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"minItems=1,description=An instance of a software image to be made available in the lesson"`
-	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=Specifies which endpoints should be connected to each other in the topology"`
-	Authors          []*LessonAuthor     `json:"Authors,omitempty" yaml:"authors,omitempty" jsonschema:"description=A list of authors for this lesson"`
+	Stages           []*LessonStage      `json:"Stages" yaml:"stages" jsonschema:"minItems=1,description=(Logical sections or chapters of a lesson)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/stages,additionalProperties=false"`
+	Endpoints        []*LessonEndpoint   `json:"Endpoints" yaml:"endpoints" jsonschema:"minItems=1,description=(An instance of a software image to be made available in the lesson)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/endpoints"`
+	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=(Connections between endpoints in the topology)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/connections"`
+	Authors          []*LessonAuthor     `json:"Authors,omitempty" yaml:"authors,omitempty" jsonschema:"description=(A list of individuals that have contributed to this lesson)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/authors"`
 
 	// NOTE - any time you see these dashes, it means this field is used for internal purposes only.
 	// When we were using protobuf models for everything, we couldn't do this. But by separating internal
@@ -68,7 +68,7 @@ type LessonEndpoint struct {
 
 	AdditionalPorts []int32 `json:"AdditionalPorts,omitempty" yaml:"additionalPorts,omitempty" jsonschema:"description=Additional ports to open that aren't in a Presentation"`
 
-	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations,omitempty" jsonschema:"description=A way of giving the learner some kind of interactive access to this endpoint"`
+	Presentations []*LessonPresentation `json:"Presentations,omitempty" yaml:"presentations,omitempty" jsonschema:"description=(A mechanism for providing the user with interactive access to this endpoint)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/presentations"`
 }
 
 // LessonPresentation is a particular view into a LessonEndpoint. It's a way of specifying how an endpoint
