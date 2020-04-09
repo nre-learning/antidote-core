@@ -12,6 +12,7 @@
 - Add "Authors" to lesson metadata [#162](https://github.com/nre-learning/antidote-core/pull/162)
 - Ingest curriculum info, offer via API [#163](https://github.com/nre-learning/antidote-core/pull/163)
 - Add functionality to attach a pullsecret to pods (allows private image pulls) [#164](https://github.com/nre-learning/antidote-core/pull/164)
+- Add links to object ref documentation wherever possible in creation wizard [#165](https://github.com/nre-learning/antidote-core/pull/165)
 
 ## v0.5.1 - February 17, 2020
 
