@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/fatih/color"
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -20,7 +19,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "antictl"
 	app.Version = buildInfo["buildVersion"]
-	app.Usage = "Admin/debug tool for the Antidote platform"
+	app.Usage = "Admin/debug tool for the Antidote platform. Use at your own risk"
 	var host, port string
 
 	// Ensure the server/client versions are identical
@@ -39,9 +38,14 @@ func main() {
 		}
 
 		if info.GetBuildVersion() != buildInfo["buildVersion"] {
-			color.Red("ERROR - server/client version mismatch")
-			fmt.Printf("Server version is %s, client is %s\n", info.GetBuildVersion(), buildInfo["buildVersion"])
-			os.Exit(1)
+			// I removed the warnings below because most often, antictl is used during development, and it's
+			// not uncommon to have different dev versions, so this mismatch is expected and pointless to warn about.
+			// On top of this, it gets in the way of being able to use tools like jq for handling the output.
+			// Should rethink this - but for now I'm leaving it out.
+
+			// color.Red("WARNING - server/client version mismatch. Commands may not work or do what you expect.")
+			// fmt.Printf("Server version is %s, client is %s\n", info.GetBuildVersion(), buildInfo["buildVersion"])
+			// fmt.Println("You can avoid this problem by ensuring you are using the version of antictl that was compiled with the instance of antidoted you're connecting to")
 		}
 		return nil
 	}

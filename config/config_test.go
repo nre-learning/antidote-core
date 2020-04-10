@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/nats-io/nats.go"
 )
 
 // Helper functions courtesy of the venerable Ben Johnson
@@ -66,6 +68,7 @@ func TestConfigJSON(t *testing.T) {
 		EnabledServices:           []string{"foobarsvc"},
 		K8sInCluster:              true,
 		K8sOutOfClusterConfigPath: "",
+		NATSUrl:                   nats.DefaultURL,
 	}
 
 	t.Log(antidoteConfig.JSON())
