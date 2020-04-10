@@ -67,7 +67,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		nc, err := nats.Connect(nats.DefaultURL)
+		nc, err := nats.Connect(config.NATSUrl)
 		if err != nil {
 			log.Fatal(err)
 		}

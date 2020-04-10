@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 
+	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -60,6 +61,8 @@ type AntidoteConfig struct {
 	// your kubeconfig via K8sOutOfClusterConfigPath
 	K8sInCluster              bool   `yaml:"k8sInCluster"`
 	K8sOutOfClusterConfigPath string `yaml:"k8sOutOfClusterConfigPath"`
+
+	NATSUrl string `yaml:"natsUrl"`
 }
 
 func LoadConfig(configFile string) (AntidoteConfig, error) {
@@ -88,6 +91,7 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		},
 		K8sInCluster:              true,
 		K8sOutOfClusterConfigPath: "",
+		NATSUrl:                   nats.DefaultURL,
 	}
 
 	yamlDef, err := ioutil.ReadFile(configFile)
