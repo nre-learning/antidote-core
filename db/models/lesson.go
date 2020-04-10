@@ -11,11 +11,11 @@ import (
 // Lesson represents the fields and sub-types for defining a lesson resource in Antidote
 type Lesson struct {
 	Name             string              `json:"Name" yaml:"name" jsonschema:"minLength=1,description=Human-readable name/title for the lesson"`
-	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"minLength=1,description=A unique identifier for the lesson, usually 2-3 words with hyphens,pattern=^[a-z-]*$"`
+	Slug             string              `json:"Slug" yaml:"slug" jsonschema:"minLength=1,description=A unique identifier for the lesson (usually 2-3 lower-case words with hyphens),pattern=^[a-z-]*$"`
 	Category         string              `json:"Category" yaml:"category" jsonschema:"minLength=1,description=The name for the Category in which this lesson should belong,enum=fundamentals,enum=tools,enum=workflows"`
 	Diagram          string              `json:"Diagram" yaml:"diagram" jsonschema:"description=A public URL to lesson diagram"`
 	Video            string              `json:"Video" yaml:"video" jsonschema:"description=YouTube URL to lesson video"`
-	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"description=Tier for this lesson (you probably want 'prod') ,enum=prod,enum=ptr,enum=local"`
+	Tier             string              `json:"Tier" yaml:"tier" jsonschema:"minLength=1,description=Tier for this lesson (you probably want 'prod') ,enum=prod,enum=ptr,enum=local"`
 	Collection       string              `json:"Collection,omitempty" yaml:"collection,omitempty" jsonschema:"description=The slug for the collection this lesson should belong to"`
 	Description      string              `json:"Description" yaml:"description" jsonschema:"minLength=1,description=A helpful description for what the learner should expect to get from this lesson"`
 	ShortDescription string              `json:"ShortDescription" yaml:"shortDescription" jsonschema:"minLength=1,description=A brief description for this lesson. One or two words"`
@@ -59,7 +59,7 @@ type LessonEndpoint struct {
 	Name  string `json:"Name" yaml:"name" jsonschema:"description=Name of the endpoint"`
 	Image string `json:"Image" yaml:"image" jsonschema:"description=The Image ref this endpoint uses,pattern=^[A-Za-z0-9\\-]*$"`
 
-	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"enum=,enum=napalm,enum=python,enum=ansible"`
+	ConfigurationType string `json:"ConfigurationType,omitempty" yaml:"configurationType,omitempty" jsonschema:"description=Method for configuring this endpoint at runtime,enum=,enum=napalm,enum=python,enum=ansible"`
 
 	// Since we're starting to use the filename to derive certain things about configuration (i.e.
 	// which NAPALM driver to use) we will store the filename (only the name, no path) here on ingest

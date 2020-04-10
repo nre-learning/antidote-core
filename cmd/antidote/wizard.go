@@ -26,7 +26,7 @@ func promptForValue(name string, value *jsonschema.Type) string {
 
 	pattern := ""
 	if value.Pattern != "" {
-		pattern = fmt.Sprintf(", pattern: %s", value.Pattern)
+		pattern = fmt.Sprintf(",pattern='%s'", value.Pattern)
 	}
 	valueType := value.Type
 	if valueType == "array" {
