@@ -123,6 +123,7 @@ func (s *AntidoteScheduler) createNamespace(sc ot.SpanContext, req services.Less
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nsName,
 			Labels: map[string]string{
+				"name":            nsName, // IMPORTANT - used by networkpolicy to restrict traffic
 				"liveLesson":      fmt.Sprintf("%s", req.LiveLessonID),
 				"liveSession":     fmt.Sprintf("%s", req.LiveSessionID),
 				"lessonSlug":      fmt.Sprintf("%s", ll.LessonSlug),
