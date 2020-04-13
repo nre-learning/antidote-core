@@ -42,9 +42,10 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 				"ingress.kubernetes.io/ingress.class": "nginx",
 				// https://github.com/nginxinc/kubernetes-ingress/tree/master/examples/ssl-services
 				// We only need this if the endpoint requires HTTPS termination.
-				"ingress.kubernetes.io/ssl-services":       ep.Name,
-				"ingress.kubernetes.io/ssl-redirect":       redir,
-				"ingress.kubernetes.io/force-ssl-redirect": redir,
+				"ingress.kubernetes.io/ssl-services":          ep.Name,
+				"ingress.kubernetes.io/ssl-redirect":          redir,
+				"ingress.kubernetes.io/force-ssl-redirect":    redir,
+				"ingress.kubernetes.io/configuration-snippet": "proxy_hide_header X-Frame-Options;",
 			},
 		},
 
