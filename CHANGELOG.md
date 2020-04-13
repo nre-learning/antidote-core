@@ -14,6 +14,7 @@
 - Add functionality to attach a pullsecret to pods (allows private image pulls) [#164](https://github.com/nre-learning/antidote-core/pull/164)
 - Add links to object ref documentation wherever possible in creation wizard [#165](https://github.com/nre-learning/antidote-core/pull/165)
 - Minor modifications to facilitate antidote-web development  [#166](https://github.com/nre-learning/antidote-core/pull/166)
+- Strip X-Frame-Options header [#167](https://github.com/nre-learning/antidote-core/pull/167)
 
 ## v0.5.1 - February 17, 2020
 
