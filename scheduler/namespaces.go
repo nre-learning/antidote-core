@@ -78,7 +78,7 @@ func (s *AntidoteScheduler) PruneOrphanedNamespaces() error {
 
 func (s *AntidoteScheduler) deleteNamespace(sc ot.SpanContext, name string) error {
 
-	span := ot.StartSpan("scheduler_boop_ns", ot.ChildOf(sc))
+	span := ot.StartSpan("scheduler_delete_ns", ot.ChildOf(sc))
 	defer span.Finish()
 
 	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
