@@ -119,6 +119,11 @@ required = [
   unused-packages = false
 
 [[prune.project]]
+  name = "github.com/golang/protobuf"
+  # Please do not remove this, we are relying on this to build binaries
+  unused-packages = false
+
+[[prune.project]]
   name = "github.com/russross/blackfriday"
   unused-packages = false
 

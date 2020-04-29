@@ -80,7 +80,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bbf72130505d5b5f9ed84defeba8035b2a21d9c577a85ca6c01e3e877738c24f"
+  digest = "1:44a1610b98dcfbe348fdb309f6f246ed44296ad5514d1f290803562f70791147"
   name = "github.com/golang/protobuf"
   packages = [
     "descriptor",
@@ -98,7 +98,7 @@
     "ptypes/timestamp",
     "ptypes/wrappers",
   ]
-  pruneopts = "UT"
+  pruneopts = "T"
   revision = "822fe56949f5d56c9e2f02367c657e0e9b4d27d1"
 
 [[projects]]
@@ -128,14 +128,6 @@
   pruneopts = "UT"
   revision = "ab0dd09aa10e2952b28e12ecd35681b20463ebab"
   version = "v0.3.1"
-
-[[projects]]
-  branch = "master"
-  digest = "1:b117faf01abdbdadd7b8ceeae74cd1369c1b073fef41aee8b674c9d704a54c16"
-  name = "github.com/gorilla/handlers"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "8a3748addc242fc560bd6d4ff28b0374c010b1b4"
 
 [[projects]]
   branch = "master"
@@ -942,7 +934,6 @@
     "github.com/golang/protobuf/descriptor",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/empty",
-    "github.com/gorilla/handlers",
     "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-gateway/utilities",
     "github.com/influxdata/influxdb/client/v2",
@@ -950,6 +941,7 @@
     "github.com/nats-io/nats.go",
     "github.com/opentracing/opentracing-go",
     "github.com/opentracing/opentracing-go/ext",
+    "github.com/opentracing/opentracing-go/log",
     "github.com/philips/go-bindata-assetfs",
     "github.com/russross/blackfriday",
     "github.com/sirupsen/logrus",
