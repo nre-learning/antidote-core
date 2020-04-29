@@ -80,6 +80,7 @@ func (s *AntidoteScheduler) deleteNamespace(sc ot.SpanContext, name string) erro
 
 	span := ot.StartSpan("scheduler_delete_ns", ot.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("nsName", name)
 
 	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
@@ -170,7 +171,6 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 	oldNameSpaces := []string{}
 	for n := range nameSpaces.Items {
 
-		// lastAccessed =
 		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
 		if err != nil {
 			return []string{}, err
@@ -182,13 +182,15 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 		}
 
 		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
+
+		// An error from this function shouldn't impact the cleanup of this livelesson. The only reason we're checking
+		// it here is so we can safely look at the "Persistent" field. Otherwise, an error here is moot.
 		ls, err := s.Db.GetLiveSession(span.Context(), lsID)
-		if err != nil {
-			return []string{}, err
-		}
-		if ls.Persistent {
-			span.LogEvent("Skipping GC, session marked persistent")
-			continue
+		if err == nil {
+			if ls.Persistent {
+				span.LogEvent("Skipping GC, session marked persistent")
+				continue
+			}
 		}
 
 		liveLessonsToDelete = append(liveLessonsToDelete, nameSpaces.Items[n].ObjectMeta.Labels["liveLesson"])

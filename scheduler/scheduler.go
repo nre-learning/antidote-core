@@ -167,18 +167,69 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 		return err
 	}
 
+	lsTTL := time.Duration(s.Config.LiveSessionTTL) * time.Minute
+
 	for _, ls := range lsList {
-		if time.Since(ls.CreatedTime) > time.Duration(s.Config.LiveSessionTTL)*time.Minute {
-			err := s.Db.DeleteLiveSession(span.Context(), ls.ID)
-			if err != nil {
-				span.LogFields(log.Error(err))
-				ext.Error.Set(span, true)
-				return err
-			}
+		createdTime := time.Since(ls.CreatedTime)
+
+		// No need to continue if this session hasn't even exceeded the TTL
+		if createdTime <= lsTTL {
+			continue
+		}
+
+		llforls, err := s.getLiveLessonsForSession(span.Context(), ls.ID)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
+		}
+
+		// We don't want/need to clean up this session if there are active livelessons that are using it.
+		if len(llforls) > 0 {
+			continue
+		}
+
+		// TODO(mierdin): It would be pretty rare, but in the event that a livelesson is spun up between the request above
+		// and the livesession deletion below, we would encounter the leak bug we saw in 0.6.0. It might be worth seeing if
+		// you can lock things somehow between the two.
+
+		err = s.Db.DeleteLiveSession(span.Context(), ls.ID)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (s *AntidoteScheduler) getLiveLessonsForSession(sc ot.SpanContext, lsID string) ([]string, error) {
+	span := ot.StartSpan("scheduler_getlivelessonsforsession", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("lsID", lsID)
+
+	llList, err := s.Db.ListLiveLessons(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
+	retLLIDs := []string{}
+
+	for _, ll := range llList {
+		if ll.SessionID == lsID {
+			retLLIDs = append(retLLIDs, ll.ID)
+		}
+	}
+
+	span.LogFields(
+		log.Object("llIDs", retLLIDs),
+		log.Int("llCount", len(retLLIDs)),
+	)
+
+	return retLLIDs, nil
 }
 
 func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {

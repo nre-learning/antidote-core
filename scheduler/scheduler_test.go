@@ -15,6 +15,8 @@ import (
 	config "github.com/nre-learning/antidote-core/config"
 	db "github.com/nre-learning/antidote-core/db"
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
+	models "github.com/nre-learning/antidote-core/db/models"
+	ot "github.com/opentracing/opentracing-go"
 
 	// Fake clients
 	kubernetesCrdFake "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned/fake"
@@ -126,4 +128,40 @@ func newUUID() (string, error) {
 	// version 4 (pseudo-random); see section 4.1.3
 	uuid[6] = uuid[6]&^0xf0 | 0x40
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:]), nil
+}
+
+func TestGetLiveLessonsForSession(t *testing.T) {
+	span := ot.StartSpan("test_span")
+	defer span.Finish()
+
+	s := createFakeScheduler()
+
+	// Start scheduler
+	go func() {
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("Problem starting lesson scheduler: %s", err)
+		}
+	}()
+
+	s.Db.CreateLiveSession(span.Context(), &models.LiveSession{
+		ID: "abcdef",
+	})
+
+	s.Db.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar1",
+		SessionID: "abcdef",
+	})
+	s.Db.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar2",
+		SessionID: "uvwxyz",
+	})
+	s.Db.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar3",
+		SessionID: "abcdef",
+	})
+
+	l, _ := s.getLiveLessonsForSession(span.Context(), "abcdef")
+	equals(t, 2, len(l))
+
 }

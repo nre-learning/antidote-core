@@ -515,6 +515,7 @@ func (a *ADMInMem) UpdateLiveSessionPersistence(sc ot.SpanContext, lsID string, 
 func (a *ADMInMem) DeleteLiveSession(sc ot.SpanContext, id string) error {
 	span := ot.StartSpan("db_livesession_delete", ot.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("lsID", id)
 
 	a.liveSessionsMu.Lock()
 	defer a.liveSessionsMu.Unlock()
