@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.6.0 - April 18, 2020
+
 - Top-to-bottom revamp and move to Antidote-Core [#141](https://github.com/nre-learning/antidote-core/pull/141)
 - Make travis happy [#155](https://github.com/nre-learning/antidote-core/pull/155)
 - Add protections to antidote CLI to protect against landmines [#156](https://github.com/nre-learning/antidote-core/pull/156)
