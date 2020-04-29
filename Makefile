@@ -75,18 +75,10 @@ gengo:
 		pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake/fake_networkattachmentdefinition.go 
 
 
-
-install_bins_linux:
-
-	# @curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.14.3/protoc-gen-grpc-gateway-v1.14.3-linux-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
-	# @curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.14.3/protoc-gen-swagger-v1.14.3-linux-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
+# Compile binaries from vendored libs
+# (This is important so that we keep the version of our tools and our vendored libraries identical)
+install_bins:
 
 	cd $$GOPATH/src/github.com/nre-learning/antidote-core/vendor/github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/ && go install ./...
 	cd $$GOPATH/src/github.com/nre-learning/antidote-core/vendor/github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/ && go install ./...
 	cd $$GOPATH/src/github.com/nre-learning/antidote-core/vendor/github.com/golang/protobuf/protoc-gen-go/ && go install ./...
-
-install_bins_mac:
-
-	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.2.0/protoc-3.2.0-osx-x86_64.zip && rm -rf protoc3 && unzip protoc-3.2.0-osx-x86_64.zip -d protoc3 && chmod +x protoc3/bin/* && sudo mv protoc3/bin/* /usr/local/bin && sudo mv protoc3/include/* /usr/local/include/
-	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-grpc-gateway-v1.5.1-darwin-x86_64 -o $$GOPATH/bin/protoc-gen-grpc-gateway && chmod +x $$GOPATH/bin/protoc-gen-grpc-gateway
-	@curl -L https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v1.5.1/protoc-gen-swagger-v1.5.1-darwin-x86_64 -o $$GOPATH/bin/protoc-gen-swagger && chmod +x $$GOPATH/bin/protoc-gen-swagger
