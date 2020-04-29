@@ -2,6 +2,7 @@
 
 ## In development
 
+- Allow travis to install binaries from vendored libs too [#172](https://github.com/nre-learning/antidote-core/pull/172)
 
 ## v0.6.0 - April 18, 2020
 
