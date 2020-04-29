@@ -80,6 +80,7 @@ func (s *AntidoteScheduler) deleteNamespace(sc ot.SpanContext, name string) erro
 
 	span := ot.StartSpan("scheduler_delete_ns", ot.ChildOf(sc))
 	defer span.Finish()
+	span.SetTag("nsName", name)
 
 	err := s.Client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
@@ -160,8 +161,6 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 		return nil, err
 	}
 
-	// TODO(mierdin): log retrieved namespaces to span, or perhaps later once you've identified old ones
-
 	// No need to GC if no matching namespaces exist
 	if len(nameSpaces.Items) == 0 {
 		span.LogFields(log.Int("gc_namespaces", 0))
@@ -172,7 +171,6 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 	oldNameSpaces := []string{}
 	for n := range nameSpaces.Items {
 
-		// lastAccessed =
 		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
 		if err != nil {
 			return []string{}, err
@@ -185,10 +183,8 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 
 		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
 
-		// TODO(mierdin): If for whatever reason, the session gets deleted in memory before everything else
-		// gets cleaned up, this will error, and prevent the rest of the loop from executing. We should try to
-		// figure out how a session could get deleted without being here, but also consider ignoring errors in this
-		// particular case.
+		// An error from this function shouldn't impact the cleanup of this livelesson. The only reason we're checking
+		// it here is so we can safely look at the "Persistent" field. Otherwise, an error here is moot.
 		ls, err := s.Db.GetLiveSession(span.Context(), lsID)
 		if err == nil {
 			if ls.Persistent {
