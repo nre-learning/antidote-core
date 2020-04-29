@@ -2,6 +2,7 @@
 
 ## In development
 
+- Fix livelesson leak / livesession bug [#171](https://github.com/nre-learning/antidote-core/pull/171)
 
 ## v0.6.0 - April 18, 2020
 
