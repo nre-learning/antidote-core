@@ -160,6 +160,8 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 		return nil, err
 	}
 
+	// TODO(mierdin): log retrieved namespaces to span, or perhaps later once you've identified old ones
+
 	// No need to GC if no matching namespaces exist
 	if len(nameSpaces.Items) == 0 {
 		span.LogFields(log.Int("gc_namespaces", 0))
@@ -182,13 +184,17 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 		}
 
 		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
+
+		// TODO(mierdin): If for whatever reason, the session gets deleted in memory before everything else
+		// gets cleaned up, this will error, and prevent the rest of the loop from executing. We should try to
+		// figure out how a session could get deleted without being here, but also consider ignoring errors in this
+		// particular case.
 		ls, err := s.Db.GetLiveSession(span.Context(), lsID)
-		if err != nil {
-			return []string{}, err
-		}
-		if ls.Persistent {
-			span.LogEvent("Skipping GC, session marked persistent")
-			continue
+		if err == nil {
+			if ls.Persistent {
+				span.LogEvent("Skipping GC, session marked persistent")
+				continue
+			}
 		}
 
 		liveLessonsToDelete = append(liveLessonsToDelete, nameSpaces.Items[n].ObjectMeta.Labels["liveLesson"])
