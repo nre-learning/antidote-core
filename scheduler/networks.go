@@ -150,8 +150,8 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
-			"type": "antibridge",
-			"plugin": "antibridge",
+			"type": "bridge",
+			"plugin": "bridge",
 			"bridge": "%s",
 			"forceAddress": false,
 			"hairpinMode": false,
