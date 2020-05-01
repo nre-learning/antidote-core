@@ -5,6 +5,7 @@
 - Fix livelesson leak / livesession bug [#171](https://github.com/nre-learning/antidote-core/pull/171)
 - Allow travis to install binaries from vendored libs too [#172](https://github.com/nre-learning/antidote-core/pull/172)
 - Fix collection slug type in API model [#173](https://github.com/nre-learning/antidote-core/pull/173)
+- Revert back to upstream bridge CNI plugin [#174](https://github.com/nre-learning/antidote-core/pull/174)
 
 ## v0.6.0 - April 18, 2020
 
