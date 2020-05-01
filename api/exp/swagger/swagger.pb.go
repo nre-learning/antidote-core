@@ -640,8 +640,7 @@ Lesson = `{
           }
         },
         "Collection": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "Description": {
           "type": "string"

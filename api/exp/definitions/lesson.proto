@@ -58,7 +58,7 @@ message Lesson {
   repeated string Prereqs = 13;
 
   repeated string Tags = 14;
-  int32 Collection = 15;
+  string Collection = 15;
   string Description = 16;
 
   // This is meant to fill: "How well do you know <ShortDescription>?"
