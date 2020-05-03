@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.6.1 - May 03, 2020
+
 - Fix livelesson leak / livesession bug [#171](https://github.com/nre-learning/antidote-core/pull/171)
 - Allow travis to install binaries from vendored libs too [#172](https://github.com/nre-learning/antidote-core/pull/172)
 - Fix collection slug type in API model [#173](https://github.com/nre-learning/antidote-core/pull/173)
