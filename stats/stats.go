@@ -10,6 +10,7 @@ import (
 	nats "github.com/nats-io/nats.go"
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
+	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -26,17 +27,14 @@ type AntidoteStats struct {
 
 // Start starts the AntidoteStats service
 func (s *AntidoteStats) Start() error {
-	span := ot.StartSpan("stats_root")
-	defer span.Finish()
 
 	// Begin periodically exporting metrics to TSDB
-	go func(span ot.Span) {
-		err := s.startTSDBExport(span.Context())
+	go func() {
+		err := s.startTSDBExport()
 		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
+			logrus.Fatalf("Failed to start TSDB Export: %v", err)
 		}
-	}(span)
+	}()
 
 	s.NC.Subscribe(services.LsrCompleted, func(msg *nats.Msg) {
 		t := services.NewTraceMsg(msg)
@@ -142,7 +140,10 @@ func (s *AntidoteStats) recordProvisioningTime(sc ot.SpanContext, res services.L
 	return nil
 }
 
-func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
+func (s *AntidoteStats) startTSDBExport() error {
+
+	initSpan := ot.StartSpan("stats_periodic_export_start")
+	defer initSpan.Finish()
 
 	// Make client
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
@@ -161,9 +162,18 @@ func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 		//
 	}
 
-	for {
-		span := ot.StartSpan("stats_periodic_export", ot.ChildOf(sc))
+	lessons, err := s.Db.ListLessons(initSpan.Context())
+	if err != nil {
+		initSpan.LogFields(log.Error(err))
+		ext.Error.Set(initSpan, true)
+		return err
+	}
 
+	initSpan.Finish()
+
+	for {
+
+		span := ot.StartSpan("stats_get_running_livelessons")
 		time.Sleep(1 * time.Minute)
 
 		// Create a new point batch
@@ -177,8 +187,10 @@ func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 			continue
 		}
 
-		lessons, err := s.Db.ListLessons(span.Context())
+		liveLessons, err := s.Db.ListLiveLessons(span.Context())
 		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
 			continue
 		}
 
@@ -192,7 +204,7 @@ func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 			tags["antidoteTier"] = s.Config.Tier
 			tags["antidoteId"] = s.Config.InstanceID
 
-			count, duration := s.getCountAndDuration(span.Context(), lesson.Slug)
+			count, duration := s.getCountAndDuration(liveLessons, lesson.Slug)
 			fields["lessonName"] = lesson.Name
 			fields["lessonSlug"] = lesson.Slug
 
@@ -230,15 +242,8 @@ func (s *AntidoteStats) startTSDBExport(sc ot.SpanContext) error {
 	}
 }
 
-func (s *AntidoteStats) getCountAndDuration(sc ot.SpanContext, lessonSlug string) (int64, int64) {
-	// Don't bother opening a new span for this function, just pass to the underlying DB call
-
+func (s *AntidoteStats) getCountAndDuration(liveLessons map[string]models.LiveLesson, lessonSlug string) (int64, int64) {
 	count := 0
-
-	liveLessons, err := s.Db.ListLiveLessons(sc)
-	if err != nil {
-		return 0, 0
-	}
 
 	durations := []int64{}
 	for _, liveLesson := range liveLessons {
