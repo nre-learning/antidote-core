@@ -25,11 +25,9 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 
 	// temporary but functional hack to disable SSL redirection for selfmedicate
 	// (doesn't currently use HTTPS)
-	if s.Config.Domain == "antidote-local" || s.Config.Domain == "localhost" {
+	if s.Config.HEPSDomain == "antidote-local" || s.Config.HEPSDomain == "localhost" {
 		redir = "false"
 	}
-
-	ingressDomain := fmt.Sprintf("%s-%s-%s.heps.%s", nsName, ep.Name, p.Name, s.Config.Domain)
 
 	newIngress := v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -54,13 +52,13 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 		Spec: v1beta1.IngressSpec{
 			TLS: []v1beta1.IngressTLS{
 				{
-					Hosts:      []string{ingressDomain},
+					Hosts:      []string{p.HepDomain},
 					SecretName: "tls-certificate",
 				},
 			},
 			Rules: []v1beta1.IngressRule{
 				{
-					Host: ingressDomain,
+					Host: p.HepDomain,
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
 							Paths: []v1beta1.HTTPIngressPath{

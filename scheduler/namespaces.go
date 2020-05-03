@@ -220,6 +220,11 @@ func (s *AntidoteScheduler) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 
 // generateNamespaceName is a helper function for determining the name of our kubernetes
 // namespaces, so we don't have to do this all over the codebase and maybe get it wrong.
-func generateNamespaceName(antidoteId, liveLessonID string) string {
-	return fmt.Sprintf("%s-%s", antidoteId, liveLessonID)
+// Note that the nsName is used EVERYWHERE, and what's in it is pretty important, so change
+// this formatting with CAUTION. For instance, the antidoteId is how we disambiguate between
+// instances for HEPS domains. **MAKE SURE** that this formatting matches the creation of
+// nsName in the API server right before the initializeLiveEndpoints function.
+// TODO(mierdin): Make this less dependent on the honor system.
+func generateNamespaceName(antidoteID, liveLessonID string) string {
+	return fmt.Sprintf("%s-%s", antidoteID, liveLessonID)
 }

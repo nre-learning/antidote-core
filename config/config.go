@@ -13,8 +13,15 @@ import (
 type AntidoteConfig struct {
 	InstanceID string `yaml:"instanceId"`
 
-	Tier     string `yaml:"tier"`
-	Domain   string `yaml:"domain"`
+	Tier string `yaml:"tier"`
+
+	// HepsDomain is the domain on which HEPS hostnames should be provisioned. This domain is used
+	// as the direct parent for any subdomains that are configured for ingresses that allow access to
+	// HTTP endpoints. Note that these subdomains automatically include the antidote instance ID, so
+	// it's safe to have multiple instances of antidote running with the same HepsDomain
+	// configured.
+	HEPSDomain string `yaml:"hepsDomain"`
+
 	ImageOrg string `yaml:"imageOrg"`
 	GRPCPort int    `yaml:"grpcPort"`
 	HTTPPort int    `yaml:"httpPort"`
@@ -70,7 +77,7 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 	// Set a new config with defaults set where relevant
 	config := AntidoteConfig{
 		Tier:              "prod",
-		Domain:            "localhost",
+		HEPSDomain:        "localhost",
 		ImageOrg:          "antidotelabs",
 		GRPCPort:          50099,
 		HTTPPort:          8086,

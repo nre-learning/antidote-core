@@ -993,6 +993,9 @@ Livelesson = `{
         },
         "Type": {
           "type": "string"
+        },
+        "HepDomain": {
+          "type": "string"
         }
       }
     },

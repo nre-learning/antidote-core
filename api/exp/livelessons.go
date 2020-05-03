@@ -195,7 +195,12 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// Initialize new LiveLesson
 	newID := db.RandomID(10)
 
-	liveEndpoints, err := s.initializeLiveEndpoints(span, lesson)
+	// We need to know the nsName ahead of time because we're calculating HEP domain in the
+	// initializeLiveEndpoints function now. **MAKE SURE** that this formatting matches the
+	// generateNamespaceName in the scheduler service.
+	nsName := fmt.Sprintf("%s-%s", s.Config.InstanceID, newID)
+
+	liveEndpoints, err := s.initializeLiveEndpoints(span, nsName, lesson)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -241,7 +246,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	return &pb.LiveLessonId{Id: newID}, nil
 }
 
-func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson models.Lesson) (map[string]*models.LiveEndpoint, error) {
+func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, nsName string, lesson models.Lesson) (map[string]*models.LiveEndpoint, error) {
 	liveEps := map[string]*models.LiveEndpoint{}
 
 	for i := range lesson.Endpoints {
@@ -269,9 +274,15 @@ func (s *AntidoteAPI) initializeLiveEndpoints(span ot.Span, lesson models.Lesson
 				Name: ep.Presentations[p].Name,
 				Port: ep.Presentations[p].Port,
 				Type: ep.Presentations[p].Type,
+
+				// It's really important that we provide the nsName here, which includes the instanceID
+				// this is what allows us to run many different instances of antidote on the same domain, which
+				// is necessary to keep TLS certificates manageable (i.e. *.heps.nrelabs.io)
+				HepDomain: fmt.Sprintf("%s-%s-%s.%s", nsName, ep.Name, ep.Presentations[p].Name, s.Config.HEPSDomain),
 			})
 
 			lep.Ports = append(lep.Ports, ep.Presentations[p].Port)
+
 		}
 
 		for pt := range ep.AdditionalPorts {
@@ -420,6 +431,7 @@ func liveLessonDBToAPI(dbLL models.LiveLesson) *pb.LiveLesson {
 			lp.Name = c.Name
 			lp.Type = string(c.Type)
 			lp.Port = c.Port
+			lp.HepDomain = c.HepDomain
 
 			lep.LivePresentations = append(lep.LivePresentations, &lp)
 		}
