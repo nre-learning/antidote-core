@@ -52,7 +52,7 @@ func TestConfigJSON(t *testing.T) {
 		InstanceID:                "foobar",
 		Tier:                      "prod",
 		ImageOrg:                  "antidotelabs",
-		Domain:                    "nrelabs.io",
+		HEPSDomain:                "heps.nrelabs.io",
 		GRPCPort:                  50099,
 		HTTPPort:                  8086,
 		LiveSessionTTL:            1440,
