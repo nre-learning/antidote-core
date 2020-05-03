@@ -76,16 +76,17 @@ message LiveLesson {
   int32 CurrentStage = 6;
   string GuideContents = 7;
   string GuideType = 8;
+  string GuideDomain = 9;
 
-  string Status = 9;
+  string Status = 10;
 
-  bool Error = 10;
-  int32 HealthyTests = 11;
-  int32 TotalTests = 12;
+  bool Error = 11;
+  int32 HealthyTests = 12;
+  int32 TotalTests = 13;
 
-  string Diagram = 13;
-  string Video = 14;
-  string StageVideo = 15;
+  string Diagram = 14;
+  string Video = 15;
+  string StageVideo = 16;
 }
 
 message LiveLessons {

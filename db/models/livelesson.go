@@ -14,6 +14,7 @@ type LiveLesson struct {
 	CurrentStage  int32                    `json:"LessonStage"`
 	GuideContents string                   `json:"GuideContents"`
 	GuideType     string                   `json:"GuideType"`
+	GuideDomain   string                   `json:"GuideDomain"`
 	Status        LiveLessonStatus         `json:"Status"`
 	CreatedTime   time.Time                `json:"CreatedTime"`
 	Error         bool                     `json:"Error"`
