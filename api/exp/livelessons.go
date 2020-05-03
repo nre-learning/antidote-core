@@ -208,11 +208,16 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	}
 
 	newLL := &models.LiveLesson{
-		ID:            newID,
-		SessionID:     lp.SessionId,
-		AntidoteID:    s.Config.InstanceID,
-		LessonSlug:    lp.LessonSlug,
-		GuideType:     string(lesson.Stages[lp.LessonStage].GuideType),
+		ID:         newID,
+		SessionID:  lp.SessionId,
+		AntidoteID: s.Config.InstanceID,
+		LessonSlug: lp.LessonSlug,
+		GuideType:  string(lesson.Stages[lp.LessonStage].GuideType),
+
+		// The front-end will only use this if GuideType is jupyter, but since it will not change, it makes
+		// sense to just set it here.
+		// TODO(mierdin): This needs to be coordinated with the creation of the jupyter ingress in requests.go
+		GuideDomain:   fmt.Sprintf("%s-jupyterlabguide-web.%s", nsName, s.Config.HEPSDomain),
 		LiveEndpoints: liveEndpoints,
 		CurrentStage:  lp.LessonStage,
 		Status:        models.Status_INITIALIZED,

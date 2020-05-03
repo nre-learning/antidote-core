@@ -921,6 +921,9 @@ Livelesson = `{
         "GuideType": {
           "type": "string"
         },
+        "GuideDomain": {
+          "type": "string"
+        },
         "Status": {
           "type": "string"
         },

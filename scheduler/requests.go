@@ -187,13 +187,16 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		}
 		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
 
+		nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+
 		_, err := s.createIngress(
 			span.Context(),
 			ns.ObjectMeta.Name,
 			jupyterEp,
 			&models.LivePresentation{
-				Name: "web",
-				Port: 8888,
+				Name:      "web",
+				Port:      8888,
+				HepDomain: fmt.Sprintf("%s-jupyterlabguide-web.%s", nsName, s.Config.HEPSDomain),
 			},
 		)
 		if err != nil {
