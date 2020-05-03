@@ -247,6 +247,9 @@
         },
         "Type": {
           "type": "string"
+        },
+        "HepDomain": {
+          "type": "string"
         }
       }
     },

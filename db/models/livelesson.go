@@ -42,9 +42,10 @@ type LiveEndpoint struct {
 // LivePresentation is a running instance of a LessonPresentation, with additional details
 // that are relevant at runtime.
 type LivePresentation struct {
-	Name string           `json:"Name"`
-	Port int32            `json:"Port"`
-	Type PresentationType `json:"Type"`
+	Name      string           `json:"Name"`
+	Port      int32            `json:"Port"`
+	Type      PresentationType `json:"Type"`
+	HepDomain string           `json:"HepDomain"`
 }
 
 // LiveLessonStatus is backed by a set of possible const values for livelesson statuses below

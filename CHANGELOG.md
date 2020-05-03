@@ -7,6 +7,7 @@
 - Fix collection slug type in API model [#173](https://github.com/nre-learning/antidote-core/pull/173)
 - Revert back to upstream bridge CNI plugin [#174](https://github.com/nre-learning/antidote-core/pull/174)
 - Fix excessive span exports with stats package [#175](https://github.com/nre-learning/antidote-core/pull/175)
+- Provide HEPS domain via LiveLesson API [#176](https://github.com/nre-learning/antidote-core/pull/176)
 
 ## v0.6.0 - April 18, 2020
 
