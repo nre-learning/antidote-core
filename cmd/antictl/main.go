@@ -126,6 +126,31 @@ func main() {
 					},
 				},
 				// TODO (mierdin): Add command to make a session persistent
+				{
+					Name:  "persist",
+					Usage: "Make a LiveSession persistent",
+					Action: func(c *cli.Context) {
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						lsID := pb.LiveSessionId{Id: c.Args().First()}
+						persistent := true
+
+						result, err := client.UpdateLiveSessionPersistence(context.Background(), &pb.Persistence{ID: lsID, Persistent: persistent})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Persistent flag updated for session %s %s", result.ID, result.Persistent)
+						return
+					},
+				},
 			},
 		},
 		{

@@ -16,12 +16,18 @@ service LiveSessionsService {
 
   // THESE ARE SENSITIVE - do not expose via REST
   rpc ListLiveSessions(google.protobuf.Empty) returns (LiveSessions) {}
+  rpc UpdateLiveSessionPersistence(Persistence) returns (LiveSession) {}
 }
 
 message LiveSession {
   string ID = 1;
   string SourceIP = 2;
   bool Persistent = 3;
+}
+
+message Persistence {
+  string ID = 1;
+  bool Persistent = 2;
 }
 
 message LiveSessions {
