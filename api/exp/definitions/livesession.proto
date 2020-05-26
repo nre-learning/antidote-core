@@ -26,7 +26,7 @@ message LiveSession {
 }
 
 message Persistence {
-  string ID = 1;
+  string SessionID = 1;
   bool Persistent = 2;
 }
 
