@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	db "github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
+	"github.com/nre-learning/antidote-core/services"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
@@ -96,6 +98,24 @@ func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb
 	}
 
 	return &pb.LiveSessions{Items: lsAPIs}, nil
+}
+
+// UpdateLiveSessionPersistence updates the persistence flag in the session database
+func (s *AntidoteAPI) UpdateLiveSessionPersistence(ctx context.Context, persistence *pb.Persistence) (*pb.LiveSession, error) {
+	span := ot.StartSpan("api_livesession_persist", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	_, err := s.Db.GetLiveSession(span.Context(), lsID.ID)
+	if err != nil {
+		return nil, errors.New("livesession not found")
+	}
+
+	session, err := s.Db.UpdateLiveSessionPersistence(span.Context(), lsID=persistence.ID, persistent=persistence.Persistent)
+	if err != nil {
+		return nil, errors.New("Unable to update persistence value in record")
+	}
+
+	return &session, nil
 }
 
 // liveSessionDBToAPI translates a single LiveSession from the `db` package models into the
