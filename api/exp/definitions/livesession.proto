@@ -16,7 +16,7 @@ service LiveSessionsService {
 
   // THESE ARE SENSITIVE - do not expose via REST
   rpc ListLiveSessions(google.protobuf.Empty) returns (LiveSessions) {}
-  rpc UpdateLiveSessionPersistence(Persistence) returns (LiveSession) {}
+  rpc UpdateLiveSessionPersistence(SessionPersistence) returns (google.protobuf.Empty) {}
 }
 
 message LiveSession {
