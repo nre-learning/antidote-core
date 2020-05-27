@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 
@@ -125,7 +126,6 @@ func main() {
 
 					},
 				},
-				// TODO (mierdin): Add command to make a session persistent
 				{
 					Name:  "persist",
 					Usage: "Make a LiveSession persistent",
@@ -138,16 +138,31 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveSessionsServiceClient(conn)
 
-						lsID := pb.LiveSessionId{Id: c.Args().First()}
-						persistent := true
-
-						result, err := client.UpdateLiveSessionPersistence(context.Background(), &pb.Persistence{ID: lsID, Persistent: persistent})
+						ls, err := client.RequestLiveSession(context.Background(), &empty.Empty{})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
 
-						fmt.Printf("Persistent flag updated for session %s %s", result.ID, result.Persistent)
+						persistent, err := strconv.ParseBool(c.Args().First())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						if ls.Persistent == persistent {
+							fmt.Printf("Persistent state is already %v, returning", persistent)
+							return
+						}
+						// persistent := true //Get the input from the user
+
+						_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: ls.ID, Persistent: ls.Persistent})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Persistent flag updated for session %s %v", ls.ID, persistent)
 						return
 					},
 				},

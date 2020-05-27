@@ -508,7 +508,7 @@ func (a *ADMInMem) UpdateLiveSessionPersistence(sc ot.SpanContext, lsID string, 
 		return err
 	}
 	a.liveSessions[lsID].Persistent = persistent
-	return a.liveSessions[lsID]
+	return nil
 }
 
 // DeleteLiveSession deletes an existing LiveSession from the in-memory data store by ID
