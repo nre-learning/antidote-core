@@ -166,6 +166,53 @@ func main() {
 						return
 					},
 				},
+				{
+					Name:  "create",
+					Usage: "Create livesession(s) from file (TESTING ONLY)",
+					Action: func(c *cli.Context) {
+
+						lsdef, err := ioutil.ReadFile(c.Args().First())
+						if err != nil {
+							fmt.Printf("Encountered problem %v\n", err)
+							os.Exit(1)
+						}
+
+						var lss []pb.LiveSession
+
+						err = json.Unmarshal([]byte(lsdef), &lss)
+						if err != nil {
+							fmt.Printf("Failed to import %s: %v\n", c.Args().First(), err)
+							os.Exit(1)
+						}
+
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						for _, ls := range lss {
+
+							// This command is not meant for production, only testing, and YMMV, but we can at least do a basic
+							// sanity check to ensure that the ID field is populated; a sign that the incoming file is at least
+							// formatted somewhat correctly
+							if ls.ID == "" {
+								fmt.Println("Format of incoming file not correct.")
+							}
+
+							_, err = client.CreateLiveSession(context.Background(), &ls)
+							if err != nil {
+								fmt.Println(err)
+								os.Exit(1)
+							}
+						}
+
+						fmt.Println("OK")
+						return
+					},
+				},
 			},
 		},
 		{
