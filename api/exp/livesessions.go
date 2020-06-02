@@ -79,6 +79,22 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 	return &pb.LiveSession{ID: sessionID}, nil
 }
 
+// CreateLiveSession is a HIGHLY non-production function for inserting livesession state directly
+// for debugging or test purposes. Use this at your own peril.
+func (s *AntidoteAPI) CreateLiveSession(ctx context.Context, ls *pb.LiveSession) (*empty.Empty, error) {
+	span := ot.StartSpan("api_livesession_create", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lsDB := liveSessionAPIToDB(ls)
+	lsDB.CreatedTime = time.Now()
+
+	err := s.Db.CreateLiveSession(span.Context(), lsDB)
+	if err != nil {
+		return nil, err
+	}
+	return &empty.Empty{}, nil
+}
+
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
 	span := ot.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
@@ -131,6 +147,6 @@ func liveSessionDBToAPI(dbLS *models.LiveSession) *pb.LiveSession {
 // `db` package's equivalent
 func liveSessionAPIToDB(pbLiveSession *pb.LiveSession) *models.LiveSession {
 	liveSessionDB := &models.LiveSession{}
-	copier.Copy(&pbLiveSession, liveSessionDB)
+	copier.Copy(&liveSessionDB, pbLiveSession)
 	return liveSessionDB
 }
