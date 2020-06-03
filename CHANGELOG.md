@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.6.2 - May 03, 2020
+
 - Add domain for HTTP-based lesson guides like jupyter notebooks in the livelesson response [#177](https://github.com/nre-learning/antidote-core/pull/177)
 
 ## v0.6.1 - May 03, 2020
