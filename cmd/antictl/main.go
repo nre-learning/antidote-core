@@ -138,13 +138,19 @@ func main() {
 						defer conn.Close()
 						client := pb.NewLiveSessionsServiceClient(conn)
 
-						ls, err := client.RequestLiveSession(context.Background(), &empty.Empty{})
+						if len(c.Args()) < 2 {
+							fmt.Println("Missing args to command : antictl livesession persist <true/false> <session id>")
+							os.Exit(1)
+						}
+
+						persistent, err := strconv.ParseBool(c.Args()[0])
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
+						sessionid := c.Args()[1]
 
-						persistent, err := strconv.ParseBool(c.Args().First())
+						ls, err := client.GetLiveSession(context.Background(), &pb.LiveSession{ID: sessionid})
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
@@ -154,15 +160,15 @@ func main() {
 							fmt.Printf("Persistent state is already %v, returning", persistent)
 							return
 						}
-						// persistent := true //Get the input from the user
 
-						_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: ls.ID, Persistent: ls.Persistent})
+						_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: sessionid, Persistent: persistent})
+
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
 
-						fmt.Printf("Persistent flag updated for session %s %v", ls.ID, persistent)
+						fmt.Printf("Persistent flag updated for session %s %v", sessionid, persistent)
 						return
 					},
 				},

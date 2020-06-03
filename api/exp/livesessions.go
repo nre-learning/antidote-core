@@ -95,6 +95,18 @@ func (s *AntidoteAPI) CreateLiveSession(ctx context.Context, ls *pb.LiveSession)
 	return &empty.Empty{}, nil
 }
 
+// GetLiveSession fetches the LiveSession assocciated with the sessionID
+func (s *AntidoteAPI) GetLiveSession(ctx context.Context, ls *pb.LiveSession) (*pb.LiveSession, error) {
+	span := ot.StartSpan("api_livesession_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lsDB, err := s.Db.GetLiveSession(span.Context(), ls.ID)
+	if err != nil {
+		return nil, errors.New("livesession not found")
+	}
+	return liveSessionDBToAPI(&lsDB), nil
+}
+
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
 	span := ot.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
