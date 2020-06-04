@@ -15,53 +15,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// LivesessionPersist function is used to update the Persistent flag inside LiveSession datastructure
-// and this is invoked as an action to the cli command "antictl livesession persist"
-func LivesessionPersist(host *string, port *string) func(*cli.Context) {
-	return func(c *cli.Context) {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%s", *host, *port), grpc.WithInsecure())
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		defer conn.Close()
-		client := pb.NewLiveSessionsServiceClient(conn)
-
-		if len(c.Args()) < 2 {
-			fmt.Println("Missing args to command : antictl livesession persist <true/false> <session id>")
-			os.Exit(1)
-		}
-
-		persistent, err := strconv.ParseBool(c.Args()[0])
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		sessionid := c.Args()[1]
-
-		ls, err := client.GetLiveSession(context.Background(), &pb.LiveSession{ID: sessionid})
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		if ls.Persistent == persistent {
-			fmt.Printf("Persistent state is already %v, returning", persistent)
-			return
-		}
-
-		_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: sessionid, Persistent: persistent})
-
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Persistent flag updated for session %s %v", sessionid, persistent)
-		return
-	}
-}
-
 func main() {
 
 	app := cli.NewApp()
@@ -174,9 +127,50 @@ func main() {
 					},
 				},
 				{
-					Name:   "persist",
-					Usage:  "Make a LiveSession persistent",
-					Action: LivesessionPersist(&host, &port),
+					Name:  "persist",
+					Usage: "Make a LiveSession persistent",
+					Action: func(c *cli.Context) {
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						if len(c.Args()) < 2 {
+							fmt.Println("Missing args to command : antictl livesession persist <true/false> <session id>")
+							os.Exit(1)
+						}
+
+						persistent, err := strconv.ParseBool(c.Args()[0])
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						sessionid := c.Args()[1]
+
+						ls, err := client.GetLiveSession(context.Background(), &pb.LiveSession{ID: sessionid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						if ls.Persistent == persistent {
+							fmt.Printf("Persistent state is already %v, returning", persistent)
+							return
+						}
+
+						_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: sessionid, Persistent: persistent})
+
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Persistent flag updated for session %s %v", sessionid, persistent)
+						return
+					},
 				},
 				{
 					Name:  "create",

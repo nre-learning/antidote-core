@@ -131,14 +131,9 @@ func (s *AntidoteAPI) UpdateLiveSessionPersistence(ctx context.Context, persiste
 	span := ot.StartSpan("api_livesession_persist", ext.SpanKindRPCClient)
 	defer span.Finish()
 
-	_, err := s.Db.GetLiveSession(span.Context(), persistence.SessionID)
+	err := s.Db.UpdateLiveSessionPersistence(span.Context(), persistence.SessionID, persistence.Persistent)
 	if err != nil {
-		return &empty.Empty{}, errors.New("livesession not found")
-	}
-
-	err = s.Db.UpdateLiveSessionPersistence(span.Context(), persistence.SessionID, persistence.Persistent)
-	if err != nil {
-		return &empty.Empty{}, errors.New("Unable to update persistence value in record")
+		return &empty.Empty{}, err
 	}
 
 	return &empty.Empty{}, nil

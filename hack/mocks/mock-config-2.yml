@@ -1,6 +1,0 @@
----
-instanceId: "antidote-testing"
-tier: "prod"
-domain: "bar"
-imageOrg: "antidotelabs"
-curriculumDir:     "../../hack/mocks"
