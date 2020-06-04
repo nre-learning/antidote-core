@@ -2,7 +2,7 @@
 instanceId: "foobar"
 tier: "prod"
 hepsDomain: "heps.nrelabs.io"
-imageOrg: "antidotelabs" 
-curriculumDir:     "/usr/bin/curriculum" 
+imageOrg: "antidotelabs"
+curriculumDir:     "/usr/bin/curriculum"
 enabledServices:
-- "foobarsvc" 
+- "foobarsvc"
