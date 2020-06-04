@@ -143,12 +143,12 @@ func main() {
 							os.Exit(1)
 						}
 
-						persistent, err := strconv.ParseBool(c.Args()[0])
+						sessionid := c.Args()[0]
+						persistent, err := strconv.ParseBool(c.Args()[1])
 						if err != nil {
 							fmt.Println(err)
 							os.Exit(1)
 						}
-						sessionid := c.Args()[1]
 
 						ls, err := client.GetLiveSession(context.Background(), &pb.LiveSession{ID: sessionid})
 						if err != nil {
@@ -157,7 +157,7 @@ func main() {
 						}
 
 						if ls.Persistent == persistent {
-							fmt.Printf("Persistent state is already %v, returning", persistent)
+							fmt.Printf("Persistent state is already %v\n, returning", persistent)
 							return
 						}
 
@@ -168,7 +168,7 @@ func main() {
 							os.Exit(1)
 						}
 
-						fmt.Printf("Persistent flag updated for session %s %v", sessionid, persistent)
+						fmt.Printf("Persistent flag updated for session %s %v\n", sessionid, persistent)
 						return
 					},
 				},
