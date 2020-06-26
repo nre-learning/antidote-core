@@ -113,6 +113,6 @@ func liveSessionDBToAPI(dbLS *models.LiveSession) *pb.LiveSession {
 // `db` package's equivalent
 func liveSessionAPIToDB(pbLiveSession *pb.LiveSession) *models.LiveSession {
 	liveSessionDB := &models.LiveSession{}
-	copier.Copy(&pbLiveSession, liveSessionDB)
+	copier.Copy(&liveSessionDB, pbLiveSession)
 	return liveSessionDB
 }
