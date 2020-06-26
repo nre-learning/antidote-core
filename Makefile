@@ -85,6 +85,8 @@ gengo:
 # (This is important so that we keep the version of our tools and our vendored libraries identical)
 install_bins:
 
+	ls -lha $$GOPATH/pkg/mod/github.com/grpc-ecosystem/
+
 	@# Figure out how to make versions dynamic
 	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/protoc-gen-grpc-gateway/ && go install ./...
 	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/protoc-gen-swagger/ && go install ./...
