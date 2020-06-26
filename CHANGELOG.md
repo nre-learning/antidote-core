@@ -2,6 +2,10 @@
 
 ## In development
 
+## v0.6.3 - June 04, 2020
+
+- Add capability to persist a session [#182](https://github.com/nre-learning/antidote-core/pull/182)
+- Move to Go Modules (finally) and fix txn functions [#191](https://github.com/nre-learning/antidote-core/pull/191)
 
 ## v0.6.2 - May 03, 2020
 

@@ -117,6 +117,6 @@ func lessonDBToAPI(dbLesson models.Lesson) *pb.Lesson {
 // `db` package's equivalent
 func lessonAPIToDB(pbLesson *pb.Lesson) *models.Lesson {
 	lessonDB := &models.Lesson{}
-	copier.Copy(&pbLesson, lessonDB)
+	copier.Copy(&lessonDB, pbLesson)
 	return lessonDB
 }

@@ -84,6 +84,6 @@ func collectionDBToAPI(dbCollection models.Collection) *pb.Collection {
 // `db` package's equivalent
 func collectionAPIToDB(pbCollection *pb.Collection) *models.Collection {
 	collectionDB := &models.Collection{}
-	copier.Copy(&pbCollection, collectionDB)
+	copier.Copy(&collectionDB, pbCollection)
 	return collectionDB
 }
