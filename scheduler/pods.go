@@ -53,7 +53,9 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, err
 	}
 
-	privileged := false
+	// privileged := false
+
+	flavor := models.FlavorPlain
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
@@ -66,7 +68,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		if err != nil {
 			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
 		}
-		privileged = image.Privileged
+		flavor = image.Flavor
 		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
 	}
 
@@ -143,16 +145,31 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	// See https://github.com/nre-learning/proposals/pull/7 for plans to standardize the endpoint image
 	// build process, which is likely to include a virtualization layer for safety. However, this option will
 	// likely remain in place regardless.
-	if privileged {
+
+	switch flavor {
+	// TODO(mierdin): Change this?
+	case models.FlavorPrivileged:
+		t := true
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-			Privileged:               &privileged,
-			AllowPrivilegeEscalation: &privileged,
+			Privileged:               &t,
+			AllowPrivilegeEscalation: &t,
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
 					"NET_ADMIN",
 				},
 			},
 		}
+	case models.FlavorPlain:
+		// TODO(mierdin): May not keep this
+	default:
+
+		// This should enable the kata runtime and NEVER give privileges. This is so we default to a secure position should something fail.
+		// The last thing I want to do is grant privileges and forget to install the runtimeclass for kata, which would be bad.
+		// TODO(mierdin): even with this discipline, it might be worth looking into performing a startup check within antidote-core
+		// for the presence of this runtimeclass (though this would likely require more gross CRD code)
+		// (runtimeClassName: kata)
+		kata := "kata"
+		pod.Spec.RuntimeClassName = &kata
 	}
 
 	// Convert to ContainerPort and attach to pod container
