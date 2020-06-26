@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlecAivazis/survey"
 	jsonschema "github.com/alecthomas/jsonschema"
 	"github.com/fatih/color"
+	"gopkg.in/AlecAivazis/survey.v1"
 	"gopkg.in/AlecAivazis/survey.v1/terminal"
 )
 
