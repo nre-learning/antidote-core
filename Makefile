@@ -7,10 +7,10 @@ all: compile
 compile:
 
 	@# First need to ensure all our module dependencies are vendored, and then copy non-go deps like proto files
-	@go mod vendor
-	@rm -rf vendor/github.com/grpc-ecosystem/grpc-gateway/third_party || true
+	go mod vendor
+	rm -rf vendor/github.com/grpc-ecosystem/grpc-gateway/third_party || true
 	@# TODO(mierdin): Predict version
-	@cp -r $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/third_party/ vendor/github.com/grpc-ecosystem/grpc-gateway/
+	cp -r $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/third_party/ vendor/github.com/grpc-ecosystem/grpc-gateway/
 
 	@echo "Generating protobuf code..."
 	@rm -f pkg/ui/data/swagger/datafile.go
