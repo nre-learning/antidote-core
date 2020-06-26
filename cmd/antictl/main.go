@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 
@@ -125,7 +126,99 @@ func main() {
 
 					},
 				},
-				// TODO (mierdin): Add command to make a session persistent
+				{
+					Name:  "persist",
+					Usage: "Make a LiveSession persistent",
+					Action: func(c *cli.Context) {
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						if len(c.Args()) < 2 {
+							fmt.Println("Missing args to command : antictl livesession persist <true/false> <session id>")
+							os.Exit(1)
+						}
+
+						sessionid := c.Args()[0]
+						persistent, err := strconv.ParseBool(c.Args()[1])
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						ls, err := client.GetLiveSession(context.Background(), &pb.LiveSession{ID: sessionid})
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						if ls.Persistent == persistent {
+							fmt.Printf("Persistent state is already %v\n, returning", persistent)
+							return
+						}
+
+						_, err = client.UpdateLiveSessionPersistence(context.Background(), &pb.SessionPersistence{SessionID: sessionid, Persistent: persistent})
+
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+
+						fmt.Printf("Persistent flag updated for session %s %v\n", sessionid, persistent)
+						return
+					},
+				},
+				{
+					Name:  "create",
+					Usage: "Create livesession(s) from file (TESTING ONLY)",
+					Action: func(c *cli.Context) {
+
+						lsdef, err := ioutil.ReadFile(c.Args().First())
+						if err != nil {
+							fmt.Printf("Encountered problem %v\n", err)
+							os.Exit(1)
+						}
+
+						var lss []pb.LiveSession
+
+						err = json.Unmarshal([]byte(lsdef), &lss)
+						if err != nil {
+							fmt.Printf("Failed to import %s: %v\n", c.Args().First(), err)
+							os.Exit(1)
+						}
+
+						conn, err := grpc.Dial(fmt.Sprintf("%s:%s", host, port), grpc.WithInsecure())
+						if err != nil {
+							fmt.Println(err)
+							os.Exit(1)
+						}
+						defer conn.Close()
+						client := pb.NewLiveSessionsServiceClient(conn)
+
+						for _, ls := range lss {
+
+							// This command is not meant for production, only testing, and YMMV, but we can at least do a basic
+							// sanity check to ensure that the ID field is populated; a sign that the incoming file is at least
+							// formatted somewhat correctly
+							if ls.ID == "" {
+								fmt.Println("Format of incoming file not correct.")
+							}
+
+							_, err = client.CreateLiveSession(context.Background(), &ls)
+							if err != nil {
+								fmt.Println(err)
+								os.Exit(1)
+							}
+						}
+
+						fmt.Println("OK")
+						return
+					},
+				},
 			},
 		},
 		{

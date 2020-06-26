@@ -79,6 +79,34 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 	return &pb.LiveSession{ID: sessionID}, nil
 }
 
+// CreateLiveSession is a HIGHLY non-production function for inserting livesession state directly
+// for debugging or test purposes. Use this at your own peril.
+func (s *AntidoteAPI) CreateLiveSession(ctx context.Context, ls *pb.LiveSession) (*empty.Empty, error) {
+	span := ot.StartSpan("api_livesession_create", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lsDB := liveSessionAPIToDB(ls)
+	lsDB.CreatedTime = time.Now()
+
+	err := s.Db.CreateLiveSession(span.Context(), lsDB)
+	if err != nil {
+		return nil, err
+	}
+	return &empty.Empty{}, nil
+}
+
+// GetLiveSession fetches the LiveSession assocciated with the sessionID
+func (s *AntidoteAPI) GetLiveSession(ctx context.Context, ls *pb.LiveSession) (*pb.LiveSession, error) {
+	span := ot.StartSpan("api_livesession_get", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	lsDB, err := s.Db.GetLiveSession(span.Context(), ls.ID)
+	if err != nil {
+		return nil, errors.New("livesession not found")
+	}
+	return liveSessionDBToAPI(&lsDB), nil
+}
+
 // ListLiveSessions lists the currently available livesessions within the backing data store
 func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb.LiveSessions, error) {
 	span := ot.StartSpan("api_livesession_list", ext.SpanKindRPCClient)
@@ -98,6 +126,19 @@ func (s *AntidoteAPI) ListLiveSessions(ctx context.Context, _ *empty.Empty) (*pb
 	return &pb.LiveSessions{Items: lsAPIs}, nil
 }
 
+// UpdateLiveSessionPersistence updates the persistence flag in the session database
+func (s *AntidoteAPI) UpdateLiveSessionPersistence(ctx context.Context, persistence *pb.SessionPersistence) (*empty.Empty, error) {
+	span := ot.StartSpan("api_livesession_persist", ext.SpanKindRPCClient)
+	defer span.Finish()
+
+	err := s.Db.UpdateLiveSessionPersistence(span.Context(), persistence.SessionID, persistence.Persistent)
+	if err != nil {
+		return &empty.Empty{}, err
+	}
+
+	return &empty.Empty{}, nil
+}
+
 // liveSessionDBToAPI translates a single LiveSession from the `db` package models into the
 // api package's equivalent
 func liveSessionDBToAPI(dbLS *models.LiveSession) *pb.LiveSession {
@@ -113,6 +154,6 @@ func liveSessionDBToAPI(dbLS *models.LiveSession) *pb.LiveSession {
 // `db` package's equivalent
 func liveSessionAPIToDB(pbLiveSession *pb.LiveSession) *models.LiveSession {
 	liveSessionDB := &models.LiveSession{}
-	copier.Copy(&pbLiveSession, liveSessionDB)
+	copier.Copy(&liveSessionDB, pbLiveSession)
 	return liveSessionDB
 }
