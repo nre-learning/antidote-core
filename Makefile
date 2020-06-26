@@ -13,13 +13,27 @@ compile:
 	#cp -r $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/third_party/ vendor/github.com/grpc-ecosystem/grpc-gateway/
 
 	@echo "Generating protobuf code..."
-	@rm -f pkg/ui/data/swagger/datafile.go
+
+	# This was causing issues when we tried to "go mod vendor", which expects a go file to be here. I don't think we need it anymore.
+	# @rm -f pkg/ui/data/swagger/datafile.go
+
 	@rm -f /tmp/datafile.go
 	@rm -f cmd/antidote/buildinfo.go
 	@rm -f cmd/antidoted/buildinfo.go
 	@rm -f cmd/antictl/buildinfo.go
 	@rm -rf api/exp/generated/ && mkdir -p api/exp/generated/
 	@./compile-proto.sh
+
+	@# If we had this before the protobuf generation (and if the protobuf generation was using the vendored code) then we would get this.
+	@#
+	@# go: finding module for package github.com/nre-learning/antidote-core/api/exp/generated
+	@# github.com/nre-learning/antidote-core/api/exp imports
+	@#     github.com/nre-learning/antidote-core/api/exp/generated: no matching versions for query "latest"
+	@#
+	@# Obviously a solution to this might be to just commit the generated Go code, which would allow you to run this first before anything else.
+	@# The main reason this isn't super necessary right now is that this command doesn't bring any non-Go code into vendor/, which is a big reason you want it there,
+	@# such as for building the protoc binaries, or any dependent proto models.
+	go mod vendor
 
 	@#https://stackoverflow.com/questions/34716238/golang-protobuf-remove-omitempty-tag-from-generated-json-tags/37335452#37335452
 	@ls api/exp/generated/*.pb.go | xargs -n1 -IX bash -c 'sed s/,omitempty// X > X.tmp && mv X{.tmp,}'

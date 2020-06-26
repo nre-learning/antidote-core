@@ -45,6 +45,7 @@ require (
 	google.golang.org/appengine v1.6.2 // indirect
 	google.golang.org/genproto v0.0.0-20190916214212-f660b8655731
 	google.golang.org/grpc v1.27.0
+	google.golang.org/protobuf v1.22.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.2.2
