@@ -42,6 +42,7 @@ func TestNetworks(t *testing.T) {
 			span.Context(),
 			0,
 			"vqfx1-vqfx2",
+			"",
 			services.LessonScheduleRequest{
 				LiveLessonID: "asdf",
 			},
@@ -52,6 +53,6 @@ func TestNetworks(t *testing.T) {
 		err = json.Unmarshal([]byte(network.Spec.Config), &nc)
 		ok(t, err)
 
-		assert(t, nc.Ipam.Subnet == "10.10.0.0/16", "")
+		assert(t, nc.Ipam.Subnet == "169.0.0.0/16", "")
 	})
 }

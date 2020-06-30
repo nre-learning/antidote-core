@@ -82,8 +82,9 @@ type LessonPresentation struct {
 // LessonConnection is a point-to-point network connection between two LessonEndpoints. The `A` and `B` properties should
 // refer to the Name of LessonEndpoints within a given lesson that should be networked together.
 type LessonConnection struct {
-	A string `json:"A" yaml:"a" jsonschema:"required"`
-	B string `json:"B" yaml:"b" jsonschema:"required"`
+	A      string `json:"A" yaml:"a" jsonschema:"required"`
+	B      string `json:"B" yaml:"b" jsonschema:"required"`
+	Subnet string `json:"Subnet" yaml:"subnet" jsonschema:"required"`
 }
 
 // PresentationType is backed by a set of possible const values for presentation types below

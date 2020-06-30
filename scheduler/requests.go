@@ -207,7 +207,7 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	// Create networks from connections property
 	for c := range lesson.Connections {
 		connection := lesson.Connections[c]
-		_, err := s.createNetwork(span.Context(), c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), req)
+		_, err := s.createNetwork(span.Context(), c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), connection.Subnet, req)
 		if err != nil {
 			log.Error(err)
 			return err
