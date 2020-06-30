@@ -53,8 +53,6 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, err
 	}
 
-	// privileged := false
-
 	flavor := models.FlavorPlain
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
@@ -139,16 +137,9 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
 	}
 
-	// Not all endpoint images come with a hypervisor. For these, we want to be able to conditionally
-	// enable/disable privileged mode based on the relevant field present in the loaded image spec.
-	//
-	// See https://github.com/nre-learning/proposals/pull/7 for plans to standardize the endpoint image
-	// build process, which is likely to include a virtualization layer for safety. However, this option will
-	// likely remain in place regardless.
-
+	// See the EndpointImage model in db/models for a definition of these flavors
 	switch flavor {
-	// TODO(mierdin): Change this?
-	case models.FlavorPrivileged:
+	case models.FlavorTrusted:
 		t := true
 		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 			Privileged:               &t,
@@ -159,15 +150,15 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 				},
 			},
 		}
-	case models.FlavorPlain:
-		// TODO(mierdin): May not keep this
 	default:
 
-		// This should enable the kata runtime and NEVER give privileges. This is so we default to a secure position should something fail.
-		// The last thing I want to do is grant privileges and forget to install the runtimeclass for kata, which would be bad.
-		// TODO(mierdin): even with this discipline, it might be worth looking into performing a startup check within antidote-core
-		// for the presence of this runtimeclass (though this would likely require more gross CRD code)
-		// (runtimeClassName: kata)
+		// This should enable the kata runtime and NEVER give privileges. This is so we default
+		// to a secure position should something go wrong, like the runtimeclass CRD isn't installed, etc.
+		//
+		// We may want to at some point add a quick test to check for this CRD (and the kata runtimeclass) so that
+		// we get some quick feedback on startup, but even without this, Kubernetes won't let us launch a lesson
+		// with one of these if we don't have the proper CRD definition and instance installed, so this is probably
+		// okay for now.
 		kata := "kata"
 		pod.Spec.RuntimeClassName = &kata
 	}

@@ -14,10 +14,9 @@ type Image struct {
 
 	Description string `json:"Description" yaml:"description" jsonschema:"Description of this image"`
 
-	// - "plain" - no privs, regular container TODO(mierdin): decide if this is needed. May just want trusted and untrusted
-	// - "privileged" - privileged mode container
-	// - "untrusted" - kata vm (runtimeClassName: kata), does not grant privileges, so that if the runtimeclass is not applied for some reason, we don't have a privileged regular container
-	Flavor     ImageFlavor `json:"GuideType" yaml:"guideType" jsonschema:"required,enum=plain,enum=privileged,enum=untrusted"`
+	// - "trusted" - regular container on the default runtime (i.e. runc), running in privileged mode. Should **only** be used sparingly, and only for images with its own virtualization layer
+	// - "untrusted" - provisioned with the kata runtimeclass, with no privileges or additional capabilities
+	Flavor ImageFlavor `json:"Flavor" yaml:"flavor" jsonschema:"required,enum=trusted,enum=untrusted"`
 
 	// Used to allow authors to know which interfaces are available, and in which order they'll be connected
 	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"minItems=1"`
@@ -32,11 +31,9 @@ type Image struct {
 type ImageFlavor string
 
 const (
-	FlavorPlain ImageFlavor = "plain"
-	FlavorPrivileged  ImageFlavor = "privileged"
-	FlavorUntrusted  ImageFlavor = "untrusted"
+	FlavorTrusted   ImageFlavor = "trusted"
+	FlavorUntrusted ImageFlavor = "untrusted"
 )
-
 
 // GetSchema returns a Schema to be used in creation wizards
 func (i Image) GetSchema() *jsonschema.Schema {
