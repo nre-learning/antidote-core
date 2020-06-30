@@ -1,5 +1,6 @@
 # Antidote-Core
 
+![Go](https://github.com/nre-learning/antidote-core/workflows/Go/badge.svg)
 [![Build Status](https://travis-ci.org/nre-learning/antidote-core.svg?branch=master)](https://travis-ci.org/nre-learning/antidote-core)
 [![codecov](https://codecov.io/gh/nre-learning/antidote-core/branch/master/graph/badge.svg)](https://codecov.io/gh/nre-learning/antidote-core)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nre-learning/antidote-core)](https://goreportcard.com/report/github.com/nre-learning/antidote-core)
