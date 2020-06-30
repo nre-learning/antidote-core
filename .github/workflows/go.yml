@@ -36,7 +36,9 @@ jobs:
         go mod download
         make install_bins
         go get github.com/jteeuwen/go-bindata/...
-        
+      env:
+        GOPATH: /home/runner/go
+
     - name: Check changelog
       run: hack/check-changelog.sh
         
