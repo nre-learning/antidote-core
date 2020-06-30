@@ -149,8 +149,6 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 		subnet = connectionSubnet
 	}
 
-	// https://github.com/containernetworking/plugins/tree/master/plugins/ipam/static
-
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
 			"type": "bridge",
@@ -166,13 +164,6 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 			  "subnet": "%s"
 			}
 		}`, networkName, bridgeName, subnet)
-
-	// TODO(mierdin): consider updating multus
-
-	// TODO(mierdin): will likely want to do something here that says static if provided, but if not, just do whatever.
-	// Except if they don't have Connections, they don't have networks, so maybe not. Maybe just assuming static when using connections, this doesn't
-	// affect eth0 anyways
-	// Except in the cases of vqfx or any manually configured VM, it would be preferred to just say "please configure any subnet". Maybe both options is good after all
 
 	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",

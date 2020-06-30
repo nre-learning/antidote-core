@@ -36,15 +36,21 @@ jobs:
         go mod download
         make install_bins
         go get github.com/jteeuwen/go-bindata/...
-        
+      env:
+        GOPATH: /home/runner/go
+
     - name: Check changelog
       run: hack/check-changelog.sh
         
     - name: Build
       run: make
+      env:
+        GOPATH: /home/runner/go
 
     - name: Test
       run: make test
+      env:
+        GOPATH: /home/runner/go
 
     - name: call codecov
       run: bash <(curl -s https://codecov.io/bash)
