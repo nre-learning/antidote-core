@@ -122,7 +122,7 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string
 }
 
 // createNetwork
-func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netName string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netName, connectionSubnet string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
 	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
 	defer span.Finish()
 
@@ -143,10 +143,13 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 	// should be way more than enough.
 	bridgeName := fmt.Sprintf("%d%s%s", netIndex, antidoteId, livelesson)
 
-	// NOTE that this is just a placeholder, not necessarily the actual subnet in use on this segment.
-	// We have to put SOMETHING here, but because we're using the bridge plugin, this isn't actually
-	// enforced, which is desired behaviors. Endpoints can still use their own subnets.
-	subnet := "10.10.0.0/16"
+	// default subnet when not provided
+	subnet := "169.0.0.0/16"
+	if connectionSubnet != "" {
+		subnet = connectionSubnet
+	}
+
+	// https://github.com/containernetworking/plugins/tree/master/plugins/ipam/static
 
 	networkArgs := fmt.Sprintf(`{
 			"name": "%s",
@@ -163,6 +166,13 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 			  "subnet": "%s"
 			}
 		}`, networkName, bridgeName, subnet)
+
+	// TODO(mierdin): consider updating multus
+
+	// TODO(mierdin): will likely want to do something here that says static if provided, but if not, just do whatever.
+	// Except if they don't have Connections, they don't have networks, so maybe not. Maybe just assuming static when using connections, this doesn't
+	// affect eth0 anyways
+	// Except in the cases of vqfx or any manually configured VM, it would be preferred to just say "please configure any subnet". Maybe both options is good after all
 
 	network := &networkcrd.NetworkAttachmentDefinition{
 		// apiVersion: "k8s.cni.cncf.io/v1",
