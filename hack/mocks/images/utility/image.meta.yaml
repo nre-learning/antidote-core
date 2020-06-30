@@ -4,6 +4,7 @@ privileged: false
 networkInterfaces:
   - 'eth0'
 sshUser: antidote
+flavor: untrusted
 sshPassword: antidotepassword
 configUser: antidote
 configPassword: antidotePassword

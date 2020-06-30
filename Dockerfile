@@ -8,7 +8,7 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.11
 # Copy Antidote code
 COPY . $GOPATH/src/github.com/nre-learning/antidote-core
 
-RUN cd $GOPATH/src/github.com/nre-learning/antidote-core && make install_bins
+RUN cd $GOPATH/src/github.com/nre-learning/antidote-core && go mod download && make install_bins
 
 RUN go get github.com/jteeuwen/go-bindata/...
 
