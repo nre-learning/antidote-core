@@ -6,6 +6,7 @@
 - Move to Go Modules (finally) and fix txn functions [#191](https://github.com/nre-learning/antidote-core/pull/191)
 - Image Flavors [#189](https://github.com/nre-learning/antidote-core/pull/189)
 - Add subnet to Connections configuration [#194](https://github.com/nre-learning/antidote-core/pull/194)
+- Move to Github Actions [#195](https://github.com/nre-learning/antidote-core/pull/195/)
 
 ## v0.6.2 - May 03, 2020
 
