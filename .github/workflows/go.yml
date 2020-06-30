@@ -1,0 +1,50 @@
+name: Go
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.14
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    #- name: Get dependencies
+    #  run: |
+    #    go get -v -t -d ./...
+    #    if [ -f Gopkg.toml ]; then
+    #        curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+    #        dep ensure
+    #    fi
+
+    - name: Get deps
+      run: |
+        curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.11.4/protoc-3.11.4-linux-x86_64.zip && unzip protoc-3.11.4-linux-x86_64.zip -d protoc3 && chmod +x protoc3/bin/* && sudo mv protoc3/bin/* /usr/local/bin && sudo mv protoc3/include/* /usr/local/include/
+        go mod download
+        make install_bins
+        go get github.com/jteeuwen/go-bindata/...
+        
+    - name: Check changelog
+      run: hack/check-changelog.sh
+        
+    - name: Build
+      run: make
+
+    - name: Test
+      run: make test
+
+    - name: call codecov
+      run: bash <(curl -s https://codecov.io/bash)
