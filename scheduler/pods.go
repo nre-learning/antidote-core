@@ -53,7 +53,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, err
 	}
 
-	flavor := models.FlavorPlain
+	flavor := models.FlavorUntrusted
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
