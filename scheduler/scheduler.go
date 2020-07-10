@@ -326,10 +326,25 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 		Command: []string{
 			"bash",
 		},
+
+		// In previous versions of this platform, we used the subPath parameter of the VolumeMount to specify the actual lesson directory (i.e. lessons/my-new-lesson) to make available
+		// to the lesson endpoints at the /antidote location. This would result in something like /antidote/<lesson files> rather than /antidote/lessons/my-new-lesson/<lesson files>,
+		// which was much more convenient to access within the lessons.
+		//
+		// However, some runtimes don't appear to handle subPath well, as shown here: https://github.com/kata-containers/runtime/issues/2812.
+		//
+		// Fortunately, we don't **actually** need the subPath field to accomplish the same goal. This field seems to be mostly useful in environments where you want
+		// to use the same volume but provide different mount points to different containers or pods. In our case, all pods within a lesson should look the same, and
+		// volumes are created at a pod level using emptyDir. So, instead of using subPath in the mount, we can just copy the correct subdirectory here in the init container,
+		// and mount the whole volume in the main container. This volume will already be prepped with the relevant subdirectory.
 		Args: []string{
 			"-c",
-			"cp -r /antidote-ro/lessons/ /antidote && adduser -D antidote && chown -R antidote:antidote /antidote",
+			fmt.Sprintf(
+				"ls -lha /antidote-ro && cp -r /antidote-ro/%s/* /antidote && adduser -D antidote && chown -R antidote:antidote /antidote && ls -lha /antidote",
+				strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
+			),
 		},
+
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "host-volume",
@@ -367,7 +382,6 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 		Name:      "local-copy",
 		ReadOnly:  false,
 		MountPath: "/antidote",
-		SubPath:   strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
 	})
 
 	return volumes, volumeMounts, initContainers, nil
