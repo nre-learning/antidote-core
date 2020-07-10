@@ -2,6 +2,7 @@
 
 ## In development
 
+- Remove subpath field from mount; copy only relevant subdirectory from lessons [#196](https://github.com/nre-learning/antidote-core/pull/196)
 - Add capability to persist a session [#182](https://github.com/nre-learning/antidote-core/pull/182)
 - Move to Go Modules (finally) and fix txn functions [#191](https://github.com/nre-learning/antidote-core/pull/191)
 - Image Flavors [#189](https://github.com/nre-learning/antidote-core/pull/189)
