@@ -10,13 +10,17 @@ import (
 
 // Image is a resource type that provides metadata for endpoint images in use within Lessons
 type Image struct {
-	Slug string `json:"Slug" yaml:"slug" jsonschema:"Unique identifier for this image,pattern=^[A-Za-z0-9\\-]*$"`
+	Slug string `json:"Slug" yaml:"slug" jsonschema:"description=Unique identifier for this image,pattern=^[A-Za-z0-9\\-]*$"`
 
-	Description string `json:"Description" yaml:"description" jsonschema:"Description of this image"`
+	Description string `json:"Description" yaml:"description" jsonschema:"description=Description of this image"`
 
 	// - "trusted" - regular container on the default runtime (i.e. runc), running in privileged mode. Should **only** be used sparingly, and only for images with its own virtualization layer
 	// - "untrusted" - provisioned with the kata runtimeclass, with no privileges or additional capabilities
 	Flavor ImageFlavor `json:"Flavor" yaml:"flavor" jsonschema:"required,enum=trusted,enum=untrusted"`
+
+	// This only enables forwarding at the container level. If this image uses the trusted flavor and is running a totally separate qemu VM, this will not affect the inner OS.
+	// Kata will forward sysctl calls, so this is mainly targeted at untrusted images that need to forward https://github.com/kata-containers/runtime/issues/185
+	EnableForwarding bool `json:"EnableForwarding" yaml:"enableForwarding" jsonschema:"description=Enable IP (v4 and v6) forwarding for this image at runtime"`
 
 	// Used to allow authors to know which interfaces are available, and in which order they'll be connected
 	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"minItems=1"`
