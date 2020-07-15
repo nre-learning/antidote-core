@@ -54,6 +54,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	}
 
 	flavor := models.FlavorUntrusted
+	enableForwarding := false
 
 	// If the endpoint is a jupyter server, we don't want to append a curriculum version,
 	// because that's part of the platform. For all others, we will append the version of the curriculum.
@@ -67,6 +68,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
 		}
 		flavor = image.Flavor
+		enableForwarding = image.EnableForwarding
 		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
 	}
 
@@ -137,6 +139,25 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
 	}
 
+	if enableForwarding {
+		// Please see https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/ for ways to permit the
+		// use of these settings. The preferred way is to enable this via kubelet flags, as Antidote is not supported
+		// on multi-tenant clusters anyways. This must be done during cluster setup or else any lesson that uses an image
+		// with this setting will not start.
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			Sysctls: []corev1.Sysctl{
+				{
+					Name:  "net.ipv4.ip_forward",
+					Value: "1",
+				},
+				{
+					Name:  "net.ipv6.conf.all.forwarding",
+					Value: "1",
+				},
+			},
+		}
+	}
+
 	// See the EndpointImage model in db/models for a definition of these flavors
 	switch flavor {
 	case models.FlavorTrusted:
@@ -151,6 +172,17 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 			},
 		}
 	default:
+
+		t := false
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &t,
+			AllowPrivilegeEscalation: &t,
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"NET_ADMIN",
+				},
+			},
+		}
 
 		// This should enable the kata runtime and NEVER give privileges. This is so we default
 		// to a secure position should something go wrong, like the runtimeclass CRD isn't installed, etc.
