@@ -2,6 +2,7 @@
 
 ## In development
 
+- Start endpoint pods in the order provided in the lesson definition [#198](https://github.com/nre-learning/antidote-core/pull/198)
 - Add image meta option to enable IP forwarding [#197](https://github.com/nre-learning/antidote-core/pull/197)
 - Remove subpath field from mount; copy only relevant subdirectory from lessons [#196](https://github.com/nre-learning/antidote-core/pull/196)
 - Add capability to persist a session [#182](https://github.com/nre-learning/antidote-core/pull/182)
