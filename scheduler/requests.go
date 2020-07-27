@@ -177,6 +177,23 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		return err
 	}
 
+	// The LiveEndpoints field of the LiveLesson model is a map, not a slice. This means that the original order from the lesson definition
+	// is lost when the API's initializeLiveEndpoints function populates this from the original slice into the unordered LiveLesson map.
+	// Unfortunately this map is pretty well embedded in the API at this point, and would be a lot of work on antidote-core and antidote-web
+	// to convert this to an ordered data structure like a slice.
+	//
+	// In most cases, this order doesn't really matter. This code however, is a huge exception - the order in which endpoint pods are created
+	// is extremely important, as this is what determines which pods get which IP addresses from the specified subnet.
+	//
+	// Because this is the only place I'm currently aware of that this order matters, I've inserted this simple logic to create a slice of strings that
+	// represent the original order in which these endpoints appeared, and the subsequent loop can use this to create pods in the original order from
+	// the lesson definition. HOWEVER, if we discover that other use cases exist that require consistent ordering, we should tackle the conversion
+	// of this field to a slice, and remove this workaround.
+	epOrdered := []string{}
+	for _, lep := range lesson.Endpoints {
+		epOrdered = append(epOrdered, lep.Name)
+	}
+
 	// Append endpoint and create ingress for jupyter lab guide if necessary
 	if usesJupyterLabGuide(lesson) {
 
@@ -185,7 +202,10 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			Image: fmt.Sprintf("antidotelabs/jupyter:%s", s.BuildInfo["imageVersion"]),
 			Ports: []int32{8888},
 		}
+
+		// Add to the endpoints map as well as the ordered list, so the loop below picks it up at the end.
 		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
+		epOrdered = append(epOrdered, jupyterEp.Name)
 
 		nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
 
@@ -215,23 +235,6 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	}
 
 	createdPods := make(map[string]*corev1.Pod)
-
-	// The LiveEndpoints field of the LiveLesson model is a map, not a slice. This means that the original order from the lesson definition
-	// is lost when the API's initializeLiveEndpoints function populates this from the original slice into the unordered LiveLesson map.
-	// Unfortunately this map is pretty well embedded in the API at this point, and would be a lot of work on antidote-core and antidote-web
-	// to convert this to an ordered data structure like a slice.
-	//
-	// In most cases, this order doesn't really matter. This code however, is a huge exception - the order in which endpoint pods are created
-	// is extremely important, as this is what determines which pods get which IP addresses from the specified subnet.
-	//
-	// Because this is the only place I'm currently aware of that this order matters, I've inserted this simple logic to create a slice of strings that
-	// represent the original order in which these endpoints appeared, and the subsequent loop can use this to create pods in the original order from
-	// the lesson definition. HOWEVER, if we discover that other use cases exist that require consistent ordering, we should tackle the conversion
-	// of this field to a slice, and remove this workaround.
-	epOrdered := []string{}
-	for _, lep := range lesson.Endpoints {
-		epOrdered = append(epOrdered, lep.Name)
-	}
 
 	// Create pods and services
 	for _, epName := range epOrdered {
