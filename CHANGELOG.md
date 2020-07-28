@@ -2,6 +2,7 @@
 
 ## In development
 
+- Add (deprecated) 'legacy' image flavor [#202](https://github.com/nre-learning/antidote-core/pull/202)
 - Move networkpolicy creation to the beginning of the creation of livelesson resources  [#201](https://github.com/nre-learning/antidote-core/pull/201)
 - Fix race bug in job completion check [#200](https://github.com/nre-learning/antidote-core/pull/200)
 - Add jupyter endpoint to ordered list after other lesson endpoints [#199](https://github.com/nre-learning/antidote-core/pull/199)
