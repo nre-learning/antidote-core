@@ -2,6 +2,7 @@
 
 ## In development
 
+- Fix race bug in job completion check [#200](https://github.com/nre-learning/antidote-core/pull/200)
 - Add jupyter endpoint to ordered list after other lesson endpoints [#199](https://github.com/nre-learning/antidote-core/pull/199)
 - Start endpoint pods in the order provided in the lesson definition [#198](https://github.com/nre-learning/antidote-core/pull/198)
 - Add image meta option to enable IP forwarding [#197](https://github.com/nre-learning/antidote-core/pull/197)
