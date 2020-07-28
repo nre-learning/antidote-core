@@ -139,7 +139,7 @@ func main() {
 						client := pb.NewLiveSessionsServiceClient(conn)
 
 						if len(c.Args()) < 2 {
-							fmt.Println("Missing args to command : antictl livesession persist <true/false> <session id>")
+							fmt.Println("Missing args to command : antictl livesession persist <session id> <true/false>")
 							os.Exit(1)
 						}
 
