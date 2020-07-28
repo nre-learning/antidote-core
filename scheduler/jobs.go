@@ -87,9 +87,9 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 		ext.Error.Set(span, true)
 		return false,
 			map[string]int32{
-				"active":    result.Status.Active,
-				"succeeded": result.Status.Succeeded,
-				"failed":    result.Status.Failed,
+				"active":    0,
+				"succeeded": 0,
+				"failed":    0,
 			},
 			err
 	}
@@ -117,18 +117,6 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 				"failed":    result.Status.Failed,
 			},
 			err
-	}
-
-	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
-	// conditional will return true. So let's also check to see if failed or successful is 0
-	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false,
-			map[string]int32{
-				"active":    result.Status.Active,
-				"succeeded": result.Status.Succeeded,
-				"failed":    result.Status.Failed,
-			},
-			nil
 	}
 
 	if result.Status.Succeeded > 0 {
