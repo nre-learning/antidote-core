@@ -85,7 +85,11 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return false,
+
+		// The calling code **should** ignore the boolean status here, and instead just pass the error
+		// up the chain. So, it's not that important. However we're setting it to true just to ensure
+		// we don't keep trying.
+		return true,
 			map[string]int32{
 				"active":    0,
 				"succeeded": 0,

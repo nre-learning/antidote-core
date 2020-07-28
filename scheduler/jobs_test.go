@@ -129,6 +129,7 @@ func TestJobs(t *testing.T) {
 	})
 
 	// A job with an improper namespace should cause a failure with all status count set to 0
+	// and a completed status of "true", just to indicate we shouldn't keep trying
 	t.Run("", func(t *testing.T) {
 		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 		jobcopy := &batchv1.Job{}
@@ -138,7 +139,7 @@ func TestJobs(t *testing.T) {
 		ok(t, err)
 
 		completed, statusCount, err := s.getJobStatus(span, job, req)
-		equals(t, false, completed)
+		equals(t, true, completed)
 		assert(t, (err != nil), "")
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 0}, statusCount)
 	})
