@@ -21,7 +21,6 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	defer span.Finish()
 
 	nsName := generateNamespaceName(s.Config.InstanceID, newRequest.LiveLessonID)
-
 	span.LogEvent(fmt.Sprintf("Generated namespace name %s", nsName))
 
 	ll, err := s.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
@@ -61,13 +60,6 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 		ext.Error.Set(span, true)
 		_ = s.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
 		return
-	}
-
-	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
-	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
-	// won't initially come up at all.
-	if !s.Config.AllowEgress {
-		s.createNetworkPolicy(span.Context(), nsName)
 	}
 
 	_ = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
@@ -159,6 +151,13 @@ func (s *AntidoteScheduler) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	ns, err := s.createNamespace(span.Context(), req)
 	if err != nil {
 		log.Error(err)
+	}
+
+	// Set network policy ONLY after configuration has had a chance to take place. Once this is in place,
+	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
+	// won't initially come up at all.
+	if !s.Config.AllowEgress {
+		s.createNetworkPolicy(span.Context(), ns.Name)
 	}
 
 	// Sync TLS certificate into the lesson namespace (and optionally, docker pull credentials)
