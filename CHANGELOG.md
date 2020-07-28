@@ -2,6 +2,7 @@
 
 ## In development
 
+- Move networkpolicy creation to the beginning of the creation of livelesson resources  [#201](https://github.com/nre-learning/antidote-core/pull/201)
 - Fix race bug in job completion check [#200](https://github.com/nre-learning/antidote-core/pull/200)
 - Add jupyter endpoint to ordered list after other lesson endpoints [#199](https://github.com/nre-learning/antidote-core/pull/199)
 - Start endpoint pods in the order provided in the lesson definition [#198](https://github.com/nre-learning/antidote-core/pull/198)
