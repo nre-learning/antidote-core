@@ -22,7 +22,10 @@ import (
 )
 
 // JobBackoff controls the number of times a job is retried before we consider it failed.
-const JobBackoff = 2
+// I **believe** this is actually equal to the number of "tries", not "retries". So think of this as the number of pods you expect to see if
+// all of them failed.
+// https://kubernetes.io/docs/concepts/workloads/controllers/job/
+const JobBackoff = 3
 
 func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
 
@@ -82,16 +85,20 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return false,
+
+		// The calling code **should** ignore the boolean status here, and instead just pass the error
+		// up the chain. So, it's not that important. However we're setting it to true just to ensure
+		// we don't keep trying.
+		return true,
 			map[string]int32{
-				"active":    result.Status.Active,
-				"succeeded": result.Status.Succeeded,
-				"failed":    result.Status.Failed,
+				"active":    0,
+				"succeeded": 0,
+				"failed":    0,
 			},
 			err
 	}
 
-	if result.Status.Failed >= JobBackoff+1 {
+	if result.Status.Failed >= JobBackoff {
 
 		// Get logs for failed configuration job/pod for troubleshooting purposes later
 		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
@@ -116,24 +123,22 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 			err
 	}
 
-	// If we call this too quickly, k8s won't have a chance to schedule the pods yet, and the final
-	// conditional will return true. So let's also check to see if failed or successful is 0
-	if result.Status.Active == 0 && result.Status.Failed == 0 && result.Status.Succeeded == 0 {
-		return false,
-			map[string]int32{
-				"active":    result.Status.Active,
-				"succeeded": result.Status.Succeeded,
-				"failed":    result.Status.Failed,
-			},
-			nil
+	if result.Status.Succeeded > 0 {
+		return true, map[string]int32{
+			"active":    result.Status.Active,
+			"succeeded": result.Status.Succeeded,
+			"failed":    result.Status.Failed,
+		}, nil
 	}
 
-	return (result.Status.Active == 0), map[string]int32{
+	// If we got here, it means we didn't get enough failures yet, and it also means we didn't
+	// see any successes. This means we're not done yet, so we should return a false state, and no error,
+	// so the calling code can get another status after a wait.
+	return false, map[string]int32{
 		"active":    result.Status.Active,
 		"succeeded": result.Status.Succeeded,
 		"failed":    result.Status.Failed,
 	}, nil
-
 }
 
 func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
