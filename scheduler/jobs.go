@@ -24,6 +24,7 @@ import (
 // JobBackoff controls the number of times a job is retried before we consider it failed.
 // I **believe** this is actually equal to the number of "tries", not "retries". So think of this as the number of pods you expect to see if
 // all of them failed.
+// https://kubernetes.io/docs/concepts/workloads/controllers/job/
 const JobBackoff = 3
 
 func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
