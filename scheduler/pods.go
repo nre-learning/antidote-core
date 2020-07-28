@@ -171,6 +171,22 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 				},
 			},
 		}
+
+	// DEPRECATED - this is the "old" unprivileged model. Shouldn't be needed, but for the time being I'd
+	// rather have it and not need it vs the reverse. Provided the new flavor model works, this can be removed
+	// as an option after a while.
+	case models.FlavorLegacy:
+		t := false
+		pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+			Privileged:               &t,
+			AllowPrivilegeEscalation: &t,
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"NET_ADMIN",
+				},
+			},
+		}
+
 	default:
 
 		t := false
