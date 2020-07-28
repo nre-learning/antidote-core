@@ -22,7 +22,9 @@ import (
 )
 
 // JobBackoff controls the number of times a job is retried before we consider it failed.
-const JobBackoff = 2
+// I **believe** this is actually equal to the number of "tries", not "retries". So think of this as the number of pods you expect to see if
+// all of them failed.
+const JobBackoff = 3
 
 func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
 
@@ -91,7 +93,7 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 			err
 	}
 
-	if result.Status.Failed >= JobBackoff+1 {
+	if result.Status.Failed >= JobBackoff {
 
 		// Get logs for failed configuration job/pod for troubleshooting purposes later
 		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
@@ -128,12 +130,22 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 			nil
 	}
 
-	return (result.Status.Active == 0), map[string]int32{
+	if result.Status.Succeeded > 0 {
+		return true, map[string]int32{
+			"active":    result.Status.Active,
+			"succeeded": result.Status.Succeeded,
+			"failed":    result.Status.Failed,
+		}, nil
+	}
+
+	// If we got here, it means we didn't get enough failures yet, and it also means we didn't
+	// see any successes. This means we're not done yet, so we should return a false state, and no error,
+	// so the calling code can get another status after a wait.
+	return false, map[string]int32{
 		"active":    result.Status.Active,
 		"succeeded": result.Status.Succeeded,
 		"failed":    result.Status.Failed,
 	}, nil
-
 }
 
 func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
