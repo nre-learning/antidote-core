@@ -1,5 +1,6 @@
 syntax = "proto3";
 package antidote.api.exp;
+option go_package = ".;antidote_api_exp";
 
 import "google/api/annotations.proto";
 

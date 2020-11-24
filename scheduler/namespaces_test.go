@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func TestNamespaces(t *testing.T) {
 	t.Run("A=1", func(t *testing.T) {
 		cleaned, err := schedulerSvc.PurgeOldLessons(span.Context())
 		ok(t, err)
-		assert(t, (len(cleaned) == 1), string(len(cleaned)))
+		assert(t, (len(cleaned) == 1), fmt.Sprintf("%d", len(cleaned)))
 		assert(t, (cleaned[0] == "123456"), cleaned[0])
 	})
 
@@ -74,12 +75,12 @@ func TestSessionPersistence(t *testing.T) {
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
 
 	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
-		ID: "abcdef",
+		ID:         "abcdef",
 		Persistent: false,
 	})
 
 	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
-		ID: "uvwxyz",
+		ID:         "uvwxyz",
 		Persistent: true,
 	})
 
@@ -131,7 +132,7 @@ func TestSessionPersistence(t *testing.T) {
 	t.Run("A=1", func(t *testing.T) {
 		cleaned, err := schedulerSvc.PurgeOldLessons(span.Context())
 		ok(t, err)
-		assert(t, (len(cleaned) == 1), string(len(cleaned)))
+		assert(t, (len(cleaned) == 1), fmt.Sprintf("%d", len(cleaned)))
 		assert(t, (cleaned[0] == "123456"), cleaned[0])
 	})
 }

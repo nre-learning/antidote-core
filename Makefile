@@ -10,7 +10,7 @@ compile:
 	#go mod vendor
 	#rm -rf vendor/github.com/grpc-ecosystem/grpc-gateway/third_party || true
 	# TODO(mierdin): Predict version
-	#cp -r $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/third_party/ vendor/github.com/grpc-ecosystem/grpc-gateway/
+	#cp -r $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.5/third_party/ vendor/github.com/grpc-ecosystem/grpc-gateway/
 
 	@echo "Generating protobuf code..."
 
@@ -105,6 +105,6 @@ install_bins:
 	ls -lha $$GOPATH/pkg/mod/github.com/grpc-ecosystem/
 
 	@# Figure out how to make versions dynamic
-	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/protoc-gen-grpc-gateway/ && go install ./...
-	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.11.1/protoc-gen-swagger/ && go install ./...
+	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.5/protoc-gen-grpc-gateway/ && go install ./...
+	@cd $$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.14.5/protoc-gen-swagger/ && go install ./...
 	@cd $$GOPATH/pkg/mod/github.com/golang/protobuf@v1.4.0/protoc-gen-go/ && go install ./...
