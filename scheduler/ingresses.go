@@ -45,7 +45,7 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 				"ingress.kubernetes.io/force-ssl-redirect": redir,
 
 				// Strip X-Frame-Options headers from http endpoints (these would prevent iframes)
-				"ingress.kubernetes.io/configuration-snippet": "proxy_hide_header X-Frame-Options;",
+				"nginx.ingress.kubernetes.io/configuration-snippet": "proxy_hide_header X-Frame-Options;",
 			},
 		},
 
