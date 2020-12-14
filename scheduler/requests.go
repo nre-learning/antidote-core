@@ -62,6 +62,18 @@ func (s *AntidoteScheduler) handleRequestCREATE(sc ot.SpanContext, newRequest se
 		return
 	}
 
+	lesson, err := s.Db.GetLesson(span.Context(), newRequest.LessonSlug)
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return
+	}
+
+	span.LogEvent(fmt.Sprintf("Inserting ready delay of %d seconds", lesson.ReadyDelay))
+	if lesson.ReadyDelay > 0 {
+		time.Sleep(time.Duration(lesson.ReadyDelay) * time.Second)
+	}
+
 	_ = s.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
 
 	// Inject span context and send LSR into NATS

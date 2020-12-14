@@ -66,6 +66,7 @@ message Lesson {
   string ShortDescription = 17;
   string LessonFile = 18;
   string LessonDir = 19;
+  int32 ReadyDelay = 20;
 }
 
 message LessonFilter {
