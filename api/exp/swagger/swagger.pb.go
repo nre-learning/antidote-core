@@ -654,6 +654,10 @@ Lesson = `{
         },
         "LessonDir": {
           "type": "string"
+        },
+        "ReadyDelay": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },

@@ -26,6 +26,9 @@ type Lesson struct {
 	Connections      []*LessonConnection `json:"Connections,omitempty" yaml:"connections,omitempty" jsonschema:"description=(Connections between endpoints in the topology)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/connections"`
 	Authors          []*LessonAuthor     `json:"Authors,omitempty" yaml:"authors,omitempty" jsonschema:"description=(A list of individuals that have contributed to this lesson)\nhttps://docs.nrelabs.io/antidote/object-reference/lessons/authors"`
 
+	// Experimental field for adding a short delay before marking the lesson ready, to help deal with some SSH instability for images that have processes still starting.
+	ReadyDelay int `json:"-" yaml:"readyDelay,omitempty" jsonschema:"-"`
+
 	// NOTE - any time you see these dashes, it means this field is used for internal purposes only.
 	// When we were using protobuf models for everything, we couldn't do this. But by separating internal
 	// models from API models, we can still mark a field like this while still being able to offer it via API.
