@@ -3,7 +3,7 @@ set -e
 RELEASE_VERSION=$1
 
 # Make sure things compile and pass tests
-cd $GOPATH/src/github.com/nre-learning/antidote-core
+cd $GOPATH/src/github.com/nre-learning/antidote-core && go mod download && make install_bins
 make
 
 if [ $? -ne 0 ]; then
