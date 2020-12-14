@@ -2,6 +2,9 @@
 
 ## In development
 
+
+## v0.7.0 - December 14, 2020
+
 - Adding experimental ready delay [#206](https://github.com/nre-learning/antidote-core/pull/206)
 - Convert networkpolicy to use blank namespace selector instead of RFC1918 [#205](https://github.com/nre-learning/antidote-core/pull/205)
 - Upgrade grpc-gateway and add required protobuf options [#204](https://github.com/nre-learning/antidote-core/pull/204)
