@@ -65,6 +65,11 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 		}
 		break
 	}
+
+	if s.Config.DevMode {
+		sessionID = "antidotedevmode"
+	}
+
 	span.LogFields(log.String("allocatedSessionId", sessionID))
 	err := s.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:          sessionID,

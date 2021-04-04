@@ -42,7 +42,7 @@ func InitTracing(service string) (ot.Tracer, io.Closer) {
 			Param: 1,
 		},
 		Reporter: &jaegercfg.ReporterConfig{
-			LogSpans: false, // This seems pointless to me, so I disabled it for now
+			LogSpans: false,
 			// CollectorEndpoint: "jaeger",
 		},
 	}

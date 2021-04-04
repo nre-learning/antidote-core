@@ -70,6 +70,10 @@ type AntidoteConfig struct {
 	K8sOutOfClusterConfigPath string `yaml:"k8sOutOfClusterConfigPath"`
 
 	NATSUrl string `yaml:"natsUrl"`
+
+	// ONLY meant to be used for development purposes. Statically sets session ID, and a few other things useful
+	// for development purposes.
+	DevMode bool `yaml:"devMode"`
 }
 
 func LoadConfig(configFile string) (AntidoteConfig, error) {
@@ -99,6 +103,7 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		K8sInCluster:              true,
 		K8sOutOfClusterConfigPath: "",
 		NATSUrl:                   nats.DefaultURL,
+		DevMode:                   false,
 	}
 
 	yamlDef, err := ioutil.ReadFile(configFile)

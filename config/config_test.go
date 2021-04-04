@@ -69,6 +69,7 @@ func TestConfigJSON(t *testing.T) {
 		K8sInCluster:              true,
 		K8sOutOfClusterConfigPath: "",
 		NATSUrl:                   nats.DefaultURL,
+		DevMode:                   false,
 	}
 
 	t.Log(antidoteConfig.JSON())
