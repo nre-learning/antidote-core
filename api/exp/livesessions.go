@@ -77,7 +77,7 @@ func (s *AntidoteAPI) RequestLiveSession(ctx context.Context, _ *empty.Empty) (*
 		Persistent:  false,
 		CreatedTime: time.Now(),
 	})
-	if err != nil {
+	if err != nil && !s.Config.DevMode {
 		return nil, errors.New("Unable to store new session record")
 	}
 

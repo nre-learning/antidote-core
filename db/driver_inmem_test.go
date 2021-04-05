@@ -287,7 +287,7 @@ func TestLiveSessionCRUD(t *testing.T) {
 	}
 
 	if len(liveSessionsList) != 3 {
-		t.Fatalf("Expected %d liveSessions, got %d", len(liveSessionsList), 3)
+		t.Fatalf("Expected %d liveSessions, got %d", 3, len(liveSessionsList))
 	}
 
 	ls, err := adb.GetLiveSession(span.Context(), "abcdef")
