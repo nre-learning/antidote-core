@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"bytes"
@@ -20,12 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
+func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
 	span := ot.StartSpan("scheduler_pod_create", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
 
 	span.SetTag("epName", ep.Name)
 	span.SetTag("nsName", nsName)
@@ -63,17 +63,17 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		imageRef = ep.Image
 	} else {
 
-		image, err := s.Db.GetImage(span.Context(), ep.Image)
+		image, err := k.Db.GetImage(span.Context(), ep.Image)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to find referenced image %s in data store: %v", ep.Image, err)
 		}
 		flavor = image.Flavor
 		enableForwarding = image.EnableForwarding
-		imageRef = fmt.Sprintf("%s/%s:%s", s.Config.ImageOrg, ep.Image, s.Config.CurriculumVersion)
+		imageRef = fmt.Sprintf("%s/%s:%s", k.Config.ImageOrg, ep.Image, k.Config.CurriculumVersion)
 	}
 
 	pullPolicy := v1.PullIfNotPresent
-	if s.Config.AlwaysPull {
+	if k.Config.AlwaysPull {
 		pullPolicy = v1.PullAlways
 	}
 
@@ -133,8 +133,8 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		},
 	}
 
-	if s.Config.PullCredName != "" {
-		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: s.Config.PullCredName})
+	if k.Config.PullCredName != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: k.Config.PullCredName})
 	} else {
 		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
 	}
@@ -220,7 +220,7 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, fmt.Errorf("not creating pod %s - must have at least one port exposed", pod.ObjectMeta.Name)
 	}
 
-	result, err := s.Client.CoreV1().Pods(nsName).Create(pod)
+	result, err := k.Client.CoreV1().Pods(nsName).Create(pod)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -233,8 +233,8 @@ func (s *AntidoteScheduler) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 // getPodStatus is a k8s-focused health check. Just a sanity check to ensure the pod is running from
 // kubernetes perspective, before we move forward with network-based health checks. It is not meant to capture
 // all potential failure scenarios, only those that result in the Pod failing to start in the first place.
-func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
-	pod, err := s.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
+func (k *KubernetesBackend) getPodStatus(origPod *corev1.Pod) (bool, error) {
+	pod, err := k.Client.CoreV1().Pods(origPod.ObjectMeta.Namespace).Get(origPod.ObjectMeta.Name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -264,14 +264,14 @@ func (s *AntidoteScheduler) getPodStatus(origPod *corev1.Pod) (bool, error) {
 // recordPodLogs allows us to record the logs for a given pod (typically as a result of a failure of some kind),
 // such as an endpoint pod or a pod spawned by a Job during configuration. These logs are retrieved,
 // and then exported via a dedicated OpenTracing span.
-func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
+func (k *KubernetesBackend) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
 	span := ot.StartSpan("scheduler_pod_logs", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("podName", podName)
 	span.SetTag("container", container)
 
-	nsName := generateNamespaceName(s.Config.InstanceID, llID)
-	pod, err := s.Client.CoreV1().Pods(nsName).Get(podName, metav1.GetOptions{})
+	nsName := generateNamespaceName(k.Config.InstanceID, llID)
+	pod, err := k.Client.CoreV1().Pods(nsName).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -282,7 +282,7 @@ func (s *AntidoteScheduler) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	if container != "" {
 		plo.Container = container
 	}
-	req := s.Client.CoreV1().Pods(nsName).GetLogs(pod.Name, &plo)
+	req := k.Client.CoreV1().Pods(nsName).GetLogs(pod.Name, &plo)
 	podLogs, err := req.Stream()
 	if err != nil {
 		span.LogFields(log.Error(err))

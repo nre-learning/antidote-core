@@ -59,7 +59,7 @@ type fakeHealthChecker struct{}
 func (lhc *fakeHealthChecker) sshTest(host string, port int) bool { return true }
 func (lhc *fakeHealthChecker) tcpTest(host string, port int) bool { return true }
 
-func createFakeScheduler() *AntidoteScheduler {
+func createFakeKubernetesBackend() *KubernetesBackend {
 	cfg, err := config.LoadConfig("../hack/mocks/mock-config-1.yml")
 	if err != nil {
 		// t.Fatal(err)
@@ -82,7 +82,7 @@ func createFakeScheduler() *AntidoteScheduler {
 	}
 
 	// Start lesson scheduler
-	lessonScheduler := AntidoteScheduler{
+	kb := KubernetesBackend{
 		// KubeConfig:    kubeConfig,
 		Config:    cfg,
 		Client:    testclient.NewSimpleClientset(namespace),
@@ -93,7 +93,7 @@ func createFakeScheduler() *AntidoteScheduler {
 		HealthChecker: &fakeHealthChecker{},
 	}
 
-	return &lessonScheduler
+	return &kb
 }
 
 func TestSchedulerSetup(t *testing.T) {

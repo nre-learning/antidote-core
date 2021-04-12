@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"encoding/json"

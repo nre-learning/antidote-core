@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"testing"
@@ -13,19 +13,19 @@ func TestSyncSecret(t *testing.T) {
 	defer span.Finish()
 
 	s := createFakeScheduler()
-	s.Config.SecretsNamespace = "prod"
-	s.Config.PullCredName = "docker-pull-creds"
+	k.Config.SecretsNamespace = "prod"
+	k.Config.PullCredName = "docker-pull-creds"
 
-	_, err := s.Client.CoreV1().Namespaces().Create(&corev1.Namespace{
+	_, err := k.Client.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: s.Config.SecretsNamespace,
+			Name: k.Config.SecretsNamespace,
 			Labels: map[string]string{
-				"name": s.Config.SecretsNamespace,
+				"name": k.Config.SecretsNamespace,
 			},
 		},
 	})
 	ok(t, err)
-	_, err = s.Client.CoreV1().Namespaces().Create(&corev1.Namespace{
+	_, err = k.Client.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "testns",
 			Labels: map[string]string{
@@ -35,9 +35,9 @@ func TestSyncSecret(t *testing.T) {
 	})
 	ok(t, err)
 
-	_, err = s.Client.CoreV1().Secrets("prod").Create(&corev1.Secret{
+	_, err = k.Client.CoreV1().Secrets("prod").Create(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: s.Config.PullCredName,
+			Name: k.Config.PullCredName,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
 		Data: map[string][]byte{
@@ -46,10 +46,10 @@ func TestSyncSecret(t *testing.T) {
 	})
 	ok(t, err)
 
-	err = s.syncSecret(span.Context(), s.Config.SecretsNamespace, "testns", s.Config.PullCredName)
+	err = s.syncSecret(span.Context(), k.Config.SecretsNamespace, "testns", k.Config.PullCredName)
 	ok(t, err)
 
-	syncedSecret, err := s.Client.CoreV1().Secrets("testns").Get(s.Config.PullCredName, metav1.GetOptions{})
+	syncedSecret, err := k.Client.CoreV1().Secrets("testns").Get(k.Config.PullCredName, metav1.GetOptions{})
 	ok(t, err)
 
 	assert(t, syncedSecret.Type == "kubernetes.io/dockerconfigjson", "")

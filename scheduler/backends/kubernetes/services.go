@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
+func (k *KubernetesBackend) createService(sc ot.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
 	span := ot.StartSpan("scheduler_service_create", ot.ChildOf(sc))
 	defer span.Finish()
 
@@ -23,7 +23,7 @@ func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, re
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +58,7 @@ func (s *AntidoteScheduler) createService(sc ot.SpanContext, pod *corev1.Pod, re
 		})
 	}
 
-	result, err := s.Client.CoreV1().Services(nsName).Create(svc)
+	result, err := k.Client.CoreV1().Services(nsName).Create(svc)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
