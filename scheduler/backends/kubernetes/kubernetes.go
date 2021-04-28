@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	ot "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
@@ -21,7 +20,7 @@ import (
 	"github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
-	"github.com/nre-learning/antidote-core/scheduler"
+	reachability "github.com/nre-learning/antidote-core/scheduler/reachability"
 	"github.com/nre-learning/antidote-core/services"
 
 	// Custom Network CRD Types
@@ -40,9 +39,9 @@ import (
 )
 
 type KubernetesBackend struct {
-	NC     *nats.Conn
-	Config config.AntidoteConfig
-	Db     db.DataManager
+	Config    config.AntidoteConfig
+	Db        db.DataManager
+	BuildInfo map[string]string
 
 	KubeConfig *rest.Config
 
@@ -58,11 +57,9 @@ type KubernetesBackend struct {
 
 	// Client for creating instances of our network CRD
 	ClientCrd kubernetesCrd.Interface
-
-	HealthChecker LessonHealthChecker
 }
 
-func NewKubernetesBackend(nc *nats.Conn, acfg config.AntidoteConfig, adb db.DataManager) (*KubernetesBackend, error) {
+func NewKubernetesBackend(acfg config.AntidoteConfig, adb db.DataManager) (*KubernetesBackend, error) {
 
 	var err error
 	var kubeConfig *rest.Config
@@ -85,21 +82,18 @@ func NewKubernetesBackend(nc *nats.Conn, acfg config.AntidoteConfig, adb db.Data
 	if err != nil {
 		logrus.Fatalf("Unable to create new kubernetes ext client - %v", err)
 	}
-	clientCrd, err := crdclient.NewForConfig(kubeConfig) // Client for creating instances of the network CRD
+	clientCrd, err := kubernetesCrd.NewForConfig(kubeConfig) // Client for creating instances of the network CRD
 	if err != nil {
 		logrus.Fatalf("Unable to create new kubernetes crd client - %v", err)
 	}
 
-	// Start scheduler
 	k := KubernetesBackend{
-		KubeConfig:    kubeConfig,
-		Client:        cs,
-		ClientExt:     csExt,
-		ClientCrd:     clientCrd,
-		NC:            nc,
-		Config:        acfg,
-		Db:            adb,
-		HealthChecker: &scheduler.LessonHealthCheck{},
+		KubeConfig: kubeConfig,
+		Client:     cs,
+		ClientExt:  csExt,
+		ClientCrd:  clientCrd,
+		Config:     acfg,
+		Db:         adb,
 	}
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
@@ -124,7 +118,7 @@ type NetworkCrdClient interface {
 	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
 }
 
-func (k *KubernetesBackend) handleRequestCREATE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_lsr_create", ot.ChildOf(sc))
 	defer span.Finish()
 
@@ -135,23 +129,28 @@ func (k *KubernetesBackend) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return
+		return err
 	}
 
-	err = s.createK8sStuff(span.Context(), newRequest)
+	err = k.createK8sStuff(span.Context(), newRequest)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		_ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return
+		return err
 	}
 
-	err = s.waitUntilReachable(span.Context(), ll)
+	err = reachability.WaitUntilReachable(span.Context(), k.Db, ll)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		_ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return
+
+		for _, ep := range ll.LiveEndpoints {
+			k.recordPodLogs(span.Context(), ll.ID, ep.Name, "")
+		}
+
+		return err
 	}
 
 	err = k.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_CONFIGURATION)
@@ -159,22 +158,22 @@ func (k *KubernetesBackend) handleRequestCREATE(sc ot.SpanContext, newRequest se
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		_ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return
+		return err
 	}
 
-	err = k.ConfigureStuff(span.Context(), nsName, ll, newRequest)
+	err = k.configureStuff(span.Context(), nsName, ll, newRequest)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		_ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return
+		return err
 	}
 
 	lesson, err := k.Db.GetLesson(span.Context(), newRequest.LessonSlug)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return
+		return err
 	}
 
 	span.LogEvent(fmt.Sprintf("Inserting ready delay of %d seconds", lesson.ReadyDelay))
@@ -193,10 +192,11 @@ func (k *KubernetesBackend) handleRequestCREATE(sc ot.SpanContext, newRequest se
 	}
 	reqBytes, _ := json.Marshal(newRequest)
 	t.Write(reqBytes)
-	s.NC.Publish(services.LsrCompleted, t.Bytes())
+
+	return nil
 }
 
-func (k *KubernetesBackend) handleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+func (k *KubernetesBackend) HandleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_lsr_modify", ot.ChildOf(sc))
 	defer span.Finish()
 
@@ -206,59 +206,69 @@ func (k *KubernetesBackend) handleRequestMODIFY(sc ot.SpanContext, newRequest se
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
-		return
+		return err
 	}
 
-	err = k.ConfigureStuff(span.Context(), nsName, ll, newRequest)
+	err = k.configureStuff(span.Context(), nsName, ll, newRequest)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		_ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
-		return
+		return err
 	}
 
 	err = k.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return err
 	}
 
-	err = s.boopNamespace(span.Context(), nsName)
+	err = k.boopNamespace(span.Context(), nsName)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return err
 	}
+
+	return nil
 }
 
-func (k *KubernetesBackend) handleRequestBOOP(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+func (k *KubernetesBackend) HandleRequestBOOP(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_lsr_boop", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
 
-	err := s.boopNamespace(span.Context(), nsName)
+	err := k.boopNamespace(span.Context(), nsName)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return err
 	}
+
+	return nil
 }
 
-// handleRequestDELETE handles a livelesson deletion request by first sending a delete request
+// HandleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
-func (k *KubernetesBackend) handleRequestDELETE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) {
+func (k *KubernetesBackend) HandleRequestDELETE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_lsr_delete", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
-	err := s.deleteNamespace(span.Context(), nsName)
+	err := k.deleteNamespace(span.Context(), nsName)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
+		return err
 	}
 
 	// Make sure to not return earlier than this, so we make sure the state is cleaned up
 	// no matter what
 	_ = k.Db.DeleteLiveLesson(span.Context(), newRequest.LiveLessonID)
+
+	return nil
 }
 
 // createK8sStuff is a high-level workflow for creating all of the things necessary for a new instance
@@ -268,7 +278,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	span := ot.StartSpan("scheduler_k8s_create_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 
-	ns, err := s.createNamespace(span.Context(), req)
+	ns, err := k.createNamespace(span.Context(), req)
 	if err != nil {
 		log.Error(err)
 	}
@@ -277,13 +287,13 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	// only config pods spawned by Jobs will have internet access, so if this takes place earlier, lessons
 	// won't initially come up at all.
 	if !k.Config.AllowEgress {
-		s.createNetworkPolicy(span.Context(), ns.Name)
+		k.createNetworkPolicy(span.Context(), ns.Name)
 	}
 
 	// Sync TLS certificate into the lesson namespace (and optionally, docker pull credentials)
-	_ = s.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.TLSCertName)
+	_ = k.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.TLSCertName)
 	if k.Config.PullCredName != "" {
-		_ = s.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.PullCredName)
+		_ = k.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.PullCredName)
 	}
 
 	lesson, err := k.Db.GetLesson(span.Context(), req.LessonSlug)
@@ -314,11 +324,11 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	}
 
 	// Append endpoint and create ingress for jupyter lab guide if necessary
-	if usesJupyterLabGuide(lesson) {
+	if models.UsesJupyterLabGuide(lesson) {
 
 		jupyterEp := &models.LiveEndpoint{
 			Name:  "jupyterlabguide",
-			Image: fmt.Sprintf("antidotelabs/jupyter:%s", s.BuildInfo["imageVersion"]),
+			Image: fmt.Sprintf("antidotelabs/jupyter:%s", k.BuildInfo["imageVersion"]),
 			Ports: []int32{8888},
 		}
 
@@ -328,7 +338,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 
 		nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
 
-		_, err := s.createIngress(
+		_, err := k.createIngress(
 			span.Context(),
 			ns.ObjectMeta.Name,
 			jupyterEp,
@@ -346,7 +356,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	// Create networks from connections property
 	for c := range lesson.Connections {
 		connection := lesson.Connections[c]
-		_, err := s.createNetwork(span.Context(), c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), connection.Subnet, req)
+		_, err := k.createNetwork(span.Context(), c, fmt.Sprintf("%s-%s-net", connection.A, connection.B), connection.Subnet, req)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -360,7 +370,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		ep := ll.LiveEndpoints[epName]
 
 		// createPod doesn't try to ensure a certain pod status. That's done later
-		newPod, err := s.createPod(span.Context(),
+		newPod, err := k.createPod(span.Context(),
 			ep,
 			getMemberNetworks(ep.Name, lesson.Connections),
 			req,
@@ -374,7 +384,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 
 		// Expose via service if needed
 		if len(newPod.Spec.Containers[0].Ports) > 0 {
-			svc, err := s.createService(
+			svc, err := k.createService(
 				span.Context(),
 				newPod,
 				req,
@@ -399,7 +409,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			p := ep.Presentations[pr]
 
 			if p.Type == "http" {
-				_, err := s.createIngress(
+				_, err := k.createIngress(
 					span.Context(),
 					ns.ObjectMeta.Name,
 					ep,
@@ -437,10 +447,10 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			defer wg.Done()
 
 			for i := 0; i < 150; i++ {
-				rdy, err := s.getPodStatus(pod)
+				rdy, err := k.getPodStatus(pod)
 				if err != nil {
-					s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
-					s.recordPodLogs(span.Context(), ll.ID, pod.Name, "")
+					k.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
+					k.recordPodLogs(span.Context(), ll.ID, pod.Name, "")
 					failLesson = true
 					return
 				}
@@ -458,7 +468,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			// We would only get to this point if the pod failed to start in the first place.
 			// One potential reason for this is a failure in the init container, so we should attempt
 			// to gather those logs.
-			s.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
+			k.recordPodLogs(span.Context(), ll.ID, pod.Name, initContainerName)
 
 			err = fmt.Errorf("Timed out waiting for %s to start", name)
 			span.LogFields(log.Error(err))
@@ -486,13 +496,13 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	return nil
 }
 
-func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
+func (k *KubernetesBackend) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
 	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("llID", ll.ID)
 	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
 
-	s.killAllJobs(span.Context(), nsName, "config")
+	k.killAllJobs(span.Context(), nsName, "config")
 
 	wg := new(sync.WaitGroup)
 	wg.Add(len(ll.LiveEndpoints))
@@ -505,7 +515,7 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 			continue
 		}
 
-		job, err := s.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
+		job, err := k.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
 		if err != nil {
 			span.LogFields(log.Error(err))
 			ext.Error.Set(span, true)
@@ -521,7 +531,7 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 				"failed":    0,
 			}
 			for i := 0; i < 600; i++ {
-				completed, statusCount, err := s.getJobStatus(span, job, newRequest)
+				completed, statusCount, err := k.getJobStatus(span, job, newRequest)
 				if err != nil {
 					allGood = false
 					return
@@ -558,13 +568,13 @@ func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll 
 }
 
 // getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
-// This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
+// This allows Antidote to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
-func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
+func (k *KubernetesBackend) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
 	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
 	defer span.Finish()
 
-	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
+	lesson, err := k.Db.GetLesson(span.Context(), lessonSlug)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -595,7 +605,7 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 			"-c",
 			fmt.Sprintf(
 				"ls -lha /antidote-ro && cp -r /antidote-ro/%s/* /antidote && adduser -D antidote && chown -R antidote:antidote /antidote && ls -lha /antidote",
-				strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
+				strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(k.Config.CurriculumDir))),
 			),
 		},
 
@@ -618,7 +628,7 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 		Name: "host-volume",
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
-				Path: s.Config.CurriculumDir,
+				Path: k.Config.CurriculumDir,
 			},
 		},
 	})
@@ -642,19 +652,19 @@ func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 }
 
-// PurgeOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
-func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
-	span := ot.StartSpan("scheduler_purgeoldsessions", ot.ChildOf(sc))
+// PruneOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+func (k *KubernetesBackend) PruneOldSessions(sc ot.SpanContext) error {
+	span := ot.StartSpan("scheduler_pruneoldsessions", ot.ChildOf(sc))
 	defer span.Finish()
 
-	lsList, err := s.Db.ListLiveSessions(span.Context())
+	lsList, err := k.Db.ListLiveSessions(span.Context())
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 		return err
 	}
 
-	lsTTL := time.Duration(s.Config.LiveSessionTTL) * time.Minute
+	lsTTL := time.Duration(k.Config.LiveSessionTTL) * time.Minute
 
 	for _, ls := range lsList {
 		createdTime := time.Since(ls.CreatedTime)
@@ -664,7 +674,7 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 			continue
 		}
 
-		llforls, err := s.getLiveLessonsForSession(span.Context(), ls.ID)
+		llforls, err := k.Db.GetLiveLessonsForSession(span.Context(), ls.ID)
 		if err != nil {
 			span.LogFields(log.Error(err))
 			ext.Error.Set(span, true)
@@ -680,7 +690,7 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 		// and the livesession deletion below, we would encounter the leak bug we saw in 0.6.0. It might be worth seeing if
 		// you can lock things somehow between the two.
 
-		err = s.Db.DeleteLiveSession(span.Context(), ls.ID)
+		err = k.Db.DeleteLiveSession(span.Context(), ls.ID)
 		if err != nil {
 			span.LogFields(log.Error(err))
 			ext.Error.Set(span, true)
@@ -691,12 +701,12 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 	return nil
 }
 
-// PurgeOldLessons identifies any kubernetes namespaces that are operating with our antidoteId,
+// PruneOldLessons identifies any kubernetes namespaces that are operating with our antidoteId,
 // and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
 // TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
 // a slice of livelesson IDs to be deleted by the caller (not handled by this function)
-func (k *KubernetesBackend) PurgeOldLessons(sc ot.SpanContext) ([]string, error) {
-	span := ot.StartSpan("scheduler_purgeoldlessons", ot.ChildOf(sc))
+func (k *KubernetesBackend) PruneOldLessons(sc ot.SpanContext) ([]string, error) {
+	span := ot.StartSpan("scheduler_pruneoldlessons", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nameSpaces, err := k.Client.CoreV1().Namespaces().List(metav1.ListOptions{
@@ -754,7 +764,7 @@ func (k *KubernetesBackend) PurgeOldLessons(sc ot.SpanContext) ([]string, error)
 	for n := range oldNameSpaces {
 		go func(ns string) {
 			defer wg.Done()
-			s.deleteNamespace(span.Context(), ns)
+			k.deleteNamespace(span.Context(), ns)
 		}(oldNameSpaces[n])
 	}
 	wg.Wait()

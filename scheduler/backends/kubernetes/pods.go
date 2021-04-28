@@ -45,7 +45,7 @@ func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 		return nil, err
 	}
 
-	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	volumes, volumeMounts, initContainers, err := k.getVolumesConfiguration(span.Context(), req.LessonSlug)
 	if err != nil {
 		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
 		span.LogFields(log.Error(err))

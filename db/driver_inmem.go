@@ -522,3 +522,32 @@ func (a *ADMInMem) DeleteLiveSession(sc ot.SpanContext, id string) error {
 	delete(a.liveSessions, id)
 	return nil
 }
+
+// GetLiveLessonsForSession is a helper function to make it easier to look up all livelessons for a given session ID
+func (a *ADMInMem) GetLiveLessonsForSession(sc ot.SpanContext, lsID string) ([]string, error) {
+	span := ot.StartSpan("kubernetes_getlivelessonsforsession", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("lsID", lsID)
+
+	llList, err := a.ListLiveLessons(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
+	retLLIDs := []string{}
+
+	for _, ll := range llList {
+		if ll.SessionID == lsID {
+			retLLIDs = append(retLLIDs, ll.ID)
+		}
+	}
+
+	span.LogFields(
+		log.Object("llIDs", retLLIDs),
+		log.Int("llCount", len(retLLIDs)),
+	)
+
+	return retLLIDs, nil
+}

@@ -16,12 +16,12 @@ func TestPods(t *testing.T) {
 	defer span.Finish()
 
 	// SETUP
-	schedulerSvc := createFakeScheduler()
+	k := createFakeKubernetesBackend()
 
 	// Test normal pod creation
 	t.Run("A=1", func(t *testing.T) {
 
-		pod, err := schedulerSvc.createPod(
+		pod, err := k.createPod(
 			span.Context(),
 			&models.LiveEndpoint{
 				Name:  "linux1",

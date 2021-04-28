@@ -20,9 +20,9 @@ func TestNamespaces(t *testing.T) {
 	defer span.Finish()
 
 	nsName := "100-foobar-ns"
-	schedulerSvc := createFakeScheduler()
+	k := createFakeKubernetesBackend()
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
-	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
+	k.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID: "abcdef",
 	})
 
@@ -38,7 +38,7 @@ func TestNamespaces(t *testing.T) {
 						"liveSession":     "abcdef",
 						"liveLesson":      "123456",
 						"name":            nsName,
-						"antidoteId":      schedulerSvc.Config.InstanceID,
+						"antidoteId":      k.Config.InstanceID,
 						"lastAccessed":    strconv.Itoa(int(anHourAgo.Unix())),
 						"created":         strconv.Itoa(int(anHourAgo.Unix())),
 					},
@@ -47,7 +47,7 @@ func TestNamespaces(t *testing.T) {
 		}
 
 		for n := range namespaces {
-			ns, err := schedulerSvc.Client.CoreV1().Namespaces().Create(namespaces[n])
+			ns, err := k.Client.CoreV1().Namespaces().Create(namespaces[n])
 
 			// Assert namespace exists without error
 			ok(t, err)
@@ -57,7 +57,7 @@ func TestNamespaces(t *testing.T) {
 
 	// Test that namespaces are GC'd as expected.
 	t.Run("A=1", func(t *testing.T) {
-		cleaned, err := schedulerSvc.PurgeOldLessons(span.Context())
+		cleaned, err := k.PruneOldLessons(span.Context())
 		ok(t, err)
 		assert(t, (len(cleaned) == 1), fmt.Sprintf("%d", len(cleaned)))
 		assert(t, (cleaned[0] == "123456"), cleaned[0])
@@ -71,15 +71,15 @@ func TestSessionPersistence(t *testing.T) {
 
 	nsName1 := "100-foobar-ns"
 	nsName2 := "200-foobar-ns"
-	schedulerSvc := createFakeScheduler()
+	k := createFakeKubernetesBackend()
 	anHourAgo := time.Now().Add(time.Duration(-1) * time.Hour)
 
-	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
+	k.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:         "abcdef",
 		Persistent: false,
 	})
 
-	schedulerSvc.Db.CreateLiveSession(span.Context(), &models.LiveSession{
+	k.Db.CreateLiveSession(span.Context(), &models.LiveSession{
 		ID:         "uvwxyz",
 		Persistent: true,
 	})
@@ -96,7 +96,7 @@ func TestSessionPersistence(t *testing.T) {
 						"liveSession":     "abcdef",
 						"liveLesson":      "123456",
 						"name":            nsName1,
-						"antidoteId":      schedulerSvc.Config.InstanceID,
+						"antidoteId":      k.Config.InstanceID,
 						"lastAccessed":    strconv.Itoa(int(anHourAgo.Unix())),
 						"created":         strconv.Itoa(int(anHourAgo.Unix())),
 					},
@@ -111,7 +111,7 @@ func TestSessionPersistence(t *testing.T) {
 						"liveSession":     "uvwxyz",
 						"liveLesson":      "987654",
 						"name":            nsName2,
-						"antidoteId":      schedulerSvc.Config.InstanceID,
+						"antidoteId":      k.Config.InstanceID,
 						"lastAccessed":    strconv.Itoa(int(anHourAgo.Unix())),
 						"created":         strconv.Itoa(int(anHourAgo.Unix())),
 					},
@@ -120,7 +120,7 @@ func TestSessionPersistence(t *testing.T) {
 		}
 
 		for n := range namespaces {
-			ns, err := schedulerSvc.Client.CoreV1().Namespaces().Create(namespaces[n])
+			ns, err := k.Client.CoreV1().Namespaces().Create(namespaces[n])
 
 			// Assert namespace exists without error
 			ok(t, err)
@@ -130,7 +130,7 @@ func TestSessionPersistence(t *testing.T) {
 
 	// Test that namespaces are GC'd as expected.
 	t.Run("A=1", func(t *testing.T) {
-		cleaned, err := schedulerSvc.PurgeOldLessons(span.Context())
+		cleaned, err := k.PruneOldLessons(span.Context())
 		ok(t, err)
 		assert(t, (len(cleaned) == 1), fmt.Sprintf("%d", len(cleaned)))
 		assert(t, (cleaned[0] == "123456"), cleaned[0])

@@ -77,7 +77,7 @@ func TestJobs(t *testing.T) {
 		_, err := k.Client.BatchV1().Jobs(nsName).Create(job)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, false, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 0}, statusCount)
@@ -92,7 +92,7 @@ func TestJobs(t *testing.T) {
 		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, true, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 1}, statusCount)
@@ -107,7 +107,7 @@ func TestJobs(t *testing.T) {
 		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, false, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 2, "succeeded": 0}, statusCount)
@@ -122,7 +122,7 @@ func TestJobs(t *testing.T) {
 		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		equals(t, true, completed)
 		assert(t, (err != nil), "")
 		equals(t, map[string]int32{"active": 0, "failed": 3, "succeeded": 0}, statusCount)
@@ -138,7 +138,7 @@ func TestJobs(t *testing.T) {
 		_, err := k.Client.BatchV1().Jobs("foobar").Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		equals(t, true, completed)
 		assert(t, (err != nil), "")
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 0}, statusCount)

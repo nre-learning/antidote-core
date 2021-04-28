@@ -12,7 +12,7 @@ func TestSyncSecret(t *testing.T) {
 	span := ot.StartSpan("")
 	defer span.Finish()
 
-	s := createFakeScheduler()
+	k := createFakeKubernetesBackend()
 	k.Config.SecretsNamespace = "prod"
 	k.Config.PullCredName = "docker-pull-creds"
 
@@ -46,7 +46,7 @@ func TestSyncSecret(t *testing.T) {
 	})
 	ok(t, err)
 
-	err = s.syncSecret(span.Context(), k.Config.SecretsNamespace, "testns", k.Config.PullCredName)
+	err = k.syncSecret(span.Context(), k.Config.SecretsNamespace, "testns", k.Config.PullCredName)
 	ok(t, err)
 
 	syncedSecret, err := k.Client.CoreV1().Secrets("testns").Get(k.Config.PullCredName, metav1.GetOptions{})

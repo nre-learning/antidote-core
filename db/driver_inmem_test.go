@@ -315,3 +315,31 @@ func TestLiveSessionCRUD(t *testing.T) {
 	assert(t, finalLiveSessionsList["mnopqr"].SourceIP == "3.3.3.3", "final livesession assertion failed")
 	assert(t, finalLiveSessionsList["mnopqr"].ID == "mnopqr", "final livesession assertion failed")
 }
+
+func TestGetLiveLessonsForSession(t *testing.T) {
+	span := ot.StartSpan("test_db")
+	defer span.Finish()
+
+	adb := NewADMInMem()
+
+	adb.CreateLiveSession(span.Context(), &models.LiveSession{
+		ID: "abcdef",
+	})
+
+	adb.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar1",
+		SessionID: "abcdef",
+	})
+	adb.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar2",
+		SessionID: "uvwxyz",
+	})
+	adb.CreateLiveLesson(span.Context(), &models.LiveLesson{
+		ID:        "foobar3",
+		SessionID: "abcdef",
+	})
+
+	l, _ := adb.GetLiveLessonsForSession(span.Context(), "abcdef")
+	equals(t, 2, len(l))
+
+}

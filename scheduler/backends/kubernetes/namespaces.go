@@ -38,10 +38,10 @@ func (k *KubernetesBackend) boopNamespace(sc ot.SpanContext, nsName string) erro
 	return nil
 }
 
-// PruneOrphanedNamespaces seeks out all antidote-managed namespaces, and deletes them.
+// PruneOrphans seeks out all antidote-managed namespaces, and deletes them.
 // This will effectively reset the cluster to a state with all of the remaining infrastructure
 // in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
-func (k *KubernetesBackend) PruneOrphanedNamespaces() error {
+func (k *KubernetesBackend) PruneOrphans() error {
 
 	span := ot.StartSpan("scheduler_prune_orphaned_ns")
 	defer span.Finish()
@@ -67,7 +67,7 @@ func (k *KubernetesBackend) PruneOrphanedNamespaces() error {
 		nsName := nameSpaces.Items[n].ObjectMeta.Name
 		go func() {
 			defer wg.Done()
-			s.deleteNamespace(span.Context(), nsName)
+			k.deleteNamespace(span.Context(), nsName)
 		}()
 	}
 	wg.Wait()

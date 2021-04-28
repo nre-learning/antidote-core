@@ -10,7 +10,8 @@ import (
 	config "github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
-	"github.com/nre-learning/antidote-core/scheduler"
+	scheduler "github.com/nre-learning/antidote-core/scheduler"
+	kb "github.com/nre-learning/antidote-core/scheduler/backends/kubernetes"
 	"github.com/nre-learning/antidote-core/services"
 	stats "github.com/nre-learning/antidote-core/stats"
 	log "github.com/sirupsen/logrus"
@@ -70,9 +71,14 @@ func main() {
 
 		if config.IsServiceEnabled("scheduler") {
 
+			// Initialize backend
+			// TODO - loading only kubernetes backend currently. When multiple backends are available, this will be configurable.
+			k, err := kb.NewKubernetesBackend(config, adb)
+
 			scheduler := scheduler.AntidoteScheduler{
 				Config:    config,
 				BuildInfo: buildInfo,
+				Backend:   k,
 			}
 
 			go func() {

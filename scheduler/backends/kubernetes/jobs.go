@@ -243,7 +243,7 @@ func (k *KubernetesBackend) configureEndpoint(sc ot.SpanContext, ep *models.Live
 					Containers: []corev1.Container{
 						{
 							Name:            "configurator",
-							Image:           fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
+							Image:           fmt.Sprintf("antidotelabs/configurator:%s", k.BuildInfo["imageVersion"]),
 							Command:         configCommand,
 							ImagePullPolicy: pullPolicy,
 							Env: []corev1.EnvVar{
