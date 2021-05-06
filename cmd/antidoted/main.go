@@ -73,7 +73,10 @@ func main() {
 
 			// Initialize backend
 			// TODO - loading only kubernetes backend currently. When multiple backends are available, this will be configurable.
-			k, err := kb.NewKubernetesBackend(config, adb)
+			k, err := kb.NewKubernetesBackend(config, adb, buildInfo)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			scheduler := scheduler.AntidoteScheduler{
 				Config:    config,

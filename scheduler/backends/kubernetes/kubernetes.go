@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
@@ -59,7 +58,7 @@ type KubernetesBackend struct {
 	ClientCrd kubernetesCrd.Interface
 }
 
-func NewKubernetesBackend(acfg config.AntidoteConfig, adb db.DataManager) (*KubernetesBackend, error) {
+func NewKubernetesBackend(acfg config.AntidoteConfig, adb db.DataManager, bi map[string]string) (*KubernetesBackend, error) {
 
 	var err error
 	var kubeConfig *rest.Config
@@ -94,6 +93,8 @@ func NewKubernetesBackend(acfg config.AntidoteConfig, adb db.DataManager) (*Kube
 		ClientCrd:  clientCrd,
 		Config:     acfg,
 		Db:         adb,
+
+		BuildInfo: bi,
 	}
 
 	// Ensure our network CRD is in place (should fail silently if already exists)
@@ -182,16 +183,6 @@ func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest se
 	}
 
 	_ = k.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
-
-	// Inject span context and send LSR into NATS
-	tracer := ot.GlobalTracer()
-	var t services.TraceMsg
-	if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-	}
-	reqBytes, _ := json.Marshal(newRequest)
-	t.Write(reqBytes)
 
 	return nil
 }
