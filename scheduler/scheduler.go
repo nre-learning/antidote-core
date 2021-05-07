@@ -12,18 +12,8 @@ import (
 
 	nats "github.com/nats-io/nats.go"
 	config "github.com/nre-learning/antidote-core/config"
-	"github.com/nre-learning/antidote-core/db"
 	"github.com/nre-learning/antidote-core/services"
 )
-
-// TODO - figure out if this is the right place to insert this abstraction, or if we should do it lower.
-// Also the most sticky thing you're likely to experience is the ease of use offered by k8s in deleting a namespace. See if Openstack has a similar property, or punt
-// this to the implementor of that plugin
-// Need to go through the full deletion and GC process and ensure it's not k8s specific anywhere
-//
-// This interface will obviously be a requirement, but you'll have opinions on what people do within each fulfillment function. For instance, updating test state as endpoints come online.
-// This opens up an interesting question about whether or not those should be defined in an interface. Bottom line, you'll have plugins requirements that go beyond
-// implementing these high-level functions, so you should think about those  and document them. What kind of DB functions need to be called, and when?
 
 // AntidoteBackend
 //
@@ -40,42 +30,45 @@ import (
 // See the docstring above each method for further implementation detail requirements.
 type AntidoteBackend interface {
 
-	// TODO - this is likely not meant to be implemented in the interface. Each plugin will need an Init function
-	// that returns a ready-to-go instance. This will allow for publicly set attributes (antidoteocnfig) but also allow internal types to be set (kubeconfig, etc)
-	// Init() error
-
+	// Deletion of back-end infrastructure should be done with the fewest steps possible. See the note above HandleRequestDELETE for more details.
 	PruneOrphans() error
-	PruneOldLessons(ot.SpanContext) ([]string, error)
-	PruneOldSessions(ot.SpanContext) error
+
+	// Responsible for cleaning up infrastructure resources AND cleaning up state
+	// Deletion of back-end infrastructure should be done with the fewest steps possible. See the note above HandleRequestDELETE for more details.
+	PruneOldLiveLessons(ot.SpanContext) error
+
+	// PruneOldLiveSessions cleans up livesessions that no longer have active livelessons and have lived past the livesession TTL. No back-end infrastructure
+	// TODO - this can/should be done at the scheduler level, since this has no backend requirements
+	PruneOldLiveSessions(ot.SpanContext) error
 
 	// HandleRequestCREATE handles a livelesson creation request.
 	// Functions that satisfy this portion of the interface must also follow some specific implementation details, which
 	// are documented below.
 	//
 	// 	1. Retrieve lesson and livelesson details from the DataManager, using the incoming livelesson ID
-	//  2. Based on these details, provision all necessary infrastructure with the back-end provider. ALL possible features available in a lesson definition
-	//     must be supported - all lesson guide types, endpoint presentation types, connections, etc. All endpoints must be reachable via the port(s) listed in
-	//     the lesson definition, either directly, or via some kind of L7 proxy where relevant. If the backend infrastructure allows, it might be useful to create some
-	//     kind of higher-order container or label to place these infrastructure components in, such as a "namespace" in Kubernetes. This makes it a LOT easier to clean
-	//     these up during the deletion process.
-
-	// So I don't think BOOP/timestamp is needed, but some kind of label is DEFINITELY needed on all infrastructure elements, so that pruneorphans can work. Unlike the other
-	// pruning functions, this one cannot rely on previous state, so we need to be able to search the back-end infrastructure for some kind of label. In this case, timestamp
-	// won't matter. Add a quick note here abotu the need for this label and refer to the docstring of pruneorphans.
-
-	// The other two functions SHOULD be able to rely on the timestamp available in livelesson state, (make sure this is getting updated) and therefore the scheduler will only
-	// need to be invoked when there's a deletion event. Verify this line of thinking and refactor the scheduler interface/implementation accordingly.
-
+	//  2. Based on these details, provision all necessary infrastructure with the back-end provider. This is an important step, so there are some sub-points to
+	//     be made here:
+	//     - ALL possible features available in a lesson definition must be supported - all lesson guide types, endpoint presentation types, connections, etc.
+	//     - All endpoints must be reachable via the port(s) listed in the lesson definition, either directly, or via some kind of L7 proxy where relevant.
+	//     - Care should be taken to "decorate" all created infrastructure resources so that it can be easily looked up later, using some kind of label.
+	//       This becomes extremely important when cleaning up old/unused lesson resources. At a minimum, the Antidote instance ID, the corresponding
+	//       livelesson ID, and the corresponding livesession ID should be included. Note also that some infrastructure providers offer hierarchical
+	//       organization types (e.g. "namespaces" in kubernetes) under which all other resources can be created. This should be employed whenever available, and labels
+	//       should be applied to all created resources.
+	//     - For created resources that cannot be namespaced, the unique identifier for these resources must be disambiguated using a combination of the livelesson ID and
+	//       the Antidote instance ID.
 	//  3. Continue to poll the backend infrastructure provider until IP addresses are provisioned for each endpoint. These IP addresses must be reachable from the
 	//     antidoted service, as well as any external services that will connect to those endpoints, such as the WebSSH proxy. Once known, the UpdateLiveLessonEndpointIP
 	//     DataManager function should be used to update the livelesson details with this IP address.
 	//  4. If at any point a failure occurs, capture as much detail as possible and export into the OpenTracing span for this function. This could include logs from endpoints,
 	//     or from the backend provider itself.
-	// 	5. Use the `WaitUntilReachable` function in the `reachability` package to initiate reachability testing for all endpoints in this livelesson. You should block while
-	//     this function executes, and pass any errors up the stack.
+	// 	5. Use the `WaitUntilReachable` function in the `reachability` package to initiate reachability testing for all endpoints in this livelesson. This function
+	//     will take care of updating endpoint test state as they come online, so you need only block execution while waiting for this function to return, and handle
+	//     a non-nil error value by passing it up the stack.
 	// 	6. If the `WaitUntilReachable` function returns no error, the livelesson should be updated with a status of `CONFIGURATION`.
 	// 	7. All endpoints with a configuration option defined in the lesson definition should be configured accordingly. All possible configuration options must be supported.
-	//     The `antidote-images` repository contains dockerfiles and scripts that may be useful.
+	//     The `antidote-images` repository contains dockerfiles and scripts that may be useful. Configuration should be entirely atomic - configuration of a given stage
+	//     cannot rely on another stage being configured first.
 	// 	8. Sleep for the number of seconds indicated by the ReadyDelay configuration option.
 	// 	9. Update livelesson status to `READY`. At this point, this function can return a nil error, provided this update took place successfully.
 	HandleRequestCREATE(ot.SpanContext, services.LessonScheduleRequest) error
@@ -83,28 +76,28 @@ type AntidoteBackend interface {
 	// HandleRequestMODIFY handles a request to modify an existing livelesson, typically in response to a change to a different stage.
 	// The API typically handles some initial state management, but the scheduler backend must execute any endpoint reconfigurations specified by the lesson.
 	//
-	// Functions that satisfy this portion of the interface must also follow some specific implementation details, which
-	// are documented below.
+	// This function should perform the exact same configuration logic, and adhere to the same requirements of, the configuration step during the creation process. For this
+	// reason, it might be best to contain this logic in an isolated function that can be called from HandleRequestCREATE and HandleRequestMODIFY.
 	HandleRequestMODIFY(ot.SpanContext, services.LessonScheduleRequest) error
-	HandleRequestBOOP(ot.SpanContext, services.LessonScheduleRequest) error // TODO - consider if this is necessary anymore. The API has the state, no need to update k8s or other backend labels
-	HandleRequestDELETE(ot.SpanContext, services.LessonScheduleRequest) error
 
-	// Should these be in the interface? They're called by the create and modify handlers
-	// configureStuff(ot.SpanContext, models.LiveLesson, services.LessonScheduleRequest)
-	// configureendpoint?
+	// HandleRequestDELETE handles a request to delete an existing livelesson. This is typically done as part of the internal scheduler GC process - not invoked
+	// by an end-user.
+	//
+	// This should rely heavily on metadata provided to the back-end infrastructure provider on creation, so that ONLY the infrastructure for the
+	// specific livelesson and antidote instance can be deleted. In addition, **whenever possible**, the back-end infrastructure provider
+	// should do the heavy lifting here. For example, the Kubernetes backend creates everything in HandleRequestCREATE within a parent namespace, so that
+	// when a livelesson's resources need to be cleaned up, a single API request to Kubernetes deletes **everything**, and a failure in the Antidote service
+	// doesn't impact this process. This approach should be followed if at all possible, as opposed to going through and deleting every individual resource you created in
+	// HandleRequestCREATE.
+	HandleRequestDELETE(ot.SpanContext, services.LessonScheduleRequest) error
 }
 
-// AntidoteScheduler is an Antidote service that receives commands for things like creating new lesson instances,
-// moving existing livelessons to a different stage, deleting old lessons, etc.
+// AntidoteScheduler handles the high-level orchestration of backend tasks, including delegation of incoming events to
+// the active backend implementation and garbage collection of old/unused lesson resources.
 type AntidoteScheduler struct {
-	Config config.AntidoteConfig
-
-	// TODO - NC can probably stay here but Db can be moved to the backend.
-	NC *nats.Conn
-	Db db.DataManager
-
-	Backend AntidoteBackend
-
+	Config    config.AntidoteConfig
+	NC        *nats.Conn
+	Backend   AntidoteBackend
 	BuildInfo map[string]string
 }
 
@@ -112,37 +105,21 @@ type AntidoteScheduler struct {
 // and put a results message on the "results" channel when finished (success or fail)
 func (s *AntidoteScheduler) Start() error {
 
-	// TODO - you moved much of the scheduler state to the plugin, so you'll need to copy the logic that the cmd/antidoted/ main is doing, into here based on plugin
-
-	// In case we're restarting from a previous instance, we want to make sure we clean up any
-	// orphaned k8s namespaces by killing any with our ID. This should be done synchronously
-	// before the scheduler or the API is started.
-	logrus.Info("Pruning orphaned namespaces...")
+	// Important that this is done first, synchronously, prior to starting GC or listening for LSRs
+	logrus.Info("Pruning orphaned lesson resources...")
 	s.Backend.PruneOrphans()
 
 	// Garbage collection
 	go func() {
 		for {
-
 			span := ot.StartSpan("scheduler_gc")
-			// Clean up any old lesson namespaces
-			llToDelete, err := s.Backend.PruneOldLessons(span.Context())
+			err := s.Backend.PruneOldLiveLessons(span.Context())
 			if err != nil {
 				span.LogFields(log.Error(err))
 				ext.Error.Set(span, true)
 			}
 
-			// Clean up local state based on purge results
-			for i := range llToDelete {
-				err := s.Db.DeleteLiveLesson(span.Context(), llToDelete[i])
-				if err != nil {
-					span.LogFields(log.Error(err))
-					ext.Error.Set(span, true)
-				}
-			}
-
-			// Clean up old sessions
-			err = s.Backend.PruneOldSessions(span.Context())
+			err = s.Backend.PruneOldLiveSessions(span.Context())
 			if err != nil {
 				span.LogFields(log.Error(err))
 				ext.Error.Set(span, true)
@@ -150,7 +127,6 @@ func (s *AntidoteScheduler) Start() error {
 
 			span.Finish()
 			time.Sleep(1 * time.Minute)
-
 		}
 	}()
 
@@ -158,7 +134,6 @@ func (s *AntidoteScheduler) Start() error {
 		services.OperationType_CREATE: s.Backend.HandleRequestCREATE,
 		services.OperationType_DELETE: s.Backend.HandleRequestDELETE,
 		services.OperationType_MODIFY: s.Backend.HandleRequestMODIFY,
-		services.OperationType_BOOP:   s.Backend.HandleRequestBOOP,
 	}
 
 	s.NC.Subscribe(services.LsrIncoming, func(msg *nats.Msg) {

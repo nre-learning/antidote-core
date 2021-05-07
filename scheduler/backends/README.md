@@ -52,10 +52,9 @@ In addition to satisfying this interface, there are several implementation detai
 
 ## Additional Implementation Details
 
-Functions should be instrumented properly as done in the kubernetes backend.
 
-
-
+- Infrastructure created by the backend should be decorated with metadata so that 
+- ALL functions should be instrumented via OpenTracing - not just functions implementing the `AntidoteBackend` interface. See the Kubernetes backend for several examples.
 
 ## Misc
 

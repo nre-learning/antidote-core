@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	ot "github.com/opentracing/opentracing-go"
@@ -428,6 +429,25 @@ func (a *ADMInMem) UpdateLiveLessonTests(sc ot.SpanContext, llID string, healthy
 
 	a.liveLessons[llID].HealthyTests = healthy
 	a.liveLessons[llID].TotalTests = total
+	return nil
+}
+
+// UpdateLiveLessonLastActiveTime updates the last active timestamp for a livelesson to the current time.
+func (a *ADMInMem) UpdateLiveLessonLastActiveTime(sc ot.SpanContext, llID string) error {
+	span := ot.StartSpan("db_livelesson_update_lastactivetime", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("llID", llID)
+
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	a.liveLessons[llID].LastActiveTime = time.Now()
 	return nil
 }
 

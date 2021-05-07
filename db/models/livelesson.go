@@ -6,23 +6,24 @@ import "time"
 // being requested by a specific session (via SessionID) and holds all of the runtime state that Antidote
 // needs to know about it to serve it to the front-end appropriately
 type LiveLesson struct {
-	ID            string                   `json:"LiveLessonId"`
-	SessionID     string                   `json:"SessionId"`
-	AntidoteID    string                   `json:"AntidoteID"`
-	LessonSlug    string                   `json:"LessonSlug"`
-	LiveEndpoints map[string]*LiveEndpoint `json:"LiveEndpoints"`
-	CurrentStage  int32                    `json:"LessonStage"`
-	GuideContents string                   `json:"GuideContents"`
-	GuideType     string                   `json:"GuideType"`
-	GuideDomain   string                   `json:"GuideDomain"`
-	Status        LiveLessonStatus         `json:"Status"`
-	CreatedTime   time.Time                `json:"CreatedTime"`
-	Error         bool                     `json:"Error"`
-	HealthyTests  int32                    `json:"HealthyTests"`
-	TotalTests    int32                    `json:"TotalTests"`
-	Diagram       string                   `json:"Diagram"`
-	Video         string                   `json:"Video"`
-	StageVideo    string                   `json:"StageVideo"`
+	ID             string                   `json:"LiveLessonId"`
+	SessionID      string                   `json:"SessionId"`
+	AntidoteID     string                   `json:"AntidoteID"`
+	LessonSlug     string                   `json:"LessonSlug"`
+	LiveEndpoints  map[string]*LiveEndpoint `json:"LiveEndpoints"`
+	CurrentStage   int32                    `json:"LessonStage"`
+	GuideContents  string                   `json:"GuideContents"`
+	GuideType      string                   `json:"GuideType"`
+	GuideDomain    string                   `json:"GuideDomain"`
+	Status         LiveLessonStatus         `json:"Status"`
+	CreatedTime    time.Time                `json:"CreatedTime"`
+	LastActiveTime time.Time                `json:"LastActiveTime"`
+	Error          bool                     `json:"Error"`
+	HealthyTests   int32                    `json:"HealthyTests"`
+	TotalTests     int32                    `json:"TotalTests"`
+	Diagram        string                   `json:"Diagram"`
+	Video          string                   `json:"Video"`
+	StageVideo     string                   `json:"StageVideo"`
 }
 
 // LiveEndpoint is a running instance of a LessonEndpoint, with additional details

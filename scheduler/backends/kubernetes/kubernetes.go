@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -209,29 +208,6 @@ func (k *KubernetesBackend) HandleRequestMODIFY(sc ot.SpanContext, newRequest se
 	}
 
 	err = k.Db.UpdateLiveLessonStatus(span.Context(), ll.ID, models.Status_READY)
-	if err != nil {
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-		return err
-	}
-
-	err = k.boopNamespace(span.Context(), nsName)
-	if err != nil {
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-		return err
-	}
-
-	return nil
-}
-
-func (k *KubernetesBackend) HandleRequestBOOP(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_lsr_boop", ot.ChildOf(sc))
-	defer span.Finish()
-
-	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
-
-	err := k.boopNamespace(span.Context(), nsName)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -643,8 +619,8 @@ func (k *KubernetesBackend) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 }
 
-// PruneOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
-func (k *KubernetesBackend) PruneOldSessions(sc ot.SpanContext) error {
+// PruneOldLiveSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+func (k *KubernetesBackend) PruneOldLiveSessions(sc ot.SpanContext) error {
 	span := ot.StartSpan("scheduler_pruneoldsessions", ot.ChildOf(sc))
 	defer span.Finish()
 
@@ -692,47 +668,29 @@ func (k *KubernetesBackend) PruneOldSessions(sc ot.SpanContext) error {
 	return nil
 }
 
-// PruneOldLessons identifies any kubernetes namespaces that are operating with our antidoteId,
-// and among those, deletes the ones that have a lastAccessed timestamp that exceeds our configured
-// TTL. This function is meant to be run in a loop within a goroutine, at a configured interval. Returns
-// a slice of livelesson IDs to be deleted by the caller (not handled by this function)
-func (k *KubernetesBackend) PruneOldLessons(sc ot.SpanContext) ([]string, error) {
+// PruneOldLiveLessons queries the datamanager for expired livelessons that don't belong to persistent livesessions.
+// Once a list of these IDs is obtained, we delete the corresponding Kubernetes namespace, and then delete the livelesson state.
+func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
 	span := ot.StartSpan("scheduler_pruneoldlessons", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nameSpaces, err := k.Client.CoreV1().Namespaces().List(metav1.ListOptions{
-		// VERY Important to use this label selector, otherwise you'll delete way more than you intended
-		LabelSelector: fmt.Sprintf("antidoteManaged=yes,antidoteId=%s", k.Config.InstanceID),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// No need to GC if no matching namespaces exist
-	if len(nameSpaces.Items) == 0 {
-		span.LogFields(log.Int("gc_namespaces", 0))
-		return []string{}, nil
-	}
-
 	liveLessonsToDelete := []string{}
 	oldNameSpaces := []string{}
-	for n := range nameSpaces.Items {
 
-		i, err := strconv.ParseInt(nameSpaces.Items[n].ObjectMeta.Labels["lastAccessed"], 10, 64)
-		if err != nil {
-			return []string{}, err
-		}
-		lastAccessed := time.Unix(i, 0)
+	lls, err := k.Db.ListLiveLessons(span.Context())
+	if err != nil {
+		return err
+	}
 
-		if time.Since(lastAccessed) < time.Duration(k.Config.LiveLessonTTL)*time.Minute {
+	for _, ll := range lls {
+		if time.Since(ll.LastActiveTime) < time.Duration(k.Config.LiveLessonTTL)*time.Minute {
+			// TODO - log?
 			continue
 		}
 
-		lsID := nameSpaces.Items[n].ObjectMeta.Labels["liveSession"]
-
 		// An error from this function shouldn't impact the cleanup of this livelesson. The only reason we're checking
 		// it here is so we can safely look at the "Persistent" field. Otherwise, an error here is moot.
-		ls, err := k.Db.GetLiveSession(span.Context(), lsID)
+		ls, err := k.Db.GetLiveSession(span.Context(), ll.SessionID)
 		if err == nil {
 			if ls.Persistent {
 				span.LogEvent("Skipping GC, session marked persistent")
@@ -740,27 +698,76 @@ func (k *KubernetesBackend) PruneOldLessons(sc ot.SpanContext) ([]string, error)
 			}
 		}
 
-		liveLessonsToDelete = append(liveLessonsToDelete, nameSpaces.Items[n].ObjectMeta.Labels["liveLesson"])
-		oldNameSpaces = append(oldNameSpaces, nameSpaces.Items[n].ObjectMeta.Name)
+		liveLessonsToDelete = append(liveLessonsToDelete, ll.ID)
+
 	}
 
-	// No need to GC if no old namespaces exist
-	if len(oldNameSpaces) == 0 {
-		span.LogFields(log.Int("gc_namespaces", 0))
-		return []string{}, nil
+	for i := range liveLessonsToDelete {
+		err := k.Db.DeleteLiveLesson(span.Context(), liveLessonsToDelete[i])
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+		}
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(len(oldNameSpaces))
-	for n := range oldNameSpaces {
-		go func(ns string) {
+	for i := range liveLessonsToDelete {
+		go func(llID string) {
 			defer wg.Done()
+
+			ns := generateNamespaceName(k.Config.InstanceID, llID)
 			k.deleteNamespace(span.Context(), ns)
-		}(oldNameSpaces[n])
+
+			err := k.Db.DeleteLiveLesson(span.Context(), llID)
+			if err != nil {
+				span.LogFields(log.Error(err))
+				ext.Error.Set(span, true)
+			}
+
+		}(liveLessonsToDelete[i])
 	}
 	wg.Wait()
 	span.LogFields(log.Int("gc_namespaces", len(oldNameSpaces)))
 
-	return liveLessonsToDelete, nil
+	return nil
 
+}
+
+// PruneOrphans seeks out all antidote-managed namespaces, and deletes them.
+// This will effectively reset the cluster to a state with all of the remaining infrastructure
+// in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
+func (k *KubernetesBackend) PruneOrphans() error {
+
+	span := ot.StartSpan("scheduler_prune_orphaned_ns")
+	defer span.Finish()
+
+	nameSpaces, err := k.Client.CoreV1().Namespaces().List(metav1.ListOptions{
+		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
+		LabelSelector: fmt.Sprintf("antidoteManaged=yes,antidoteId=%s", k.Config.InstanceID),
+	})
+	if err != nil {
+		return err
+	}
+
+	// No need to nuke if no namespaces exist with our ID
+	if len(nameSpaces.Items) == 0 {
+		span.LogFields(log.Int("pruned_orphans", 0))
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(nameSpaces.Items))
+	for n := range nameSpaces.Items {
+
+		nsName := nameSpaces.Items[n].ObjectMeta.Name
+		go func() {
+			defer wg.Done()
+			k.deleteNamespace(span.Context(), nsName)
+		}()
+	}
+	wg.Wait()
+
+	span.LogFields(log.Int("pruned_orphans", len(nameSpaces.Items)))
+	return nil
 }

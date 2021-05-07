@@ -3,7 +3,6 @@ package kubernetes
 import (
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	ot "github.com/opentracing/opentracing-go"
@@ -17,64 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func (k *KubernetesBackend) boopNamespace(sc ot.SpanContext, nsName string) error {
-
-	span := ot.StartSpan("scheduler_boop_ns", ot.ChildOf(sc))
-	defer span.Finish()
-
-	ns, err := k.Client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	ns.ObjectMeta.Labels["lastAccessed"] = strconv.Itoa(int(time.Now().Unix()))
-
-	_, err = k.Client.CoreV1().Namespaces().Update(ns)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// PruneOrphans seeks out all antidote-managed namespaces, and deletes them.
-// This will effectively reset the cluster to a state with all of the remaining infrastructure
-// in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
-func (k *KubernetesBackend) PruneOrphans() error {
-
-	span := ot.StartSpan("scheduler_prune_orphaned_ns")
-	defer span.Finish()
-
-	nameSpaces, err := k.Client.CoreV1().Namespaces().List(metav1.ListOptions{
-		// VERY Important to use this label selector, otherwise you'll nuke way more than you intended
-		LabelSelector: fmt.Sprintf("antidoteManaged=yes,antidoteId=%s", k.Config.InstanceID),
-	})
-	if err != nil {
-		return err
-	}
-
-	// No need to nuke if no namespaces exist with our ID
-	if len(nameSpaces.Items) == 0 {
-		span.LogFields(log.Int("pruned_orphans", 0))
-		return nil
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(nameSpaces.Items))
-	for n := range nameSpaces.Items {
-
-		nsName := nameSpaces.Items[n].ObjectMeta.Name
-		go func() {
-			defer wg.Done()
-			k.deleteNamespace(span.Context(), nsName)
-		}()
-	}
-	wg.Wait()
-
-	span.LogFields(log.Int("pruned_orphans", len(nameSpaces.Items)))
-	return nil
-}
 
 func (k *KubernetesBackend) deleteNamespace(sc ot.SpanContext, name string) error {
 
@@ -152,6 +93,9 @@ func (k *KubernetesBackend) createNamespace(sc ot.SpanContext, req services.Less
 // instances for HEPS domains. **MAKE SURE** that this formatting matches the creation of
 // nsName in the API server right before the initializeLiveEndpoints function.
 // TODO(mierdin): Make this less dependent on the honor system.
+// TODO(mierdin): This should be moved out to scheduler utils or something - so that all backends can get the same formatting.
+// You may want to create a struct type that holds the antidoteID and the livelesson ID, and generate a string from those components,
+// so you can mandate that this type is used where needed.
 func generateNamespaceName(antidoteID, liveLessonID string) string {
 	return fmt.Sprintf("%s-%s", antidoteID, liveLessonID)
 }
