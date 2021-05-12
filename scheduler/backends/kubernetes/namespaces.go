@@ -19,7 +19,7 @@ import (
 
 func (k *KubernetesBackend) deleteNamespace(sc ot.SpanContext, name string) error {
 
-	span := ot.StartSpan("scheduler_delete_ns", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_delete_ns", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("nsName", name)
 
@@ -50,7 +50,7 @@ func (k *KubernetesBackend) deleteNamespace(sc ot.SpanContext, name string) erro
 }
 
 func (k *KubernetesBackend) createNamespace(sc ot.SpanContext, req services.LessonScheduleRequest) (*corev1.Namespace, error) {
-	span := ot.StartSpan("scheduler_create_namespace", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_create_namespace", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()

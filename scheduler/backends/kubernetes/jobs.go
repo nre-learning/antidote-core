@@ -29,7 +29,7 @@ const JobBackoff = 3
 
 func (k *KubernetesBackend) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
 
-	span := ot.StartSpan("scheduler_job_killall", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_job_killall", ot.ChildOf(sc))
 	defer span.Finish()
 
 	result, err := k.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
@@ -143,7 +143,7 @@ func (k *KubernetesBackend) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 }
 
 func (k *KubernetesBackend) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
-	span := ot.StartSpan("scheduler_configure_endpoint", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_configure_endpoint", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("endpointName", ep.Name)
 

@@ -17,7 +17,7 @@ import (
 // secrets in a non-volatile namespace and then copy them into the volatile lesson namespace
 // at runtime.
 func (k *KubernetesBackend) syncSecret(sc ot.SpanContext, sourceNs, destNs, secretName string) error {
-	span := ot.StartSpan("scheduler_secret_sync", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_secret_sync", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("sourceNs", sourceNs)
 	span.SetTag("destNs", destNs)

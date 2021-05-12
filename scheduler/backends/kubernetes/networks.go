@@ -39,7 +39,7 @@ func (k *KubernetesBackend) createNetworkCrd() error {
 // The main use case is to restrict access for lesson users to only resources in that lesson,
 // with some exceptions.
 func (k *KubernetesBackend) createNetworkPolicy(sc ot.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
-	span := ot.StartSpan("scheduler_networkpolicy_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_networkpolicy_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	var tcp corev1.Protocol = "TCP"
@@ -121,7 +121,7 @@ func (k *KubernetesBackend) createNetworkPolicy(sc ot.SpanContext, nsName string
 
 // createNetwork
 func (k *KubernetesBackend) createNetwork(sc ot.SpanContext, netIndex int, netName, connectionSubnet string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_network_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()

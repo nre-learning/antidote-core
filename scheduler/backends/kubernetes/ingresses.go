@@ -16,7 +16,7 @@ import (
 )
 
 func (k *KubernetesBackend) createIngress(sc ot.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
-	span := ot.StartSpan("scheduler_ingress_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_ingress_create", ot.ChildOf(sc))
 	span.SetTag("epName", ep.Name)
 	span.SetTag("nsName", nsName)
 	defer span.Finish()

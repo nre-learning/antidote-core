@@ -16,7 +16,7 @@ import (
 )
 
 func (k *KubernetesBackend) createService(sc ot.SpanContext, pod *corev1.Pod, req services.LessonScheduleRequest) (*corev1.Service, error) {
-	span := ot.StartSpan("scheduler_service_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_service_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	// We want to use the same name as the Pod object, since the service name will be what users try to reach

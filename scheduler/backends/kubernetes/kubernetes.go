@@ -115,7 +115,7 @@ type NetworkCrdClient interface {
 }
 
 func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_lsr_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_lsr_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
@@ -183,7 +183,7 @@ func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest se
 }
 
 func (k *KubernetesBackend) HandleRequestMODIFY(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_lsr_modify", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_lsr_modify", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
@@ -216,7 +216,7 @@ func (k *KubernetesBackend) HandleRequestMODIFY(sc ot.SpanContext, newRequest se
 // HandleRequestDELETE handles a livelesson deletion request by first sending a delete request
 // for the corresponding namespace, and then cleaning up local state.
 func (k *KubernetesBackend) HandleRequestDELETE(sc ot.SpanContext, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_lsr_delete", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_lsr_delete", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
@@ -238,7 +238,7 @@ func (k *KubernetesBackend) HandleRequestDELETE(sc ot.SpanContext, newRequest se
 // of a livelesson. Pods, services, networks, networkpolicies, ingresses, etc to support a new running
 // lesson are all created as part of this workflow.
 func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_k8s_create_stuff", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_k8s_create_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 
 	ns, err := k.createNamespace(span.Context(), req)
@@ -404,7 +404,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 
 	for name, pod := range createdPods {
 		go func(sc ot.SpanContext, name string, pod *corev1.Pod) {
-			span := ot.StartSpan("scheduler_pod_status", ot.ChildOf(sc))
+			span := ot.StartSpan("kubernetes_pod_status", ot.ChildOf(sc))
 			defer span.Finish()
 			span.SetTag("podName", name)
 			defer wg.Done()
@@ -460,7 +460,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 }
 
 func (k *KubernetesBackend) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_configure_stuff", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("llID", ll.ID)
 	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
@@ -534,7 +534,7 @@ func (k *KubernetesBackend) configureStuff(sc ot.SpanContext, nsName string, ll 
 // This allows Antidote to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
 // development.
 func (k *KubernetesBackend) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
-	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_get_volumes", ot.ChildOf(sc))
 	defer span.Finish()
 
 	lesson, err := k.Db.GetLesson(span.Context(), lessonSlug)
@@ -618,7 +618,7 @@ func (k *KubernetesBackend) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 // PruneOldLiveLessons queries the datamanager for expired livelessons that don't belong to persistent livesessions.
 // Once a list of these IDs is obtained, we delete the corresponding Kubernetes namespace, and then delete the livelesson state.
 func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
-	span := ot.StartSpan("scheduler_pruneoldlessons", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_pruneoldlessons", ot.ChildOf(sc))
 	defer span.Finish()
 
 	liveLessonsToDelete := []string{}
@@ -686,7 +686,7 @@ func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
 // in place, but no running lessons. Antidote doesn't manage itself, or any other Antidote services.
 func (k *KubernetesBackend) PruneOrphans() error {
 
-	span := ot.StartSpan("scheduler_prune_orphaned_ns")
+	span := ot.StartSpan("kubernetes_prune_orphaned_ns")
 	defer span.Finish()
 
 	nameSpaces, err := k.Client.CoreV1().Namespaces().List(metav1.ListOptions{

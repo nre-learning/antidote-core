@@ -22,7 +22,7 @@ import (
 
 func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint, networks []string, req services.LessonScheduleRequest) (*corev1.Pod, error) {
 
-	span := ot.StartSpan("scheduler_pod_create", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_pod_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
@@ -265,7 +265,7 @@ func (k *KubernetesBackend) getPodStatus(origPod *corev1.Pod) (bool, error) {
 // such as an endpoint pod or a pod spawned by a Job during configuration. These logs are retrieved,
 // and then exported via a dedicated OpenTracing span.
 func (k *KubernetesBackend) recordPodLogs(sc ot.SpanContext, llID, podName string, container string) {
-	span := ot.StartSpan("scheduler_pod_logs", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_pod_logs", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("podName", podName)
 	span.SetTag("container", container)
