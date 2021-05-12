@@ -58,7 +58,7 @@ func (lhc *fakeHealthChecker) sshTest(host string, port int) bool { return true 
 func (lhc *fakeHealthChecker) tcpTest(host string, port int) bool { return true }
 
 func createFakeKubernetesBackend() *KubernetesBackend {
-	cfg, err := config.LoadConfig("../hack/mocks/mock-config-1.yml")
+	cfg, err := config.LoadConfig("../../../hack/mocks/mock-config-1.yml")
 	if err != nil {
 		// t.Fatal(err)
 		panic(err)

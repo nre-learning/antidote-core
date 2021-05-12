@@ -6,16 +6,17 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 
 	"github.com/nats-io/nats.go"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+
 	api "github.com/nre-learning/antidote-core/api/exp"
 	config "github.com/nre-learning/antidote-core/config"
-	"github.com/nre-learning/antidote-core/db"
+	db "github.com/nre-learning/antidote-core/db"
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
 	scheduler "github.com/nre-learning/antidote-core/scheduler"
 	kb "github.com/nre-learning/antidote-core/scheduler/backends/kubernetes"
-	"github.com/nre-learning/antidote-core/services"
+	services "github.com/nre-learning/antidote-core/services"
 	stats "github.com/nre-learning/antidote-core/stats"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 )
 
 func init() {
@@ -74,8 +75,8 @@ func main() {
 			scheduler := scheduler.AntidoteScheduler{
 				Config:    config,
 				BuildInfo: buildInfo,
-				// Db:        adb,
-				// NC:        nc,
+				Db:        adb,
+				NC:        nc,
 			}
 
 			switch config.Backend {

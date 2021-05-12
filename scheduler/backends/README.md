@@ -55,6 +55,8 @@ In addition to satisfying this interface, there are several implementation detai
 
 - Infrastructure created by the backend should be decorated with metadata so that 
 - ALL functions should be instrumented via OpenTracing - not just functions implementing the `AntidoteBackend` interface. See the Kubernetes backend for several examples.
+- Network traffic should be constrained to the smallest possible unit to allow freely flowing intra-lesson communication. Network activity destined outside this boundary should be prohibited by default. This behavior should be disabled in the event that the AllowEgress configuration option is set to true.
+
 
 ## Misc
 
