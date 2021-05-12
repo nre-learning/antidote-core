@@ -86,33 +86,11 @@ func createFakeKubernetesBackend() *KubernetesBackend {
 		Client:    testclient.NewSimpleClientset(namespace),
 		ClientExt: kubernetesExtFake.NewSimpleClientset(),
 		ClientCrd: kubernetesCrdFake.NewSimpleClientset(),
-		// NEC:       ec,
-		Db: adb,
+		Db:        adb,
 	}
 
 	return &kb
 }
-
-// TODO - this is from pre-backend
-// func TestSchedulerSetup(t *testing.T) {
-
-// 	lessonScheduler := createFakeScheduler()
-
-// 	// Start scheduler
-// 	go func() {
-// 		err := lessonScheduler.Start()
-// 		if err != nil {
-// 			t.Fatalf("Problem starting lesson scheduler: %s", err)
-// 		}
-// 	}()
-
-// 	// TODO(mierdin): The previous edition for this test (pre rewrite) sent LSRs into the scheduler channel, and then
-// 	// made assertions about the kubelabs that were created and what state they were in (k8s objects)
-// 	// We could probably do the same thing post-rewrite but obviously kubelab is gone so likely what we'd have to do is
-// 	// call out to kube directly in these tests in order to make the same assertions.
-// 	// The final thing these tests did was perform garbage collection, and then make additional assertions accordingly.
-
-// }
 
 // newUUID generates a random UUID according to RFC 4122
 func newUUID() (string, error) {

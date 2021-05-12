@@ -124,7 +124,7 @@ func (k *KubernetesBackend) createNetwork(sc ot.SpanContext, netIndex int, netNa
 	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 

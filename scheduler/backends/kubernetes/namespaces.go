@@ -53,7 +53,7 @@ func (k *KubernetesBackend) createNamespace(sc ot.SpanContext, req services.Less
 	span := ot.StartSpan("scheduler_create_namespace", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 	span.LogFields(log.String("nsName", nsName))
 
 	ll, err := k.Db.GetLiveLesson(span.Context(), req.LiveLessonID)
@@ -84,18 +84,4 @@ func (k *KubernetesBackend) createNamespace(sc ot.SpanContext, req services.Less
 		return nil, err
 	}
 	return result, err
-}
-
-// generateNamespaceName is a helper function for determining the name of our kubernetes
-// namespaces, so we don't have to do this all over the codebase and maybe get it wrong.
-// Note that the nsName is used EVERYWHERE, and what's in it is pretty important, so change
-// this formatting with CAUTION. For instance, the antidoteId is how we disambiguate between
-// instances for HEPS domains. **MAKE SURE** that this formatting matches the creation of
-// nsName in the API server right before the initializeLiveEndpoints function.
-// TODO(mierdin): Make this less dependent on the honor system.
-// TODO(mierdin): This should be moved out to scheduler utils or something - so that all backends can get the same formatting.
-// You may want to create a struct type that holds the antidoteID and the livelesson ID, and generate a string from those components,
-// so you can mandate that this type is used where needed.
-func generateNamespaceName(antidoteID, liveLessonID string) string {
-	return fmt.Sprintf("%s-%s", antidoteID, liveLessonID)
 }

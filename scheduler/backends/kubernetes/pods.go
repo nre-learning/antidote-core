@@ -25,7 +25,7 @@ func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	span := ot.StartSpan("scheduler_pod_create", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	span.SetTag("epName", ep.Name)
 	span.SetTag("nsName", nsName)
@@ -270,7 +270,7 @@ func (k *KubernetesBackend) recordPodLogs(sc ot.SpanContext, llID, podName strin
 	span.SetTag("podName", podName)
 	span.SetTag("container", container)
 
-	nsName := generateNamespaceName(k.Config.InstanceID, llID)
+	nsName := services.NewUULLID(k.Config.InstanceID, llID).ToString()
 	pod, err := k.Client.CoreV1().Pods(nsName).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		span.LogFields(log.Error(err))

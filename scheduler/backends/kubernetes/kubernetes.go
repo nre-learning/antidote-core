@@ -118,7 +118,7 @@ func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest se
 	span := ot.StartSpan("scheduler_lsr_create", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
 	span.LogEvent(fmt.Sprintf("Generated namespace name %s", nsName))
 
 	ll, err := k.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
@@ -186,7 +186,7 @@ func (k *KubernetesBackend) HandleRequestMODIFY(sc ot.SpanContext, newRequest se
 	span := ot.StartSpan("scheduler_lsr_modify", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
 
 	ll, err := k.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
@@ -219,7 +219,7 @@ func (k *KubernetesBackend) HandleRequestDELETE(sc ot.SpanContext, newRequest se
 	span := ot.StartSpan("scheduler_lsr_delete", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(k.Config.InstanceID, newRequest.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
 	err := k.deleteNamespace(span.Context(), nsName)
 	if err != nil {
 		span.LogFields(log.Error(err))
@@ -299,7 +299,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
 		epOrdered = append(epOrdered, jupyterEp.Name)
 
-		nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+		nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 		_, err := k.createIngress(
 			span.Context(),
@@ -631,7 +631,6 @@ func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
 
 	for _, ll := range lls {
 		if time.Since(ll.LastActiveTime) < time.Duration(k.Config.LiveLessonTTL)*time.Minute {
-			// TODO - log?
 			continue
 		}
 
@@ -663,7 +662,8 @@ func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
 		go func(llID string) {
 			defer wg.Done()
 
-			ns := generateNamespaceName(k.Config.InstanceID, llID)
+			ns := services.NewUULLID(k.Config.InstanceID, llID).ToString()
+
 			k.deleteNamespace(span.Context(), ns)
 
 			err := k.Db.DeleteLiveLesson(span.Context(), llID)

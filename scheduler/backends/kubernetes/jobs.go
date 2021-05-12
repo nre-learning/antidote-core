@@ -79,7 +79,8 @@ func (k *KubernetesBackend) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 
 func (k *KubernetesBackend) getJobStatus(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, map[string]int32, error) {
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	uullid := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID)
+	nsName := uullid.ToString()
 
 	result, err := k.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
@@ -146,7 +147,7 @@ func (k *KubernetesBackend) configureEndpoint(sc ot.SpanContext, ep *models.Live
 	defer span.Finish()
 	span.SetTag("endpointName", ep.Name)
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)

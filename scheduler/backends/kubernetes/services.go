@@ -23,7 +23,7 @@ func (k *KubernetesBackend) createService(sc ot.SpanContext, pod *corev1.Pod, re
 	// (i.e. use "vqfx1" instead of "vqfx1-svc" or something like that.)
 	serviceName := pod.ObjectMeta.Name
 
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

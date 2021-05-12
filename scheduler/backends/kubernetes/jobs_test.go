@@ -20,7 +20,8 @@ func TestJobs(t *testing.T) {
 	}
 
 	k := createFakeKubernetesBackend()
-	nsName := generateNamespaceName(k.Config.InstanceID, req.LiveLessonID)
+
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	jobName := "configjob"
 	span := ot.StartSpan("test_db")

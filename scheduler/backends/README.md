@@ -52,6 +52,7 @@ In addition to satisfying this interface, there are several implementation detai
 - Network traffic should be constrained to the smallest possible unit to allow freely flowing intra-lesson communication. Network activity destined outside this boundary should be prohibited by default. This behavior should be disabled in the event that the AllowEgress configuration option is set to true.
 - `antidote-images`, while opinionated towards Kubernetes in their current form, are a necessary component to antidote. There is a need to have platform-versioned images for any back-end infrastructure that `antidoted` can just use to run configuration scripts, jupyter notebooks, etc. It is highly recommended that any backend development effort augment that repository to add build scripts for each of those images relevant to that backend's infrastructure target, and then using those images in the same way that the kubernetes backend does currently.
 - It's likely that additional backends will require this anyways, but support for private image sources is not optional. There should at least be an option to supply credentials when accessing an endpoint image to be used by a backend.
+- HEPS need to follow a specific URL format. This isn't backend-specific, it's something that the front end is expecting that we're not communicating over the API.
 
 ## Tests
 

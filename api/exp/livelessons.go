@@ -12,7 +12,7 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	db "github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
-	"github.com/nre-learning/antidote-core/services"
+	services "github.com/nre-learning/antidote-core/services"
 	log "github.com/opentracing/opentracing-go/log"
 	codes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -183,10 +183,8 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	newID := db.RandomID(10)
 
 	// We need to know the nsName ahead of time because we're calculating HEP domain in the
-	// initializeLiveEndpoints function now. **MAKE SURE** that this formatting matches the
-	// generateNamespaceName in the scheduler service.
-	// TODO - implications of this with multiple backends?
-	nsName := fmt.Sprintf("%s-%s", s.Config.InstanceID, newID)
+	// initializeLiveEndpoints function now.
+	nsName := services.NewUULLID(s.Config.InstanceID, newID).ToString()
 
 	liveEndpoints, err := s.initializeLiveEndpoints(span, nsName, lesson)
 	if err != nil {
