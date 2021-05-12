@@ -619,55 +619,6 @@ func (k *KubernetesBackend) getVolumesConfiguration(sc ot.SpanContext, lessonSlu
 
 }
 
-// PruneOldLiveSessions cleans up old LiveSessions according to the configured LiveSessionTTL
-func (k *KubernetesBackend) PruneOldLiveSessions(sc ot.SpanContext) error {
-	span := ot.StartSpan("scheduler_pruneoldsessions", ot.ChildOf(sc))
-	defer span.Finish()
-
-	lsList, err := k.Db.ListLiveSessions(span.Context())
-	if err != nil {
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-		return err
-	}
-
-	lsTTL := time.Duration(k.Config.LiveSessionTTL) * time.Minute
-
-	for _, ls := range lsList {
-		createdTime := time.Since(ls.CreatedTime)
-
-		// No need to continue if this session hasn't even exceeded the TTL
-		if createdTime <= lsTTL {
-			continue
-		}
-
-		llforls, err := k.Db.GetLiveLessonsForSession(span.Context(), ls.ID)
-		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
-			return err
-		}
-
-		// We don't want/need to clean up this session if there are active livelessons that are using it.
-		if len(llforls) > 0 {
-			continue
-		}
-
-		// TODO(mierdin): It would be pretty rare, but in the event that a livelesson is spun up between the request above
-		// and the livesession deletion below, we would encounter the leak bug we saw in 0.6.0. It might be worth seeing if
-		// you can lock things somehow between the two.
-
-		err = k.Db.DeleteLiveSession(span.Context(), ls.ID)
-		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
-			return err
-		}
-	}
-
-	return nil
-}
-
 // PruneOldLiveLessons queries the datamanager for expired livelessons that don't belong to persistent livesessions.
 // Once a list of these IDs is obtained, we delete the corresponding Kubernetes namespace, and then delete the livelesson state.
 func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {

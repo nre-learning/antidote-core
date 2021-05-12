@@ -1,6 +1,3 @@
-// TODO - all of the reachable stuff below should be mandated somehow. The question is, should this be moved into the backend but mandated through interfaces,
-// or centralized, and mandate that all of the plugins to use it via documented convention?
-
 package reachability
 
 import (

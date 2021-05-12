@@ -12,6 +12,7 @@ import (
 
 	nats "github.com/nats-io/nats.go"
 	config "github.com/nre-learning/antidote-core/config"
+	"github.com/nre-learning/antidote-core/db"
 	"github.com/nre-learning/antidote-core/services"
 )
 
@@ -36,10 +37,6 @@ type AntidoteBackend interface {
 	// Responsible for cleaning up infrastructure resources AND cleaning up state
 	// Deletion of back-end infrastructure should be done with the fewest steps possible. See the note above HandleRequestDELETE for more details.
 	PruneOldLiveLessons(ot.SpanContext) error
-
-	// PruneOldLiveSessions cleans up livesessions that no longer have active livelessons and have lived past the livesession TTL. No back-end infrastructure
-	// TODO - this can/should be done at the scheduler level, since this has no backend requirements
-	PruneOldLiveSessions(ot.SpanContext) error
 
 	// HandleRequestCREATE handles a livelesson creation request.
 	// Functions that satisfy this portion of the interface must also follow some specific implementation details, which
@@ -96,6 +93,7 @@ type AntidoteBackend interface {
 // the active backend implementation and garbage collection of old/unused lesson resources.
 type AntidoteScheduler struct {
 	Config    config.AntidoteConfig
+	Db        db.DataManager
 	NC        *nats.Conn
 	Backend   AntidoteBackend
 	BuildInfo map[string]string
@@ -119,7 +117,7 @@ func (s *AntidoteScheduler) Start() error {
 				ext.Error.Set(span, true)
 			}
 
-			err = s.Backend.PruneOldLiveSessions(span.Context())
+			err = s.pruneOldLiveSessions(span.Context())
 			if err != nil {
 				span.LogFields(log.Error(err))
 				ext.Error.Set(span, true)
@@ -174,6 +172,57 @@ func (s *AntidoteScheduler) Start() error {
 	// Wait forever
 	ch := make(chan struct{})
 	<-ch
+
+	return nil
+}
+
+// pruneOldLiveSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+// Since this task purely works with Antidote state, and has no backend infrastructure requirements, this function can exist here,
+// outside of any particular backend implementation.
+func (s *AntidoteScheduler) pruneOldLiveSessions(sc ot.SpanContext) error {
+	span := ot.StartSpan("scheduler_pruneoldsessions", ot.ChildOf(sc))
+	defer span.Finish()
+
+	lsList, err := s.Db.ListLiveSessions(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	lsTTL := time.Duration(s.Config.LiveSessionTTL) * time.Minute
+
+	for _, ls := range lsList {
+		createdTime := time.Since(ls.CreatedTime)
+
+		// No need to continue if this session hasn't even exceeded the TTL
+		if createdTime <= lsTTL {
+			continue
+		}
+
+		llforls, err := s.Db.GetLiveLessonsForSession(span.Context(), ls.ID)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
+		}
+
+		// We don't want/need to clean up this session if there are active livelessons that are using it.
+		if len(llforls) > 0 {
+			continue
+		}
+
+		// TODO(mierdin): It would be pretty rare, but in the event that a livelesson is spun up between the request above
+		// and the livesession deletion below, we would encounter the leak bug we saw in 0.6.0. It might be worth seeing if
+		// you can lock things somehow between the two.
+
+		err = s.Db.DeleteLiveSession(span.Context(), ls.ID)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+			return err
+		}
+	}
 
 	return nil
 }
