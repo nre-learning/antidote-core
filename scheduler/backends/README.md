@@ -20,12 +20,9 @@ Before getting into the implementation details, there are some behaviors that ar
 
 ## Implementation Type and Directory Structure
 
-All backends are compiled into the same binary
-Need to add a directory and a go file with the same name
-need to add an option to the configuration
-Need to augment the conditional that chooses the backend based on config
+Each new backend should have it's own directory within `scheduler/backends/` As an example, the kubernetes backend is located at `scheduler/backends/kubernetes.go`. This directory will contain a single package which is similarly named.
 
-Each backend should have a high-level struct named according to the infrastructure it integrates with, followed by `Backend`. For instance, the Kubernetes backend is called `KubernetesBackend`. This struct can have whatever fields are needed for the backend to maintain its own state, but must include the three fields shown in the below example:
+Each backend should have a high-level struct named according to the infrastructure it integrates with, followed by `Backend`. For instance, the Kubernetes backend is called `KubernetesBackend`. This struct should be located within a file named according to the name of the package and backend. For the kubernetes backend, this is `kubernetes.go`. This struct can have whatever fields are needed for the backend to maintain its own state, but must include the three fields shown in the below example:
 
 ```go
 type KubernetesBackend struct {
@@ -37,10 +34,9 @@ type KubernetesBackend struct {
 }
 ```
 
-Backend-specific struct fields can be used to maintain some state specific to that backend, (like a handle on an API client, etc), however the `DataManager` passed to the backend by the schedule should be used for **all** Antidote-specific state like livelessons, livesessions, etc. It is highly encouraged that contributors review the package in `db/` first, as this is where state management functions are defined, and their use is required.
+Backend-specific struct fields can be used to maintain some state specific to that backend, (like a handle on an API client, etc), however the `DataManager` passed to the backend by the schedule should be used for **all** Antidote-specific state like `livelessons`, `livesessions`, etc. It is highly encouraged that contributors review the package in `db/` first, as this is where state management functions are defined, and their use is required.
 
 There must also be a factory function in the same file that returns an initialized instance of this type, ready to be used by the scheduler. All setup activities should take place here, and this function should receive types that will satisfy the field requirements of the struct defined above. See `NewKubernetesBackend` for an example of this.
-
 
 ## The "AntidoteBackend" Interface
 
@@ -52,13 +48,19 @@ In addition to satisfying this interface, there are several implementation detai
 
 ## Additional Implementation Details
 
-
-- Infrastructure created by the backend should be decorated with metadata so that 
-- ALL functions should be instrumented via OpenTracing - not just functions implementing the `AntidoteBackend` interface. See the Kubernetes backend for several examples.
+- All functions should be instrumented via OpenTracing - not just functions implementing the `AntidoteBackend` interface. See the Kubernetes backend for several examples.
 - Network traffic should be constrained to the smallest possible unit to allow freely flowing intra-lesson communication. Network activity destined outside this boundary should be prohibited by default. This behavior should be disabled in the event that the AllowEgress configuration option is set to true.
-
-
-## Misc
-
 - `antidote-images`, while opinionated towards Kubernetes in their current form, are a necessary component to antidote. There is a need to have platform-versioned images for any back-end infrastructure that `antidoted` can just use to run configuration scripts, jupyter notebooks, etc. It is highly recommended that any backend development effort augment that repository to add build scripts for each of those images relevant to that backend's infrastructure target, and then using those images in the same way that the kubernetes backend does currently.
 - It's likely that additional backends will require this anyways, but support for private image sources is not optional. There should at least be an option to supply credentials when accessing an endpoint image to be used by a backend.
+
+## Tests
+
+Backend implementations should come with reasonably thorough unit tests. Important areas of focus for testing include but are not limited to:
+
+- Garbage collection for lesson resources (and livelesson state) are properly cleaned up when appropriate
+- Infrastructure creation functions handle all (within reason) failure scenarios properly
+- Infrastructure creation functions handle all Antidote state updates properly
+
+## Patience
+
+The ability to have multiple backends in Antidote is new, and likely any subsequent backend implementation is sure to find some gaps in this documentation that will come out during the review process. Please be flexible and ready to adapt during the course of an implementation.

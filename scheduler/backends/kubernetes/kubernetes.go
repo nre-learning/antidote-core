@@ -43,10 +43,6 @@ type KubernetesBackend struct {
 
 	KubeConfig *rest.Config
 
-	// Allows us to disable GC for testing. Production code should leave this at
-	// false
-	// DisableGC bool
-
 	// Client for interacting with normal Kubernetes resources
 	Client kubernetes.Interface
 

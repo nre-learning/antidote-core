@@ -45,7 +45,8 @@ type AntidoteBackend interface {
 	// 	1. Retrieve lesson and livelesson details from the DataManager, using the incoming livelesson ID
 	//  2. Based on these details, provision all necessary infrastructure with the back-end provider. This is an important step, so there are some sub-points to
 	//     be made here:
-	//     - ALL possible features available in a lesson definition must be supported - all lesson guide types, endpoint presentation types, connections, etc.
+	//     - ALL possible features available in a lesson definition must be supported - all lesson guide types, endpoint presentation types, connections, and all of their possible
+	//       fields. This should not be glossed over - even the simplest field in a lesson definition could have huge impact on what happens in the backend.
 	//     - All endpoints must be reachable via the port(s) listed in the lesson definition, either directly, or via some kind of L7 proxy where relevant.
 	//     - Care should be taken to "decorate" all created infrastructure resources so that it can be easily looked up later, using some kind of label.
 	//       This becomes extremely important when cleaning up old/unused lesson resources. At a minimum, the Antidote instance ID, the corresponding
