@@ -145,7 +145,7 @@ func (s *AntidoteScheduler) Start() error {
 
 		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
 		defer span.Finish()
-		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
+		span.LogKV("event", fmt.Sprintf("Response msg: %v", msg))
 
 		rem := t.Bytes()
 		var lsr services.LessonScheduleRequest

@@ -50,6 +50,6 @@ func (k *KubernetesBackend) syncSecret(sc ot.SpanContext, sourceNs, destNs, secr
 		ext.Error.Set(span, true)
 		return err
 	}
-	span.LogEvent(fmt.Sprintf("Successfully copied secret %s", result.ObjectMeta.Name))
+	span.LogKV("event", fmt.Sprintf("Successfully copied secret %s", result.ObjectMeta.Name))
 	return nil
 }

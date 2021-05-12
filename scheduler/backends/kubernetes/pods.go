@@ -136,7 +136,7 @@ func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	if k.Config.BackendConfigs.Kubernetes.PullCredName != "" {
 		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: k.Config.BackendConfigs.Kubernetes.PullCredName})
 	} else {
-		span.LogEvent("PullCredsLocation either blank or invalid format, skipping pod attachment")
+		span.LogKV("event", "PullCredsLocation either blank or invalid format, skipping pod attachment")
 	}
 
 	if enableForwarding {

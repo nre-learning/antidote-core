@@ -43,11 +43,11 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// x-forwarded-host gets you IP+port, FWIW.
 	forwardedFor := md["x-forwarded-for"]
 	if len(forwardedFor) == 0 {
-		span.LogEvent("Unable to determine source IP address")
+		span.LogKV("event", "Unable to determine source IP address")
 	}
 	span.SetTag("antidote_request_source_ip", forwardedFor[0])
 
-	span.LogEvent("Received LiveLesson Request")
+	span.LogKV("event", "Received LiveLesson Request")
 
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
@@ -134,7 +134,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			_ = s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
 			_ = s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
 
-			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
+			span.LogKV("event", "Sending LiveLesson MODIFY request to scheduler")
 			req := services.LessonScheduleRequest{
 				Operation:     services.OperationType_MODIFY,
 				Stage:         lp.LessonStage,

@@ -148,7 +148,7 @@ func WaitUntilReachable(sc ot.SpanContext, dm db.DataManager, ll models.LiveLess
 				if epr {
 					finishedEps[ep.Name] = true
 					_ = dm.UpdateLiveLessonTests(span.Context(), ll.ID, int32(len(finishedEps)), int32(len(ll.LiveEndpoints)))
-					span.LogEvent("Endpoint has become reachable")
+					span.LogKV("event", "Endpoint has become reachable")
 					return
 				}
 

@@ -119,7 +119,7 @@ func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest se
 	defer span.Finish()
 
 	nsName := services.NewUULLID(k.Config.InstanceID, newRequest.LiveLessonID).ToString()
-	span.LogEvent(fmt.Sprintf("Generated namespace name %s", nsName))
+	span.LogKV("event", fmt.Sprintf("Generated namespace name %s", nsName))
 
 	ll, err := k.Db.GetLiveLesson(span.Context(), newRequest.LiveLessonID)
 	if err != nil {
@@ -172,7 +172,7 @@ func (k *KubernetesBackend) HandleRequestCREATE(sc ot.SpanContext, newRequest se
 		return err
 	}
 
-	span.LogEvent(fmt.Sprintf("Inserting ready delay of %d seconds", lesson.ReadyDelay))
+	span.LogKV("event", fmt.Sprintf("Inserting ready delay of %d seconds", lesson.ReadyDelay))
 	if lesson.ReadyDelay > 0 {
 		time.Sleep(time.Duration(lesson.ReadyDelay) * time.Second)
 	}
@@ -639,7 +639,7 @@ func (k *KubernetesBackend) PruneOldLiveLessons(sc ot.SpanContext) error {
 		ls, err := k.Db.GetLiveSession(span.Context(), ll.SessionID)
 		if err == nil {
 			if ls.Persistent {
-				span.LogEvent("Skipping GC, session marked persistent")
+				span.LogKV("event", "Skipping GC, session marked persistent")
 				continue
 			}
 		}
