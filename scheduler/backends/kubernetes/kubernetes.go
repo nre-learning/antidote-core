@@ -61,10 +61,10 @@ func NewKubernetesBackend(acfg config.AntidoteConfig, adb db.DataManager, bi map
 
 	var err error
 	var kubeConfig *rest.Config
-	if !acfg.K8sInCluster {
-		kubeConfig, err = clientcmd.BuildConfigFromFlags("", acfg.K8sOutOfClusterConfigPath)
+	if !acfg.BackendConfigs.Kubernetes.InCluster {
+		kubeConfig, err = clientcmd.BuildConfigFromFlags("", acfg.BackendConfigs.Kubernetes.OutOfClusterConfigPath)
 		if err != nil {
-			logrus.Fatalf("Problem using external k8s configuration %s - %v", acfg.K8sOutOfClusterConfigPath, err)
+			logrus.Fatalf("Problem using external k8s configuration %s - %v", acfg.BackendConfigs.Kubernetes.OutOfClusterConfigPath, err)
 		}
 	} else {
 		kubeConfig, err = rest.InClusterConfig()
@@ -258,9 +258,9 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 	}
 
 	// Sync TLS certificate into the lesson namespace (and optionally, docker pull credentials)
-	_ = k.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.TLSCertName)
-	if k.Config.PullCredName != "" {
-		_ = k.syncSecret(span.Context(), k.Config.SecretsNamespace, ns.ObjectMeta.Name, k.Config.PullCredName)
+	_ = k.syncSecret(span.Context(), k.Config.BackendConfigs.Kubernetes.SecretsNamespace, ns.ObjectMeta.Name, k.Config.BackendConfigs.Kubernetes.TLSCertName)
+	if k.Config.BackendConfigs.Kubernetes.PullCredName != "" {
+		_ = k.syncSecret(span.Context(), k.Config.BackendConfigs.Kubernetes.SecretsNamespace, ns.ObjectMeta.Name, k.Config.BackendConfigs.Kubernetes.PullCredName)
 	}
 
 	lesson, err := k.Db.GetLesson(span.Context(), req.LessonSlug)

@@ -13,14 +13,14 @@ func TestSyncSecret(t *testing.T) {
 	defer span.Finish()
 
 	k := createFakeKubernetesBackend()
-	k.Config.SecretsNamespace = "prod"
-	k.Config.PullCredName = "docker-pull-creds"
+	k.Config.BackendConfigs.Kubernetes.SecretsNamespace = "prod"
+	k.Config.BackendConfigs.Kubernetes.PullCredName = "docker-pull-creds"
 
 	_, err := k.Client.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: k.Config.SecretsNamespace,
+			Name: k.Config.BackendConfigs.Kubernetes.SecretsNamespace,
 			Labels: map[string]string{
-				"name": k.Config.SecretsNamespace,
+				"name": k.Config.BackendConfigs.Kubernetes.SecretsNamespace,
 			},
 		},
 	})
@@ -37,7 +37,7 @@ func TestSyncSecret(t *testing.T) {
 
 	_, err = k.Client.CoreV1().Secrets("prod").Create(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: k.Config.PullCredName,
+			Name: k.Config.BackendConfigs.Kubernetes.PullCredName,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
 		Data: map[string][]byte{
@@ -46,10 +46,10 @@ func TestSyncSecret(t *testing.T) {
 	})
 	ok(t, err)
 
-	err = k.syncSecret(span.Context(), k.Config.SecretsNamespace, "testns", k.Config.PullCredName)
+	err = k.syncSecret(span.Context(), k.Config.BackendConfigs.Kubernetes.SecretsNamespace, "testns", k.Config.BackendConfigs.Kubernetes.PullCredName)
 	ok(t, err)
 
-	syncedSecret, err := k.Client.CoreV1().Secrets("testns").Get(k.Config.PullCredName, metav1.GetOptions{})
+	syncedSecret, err := k.Client.CoreV1().Secrets("testns").Get(k.Config.BackendConfigs.Kubernetes.PullCredName, metav1.GetOptions{})
 	ok(t, err)
 
 	assert(t, syncedSecret.Type == "kubernetes.io/dockerconfigjson", "")

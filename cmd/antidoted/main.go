@@ -71,17 +71,22 @@ func main() {
 
 		if config.IsServiceEnabled("scheduler") {
 
-			// Initialize backend
-			// TODO - loading only kubernetes backend currently. When multiple backends are available, this will be configurable.
-			k, err := kb.NewKubernetesBackend(config, adb, buildInfo)
-			if err != nil {
-				log.Fatal(err)
-			}
-
 			scheduler := scheduler.AntidoteScheduler{
 				Config:    config,
 				BuildInfo: buildInfo,
-				Backend:   k,
+				// Db:        adb,
+				// NC:        nc,
+			}
+
+			switch config.Backend {
+			case "kubernetes":
+				k, err := kb.NewKubernetesBackend(config, adb, buildInfo)
+				if err != nil {
+					log.Fatal(err)
+				}
+				scheduler.Backend = k
+			default:
+				log.Fatalf("Unsupported backend '%s'.", config.Backend)
 			}
 
 			go func() {
