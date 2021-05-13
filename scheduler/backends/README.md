@@ -8,7 +8,7 @@ This document aims to describe the complete set of requirements and conventions 
 
 > As the `kubernetes` backend was developed first and iterated on for years, contributors are heavily encouraged to refer to that backend for guidance on best practices. There are, of course, kubernetes-specific implementation details there, but there are also plenty of lessons learned baked between the lines that shouldn't be disregarded.
 
-> What follows below was written as a first-attempt at capturing backend requirements. Before, there was no need for this, given the single-backend nature of Antidote up to now. As a result, while great care was taken to make this as exhaustive as possible, it's almost certain that some things were left off. Contributors should still expect for a lengthy and dynamic review process, as adding a backend to Antidote is likely to require several iteration cycles to get right.
+> This is new functionality. While this document aims to document the process of developing a new backend as exhaustively as possible, it's inevitable that there will be some gaps. Even still, the process of developing a new backend is complex. Contributors should expect quite a bit of back-and-forth during the review process. 
 
 ## Expected Behaviors
 
@@ -52,7 +52,7 @@ In addition to satisfying this interface, there are several implementation detai
 - Network traffic should be constrained to the smallest possible unit to allow freely flowing intra-lesson communication. Network activity destined outside this boundary should be prohibited by default. This behavior should be disabled in the event that the AllowEgress configuration option is set to true.
 - `antidote-images`, while opinionated towards Kubernetes in their current form, are a necessary component to antidote. There is a need to have platform-versioned images for any back-end infrastructure that `antidoted` can just use to run configuration scripts, jupyter notebooks, etc. It is highly recommended that any backend development effort augment that repository to add build scripts for each of those images relevant to that backend's infrastructure target, and then using those images in the same way that the kubernetes backend does currently.
 - It's likely that additional backends will require this anyways, but support for private image sources is not optional. There should at least be an option to supply credentials when accessing an endpoint image to be used by a backend.
-- HEPS need to follow a specific URL format. This isn't backend-specific, it's something that the front end is expecting that we're not communicating over the API.
+- The [`LiveLesson` data model](https://github.com/nre-learning/antidote-core/blob/master/db/models/livelesson.go) and its sub-fields provide a lot of useful information for creating resources on the backend side. For instance, HTTP presentations should use the `HepDomain` property of the `LivePresentation` model, as this is populated automatically by the API on creation. Similarly, if jupyter notebooks are used, the `GuideDomain` property of `LiveLesson` is similarly pre-populated, and kept up to date with stage changes. Developers should review this data model to be familiar with what it contains.
 
 ## Tests
 

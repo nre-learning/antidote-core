@@ -299,8 +299,6 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 		ll.LiveEndpoints[jupyterEp.Name] = jupyterEp
 		epOrdered = append(epOrdered, jupyterEp.Name)
 
-		nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
-
 		_, err := k.createIngress(
 			span.Context(),
 			ns.ObjectMeta.Name,
@@ -308,7 +306,7 @@ func (k *KubernetesBackend) createK8sStuff(sc ot.SpanContext, req services.Lesso
 			&models.LivePresentation{
 				Name:      "web",
 				Port:      8888,
-				HepDomain: fmt.Sprintf("%s-jupyterlabguide-web.%s", nsName, k.Config.HEPSDomain),
+				HepDomain: ll.GuideDomain,
 			},
 		)
 		if err != nil {
