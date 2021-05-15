@@ -64,6 +64,7 @@ type DataManager interface {
 	UpdateLiveLessonError(ot.SpanContext, string, bool) error
 	UpdateLiveLessonEndpointIP(ot.SpanContext, string, string, string) error //ID, epName, IP
 	UpdateLiveLessonTests(ot.SpanContext, string, int32, int32) error        //ID, healthyTests, totalTests
+	UpdateLiveLessonLastActiveTime(ot.SpanContext, string) error
 	DeleteLiveLesson(ot.SpanContext, string) error
 
 	// LiveSessions
@@ -72,6 +73,9 @@ type DataManager interface {
 	GetLiveSession(ot.SpanContext, string) (models.LiveSession, error)
 	UpdateLiveSessionPersistence(ot.SpanContext, string, bool) error
 	DeleteLiveSession(ot.SpanContext, string) error
+
+	// Helper Functions
+	GetLiveLessonsForSession(ot.SpanContext, string) ([]string, error)
 }
 
 // RandomID is a helper function designed to promote the unique creation of IDs for

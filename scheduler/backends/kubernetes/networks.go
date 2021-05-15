@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createNetworkCrd() error {
+func (k *KubernetesBackend) createNetworkCrd() error {
 
 	// NOTE: if the CRD already exists, this function will return with no error. The idea is
 	// that we run this every time Antidote starts just to make sure our CRD is installed in the cluster.
@@ -28,7 +28,7 @@ func (s *AntidoteScheduler) createNetworkCrd() error {
 	// Note the import path - this is code that we control, so if we desire a different
 	// outcome, it's possible. Just be aware this function is called early, so changes in behavior will be
 	// noticed.
-	err := networkcrd.CreateCRD(s.ClientExt)
+	err := networkcrd.CreateCRD(k.ClientExt)
 	if err != nil {
 		return err
 	}
@@ -38,8 +38,8 @@ func (s *AntidoteScheduler) createNetworkCrd() error {
 // createNetworkPolicy applies a kubernetes networkpolicy object control traffic out of the namespace.
 // The main use case is to restrict access for lesson users to only resources in that lesson,
 // with some exceptions.
-func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
-	span := ot.StartSpan("scheduler_networkpolicy_create", ot.ChildOf(sc))
+func (k *KubernetesBackend) createNetworkPolicy(sc ot.SpanContext, nsName string) (*netv1.NetworkPolicy, error) {
+	span := ot.StartSpan("kubernetes_networkpolicy_create", ot.ChildOf(sc))
 	defer span.Finish()
 
 	var tcp corev1.Protocol = "TCP"
@@ -109,7 +109,7 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string
 		},
 	}
 
-	newnp, err := s.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
+	newnp, err := k.Client.NetworkingV1().NetworkPolicies(nsName).Create(&np)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -120,11 +120,11 @@ func (s *AntidoteScheduler) createNetworkPolicy(sc ot.SpanContext, nsName string
 }
 
 // createNetwork
-func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netName, connectionSubnet string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
-	span := ot.StartSpan("scheduler_network_create", ot.ChildOf(sc))
+func (k *KubernetesBackend) createNetwork(sc ot.SpanContext, netIndex int, netName, connectionSubnet string, req services.LessonScheduleRequest) (*networkcrd.NetworkAttachmentDefinition, error) {
+	span := ot.StartSpan("kubernetes_network_create", ot.ChildOf(sc))
 	defer span.Finish()
 
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	networkName := fmt.Sprintf("%s-%s", nsName, netName)
 
@@ -133,7 +133,7 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 	if len(livelesson) > 6 {
 		livelesson = livelesson[0:6]
 	}
-	antidoteId := s.Config.InstanceID
+	antidoteId := k.Config.InstanceID
 	if len(antidoteId) > 6 {
 		antidoteId = antidoteId[0:6]
 	}
@@ -178,7 +178,7 @@ func (s *AntidoteScheduler) createNetwork(sc ot.SpanContext, netIndex int, netNa
 		},
 	}
 
-	nadClient := s.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
+	nadClient := k.ClientCrd.K8s().NetworkAttachmentDefinitions(nsName)
 
 	result, err := nadClient.Create(network)
 	if err != nil {

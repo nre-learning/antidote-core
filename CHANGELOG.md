@@ -2,6 +2,7 @@
 
 ## In development
 
+- Refactored scheduler for Pluggable Backends [#212](https://github.com/nre-learning/antidote-core/pull/212)
 - Adding developer mode [#209](https://github.com/nre-learning/antidote-core/pull/209)
 
 ## v0.7.0 - December 14, 2020

@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"errors"
@@ -27,12 +27,12 @@ import (
 // https://kubernetes.io/docs/concepts/workloads/controllers/job/
 const JobBackoff = 3
 
-func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
+func (k *KubernetesBackend) killAllJobs(sc ot.SpanContext, nsName, jobType string) error {
 
-	span := ot.StartSpan("scheduler_job_killall", ot.ChildOf(sc))
+	span := ot.StartSpan("kubernetes_job_killall", ot.ChildOf(sc))
 	defer span.Finish()
 
-	result, err := s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+	result, err := k.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 	}
 
 	for i := range existingJobs {
-		err = s.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
+		err = k.Client.BatchV1().Jobs(nsName).Delete(existingJobs[i].ObjectMeta.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -56,7 +56,7 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 	// Block until the jobs are cleaned up, so we don't cause a race
 	// condition when the scheduler moves forward with trying to create new jobs
 	for i := 0; i < 60; i++ {
-		result, err = s.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
+		result, err = k.Client.BatchV1().Jobs(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("jobType=%s", jobType),
 		})
 		if err != nil {
@@ -77,11 +77,12 @@ func (s *AntidoteScheduler) killAllJobs(sc ot.SpanContext, nsName, jobType strin
 	return err
 }
 
-func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, map[string]int32, error) {
+func (k *KubernetesBackend) getJobStatus(span ot.Span, job *batchv1.Job, req services.LessonScheduleRequest) (bool, map[string]int32, error) {
 
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	uullid := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID)
+	nsName := uullid.ToString()
 
-	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := k.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -101,13 +102,13 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 	if result.Status.Failed >= JobBackoff {
 
 		// Get logs for failed configuration job/pod for troubleshooting purposes later
-		pods, err := s.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
+		pods, err := k.Client.CoreV1().Pods(nsName).List(metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("job-name=%s", job.Name),
 		})
 		if err != nil || len(pods.Items) == 0 {
 			logrus.Debugf("Unable to retrieve logs for failed configuration pod in livelesson %s", req.LiveLessonID)
 		} else {
-			s.recordPodLogs(span.Context(), req.LiveLessonID, pods.Items[len(pods.Items)-1].Name, "")
+			k.recordPodLogs(span.Context(), req.LiveLessonID, pods.Items[len(pods.Items)-1].Name, "")
 		}
 
 		// Log error to span and return
@@ -141,24 +142,24 @@ func (s *AntidoteScheduler) getJobStatus(span ot.Span, job *batchv1.Job, req ser
 	}, nil
 }
 
-func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
-	span := ot.StartSpan("scheduler_configure_endpoint", ot.ChildOf(sc))
+func (k *KubernetesBackend) configureEndpoint(sc ot.SpanContext, ep *models.LiveEndpoint, req services.LessonScheduleRequest) (*batchv1.Job, error) {
+	span := ot.StartSpan("kubernetes_configure_endpoint", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("endpointName", ep.Name)
 
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	jobName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 	podName := fmt.Sprintf("config-%s-%d", ep.Name, req.Stage)
 
-	volumes, volumeMounts, initContainers, err := s.getVolumesConfiguration(span.Context(), req.LessonSlug)
+	volumes, volumeMounts, initContainers, err := k.getVolumesConfiguration(span.Context(), req.LessonSlug)
 	if err != nil {
 		err := fmt.Errorf("Unable to get volumes configuration: %v", err)
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
 	}
 
-	image, err := s.Db.GetImage(span.Context(), ep.Image)
+	image, err := k.Db.GetImage(span.Context(), ep.Image)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)
@@ -209,7 +210,7 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 	}
 
 	pullPolicy := v1.PullIfNotPresent
-	if s.Config.AlwaysPull {
+	if k.Config.AlwaysPull {
 		pullPolicy = v1.PullAlways
 	}
 
@@ -243,7 +244,7 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 					Containers: []corev1.Container{
 						{
 							Name:            "configurator",
-							Image:           fmt.Sprintf("antidotelabs/configurator:%s", s.BuildInfo["imageVersion"]),
+							Image:           fmt.Sprintf("antidotelabs/configurator:%s", k.BuildInfo["imageVersion"]),
 							Command:         configCommand,
 							ImagePullPolicy: pullPolicy,
 							Env: []corev1.EnvVar{
@@ -262,7 +263,7 @@ func (s *AntidoteScheduler) configureEndpoint(sc ot.SpanContext, ep *models.Live
 		},
 	}
 
-	result, err := s.Client.BatchV1().Jobs(nsName).Create(configJob)
+	result, err := k.Client.BatchV1().Jobs(nsName).Create(configJob)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)

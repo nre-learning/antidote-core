@@ -1,80 +1,102 @@
 package scheduler
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net"
-	"path"
-	"reflect"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	ot "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 	log "github.com/opentracing/opentracing-go/log"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 
 	nats "github.com/nats-io/nats.go"
 	config "github.com/nre-learning/antidote-core/config"
 	"github.com/nre-learning/antidote-core/db"
-	models "github.com/nre-learning/antidote-core/db/models"
 	"github.com/nre-learning/antidote-core/services"
-
-	// Custom Network CRD Types
-	networkcrd "github.com/nre-learning/antidote-core/pkg/apis/k8s.cni.cncf.io/v1"
-
-	// Kubernetes Types
-	corev1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	rest "k8s.io/client-go/rest"
-
-	// Kubernetes clients
-
-	kubernetesCrd "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
-	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	kubernetes "k8s.io/client-go/kubernetes"
 )
 
-const initContainerName string = "copy-local-files"
+// AntidoteBackend
+//
+// All methods in this interface return an error type. If a backend provider encounters an unrecoverable error, this can be returned so
+// the scheduler is able to notify the front-end of an issue. Before doing this, the backend provider should update the livelesson status to ERROR, set the OpenTracing span context to an error state, and log the error to the span fields. For example:
+//
+// ```go
+// span.LogFields(log.Error(err))
+// ext.Error.Set(span, true)
+// _ = k.Db.UpdateLiveLessonError(span.Context(), ll.ID, true)
+// return err
+// ```
+//
+// See the docstring above each method for further implementation detail requirements.
+type AntidoteBackend interface {
 
-// NetworkCrdClient is an interface for the client for our custom
-// network CRD. Allows for injection of mocks at test time.
-type NetworkCrdClient interface {
-	UpdateNamespace(string)
-	Create(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
-	Update(obj *networkcrd.NetworkAttachmentDefinition) (*networkcrd.NetworkAttachmentDefinition, error)
-	Delete(name string, options *meta_v1.DeleteOptions) error
-	Get(name string) (*networkcrd.NetworkAttachmentDefinition, error)
-	List(opts meta_v1.ListOptions) (*networkcrd.NetworkList, error)
+	// Deletion of back-end infrastructure should be done with the fewest steps possible. See the note above HandleRequestDELETE for more details.
+	PruneOrphans() error
+
+	// Responsible for cleaning up infrastructure resources AND cleaning up state
+	// Deletion of back-end infrastructure should be done with the fewest steps possible. See the note above HandleRequestDELETE for more details.
+	PruneOldLiveLessons(ot.SpanContext) error
+
+	// HandleRequestCREATE handles a livelesson creation request.
+	// Functions that satisfy this portion of the interface must also follow some specific implementation details, which
+	// are documented below.
+	//
+	// 	1. Retrieve lesson and livelesson details from the DataManager, using the incoming livelesson ID
+	//  2. Based on these details, provision all necessary infrastructure with the back-end provider. This is an important step, so there are some sub-points to
+	//     be made here:
+	//     - ALL possible features available in a lesson definition must be supported - all lesson guide types, endpoint presentation types, connections, and all of their possible
+	//       fields. This should not be glossed over - even the simplest field in a lesson definition could have huge impact on what happens in the backend.
+	//     - All endpoints must be reachable via the port(s) listed in the lesson definition, either directly, or via some kind of L7 proxy where relevant.
+	//     - Care should be taken to "decorate" all created infrastructure resources so that it can be easily looked up later, using some kind of label.
+	//       This becomes extremely important when cleaning up old/unused lesson resources. At a minimum, the Antidote instance ID, the corresponding
+	//       livelesson ID, and the corresponding livesession ID should be included. Note also that some infrastructure providers offer hierarchical
+	//       organization types (e.g. "namespaces" in kubernetes) under which all other resources can be created. This should be employed whenever available, and labels
+	//       should be applied to all created resources.
+	//     - For created resources that cannot be namespaced, the unique identifier for these resources must be disambiguated using a combination of the livelesson ID and
+	//       the Antidote instance ID.
+	//  3. Continue to poll the backend infrastructure provider until IP addresses are provisioned for each endpoint. These IP addresses must be reachable from the
+	//     antidoted service, as well as any external services that will connect to those endpoints, such as the WebSSH proxy. Once known, the UpdateLiveLessonEndpointIP
+	//     DataManager function should be used to update the livelesson details with this IP address.
+	//  4. If at any point a failure occurs, capture as much detail as possible and export into the OpenTracing span for this function. This could include logs from endpoints,
+	//     or from the backend provider itself.
+	// 	5. Use the `WaitUntilReachable` function in the `reachability` package to initiate reachability testing for all endpoints in this livelesson. This function
+	//     will take care of updating endpoint test state as they come online, so you need only block execution while waiting for this function to return, and handle
+	//     a non-nil error value by passing it up the stack.
+	// 	6. If the `WaitUntilReachable` function returns no error, the livelesson should be updated with a status of `CONFIGURATION`.
+	// 	7. All endpoints with a configuration option defined in the lesson definition should be configured accordingly. All possible configuration options must be supported.
+	//     The `antidote-images` repository contains dockerfiles and scripts that may be useful. Configuration should be entirely atomic - configuration of a given stage
+	//     cannot rely on another stage being configured first.
+	// 	8. Sleep for the number of seconds indicated by the ReadyDelay configuration option.
+	// 	9. Update livelesson status to `READY`. At this point, this function can return a nil error, provided this update took place successfully.
+	HandleRequestCREATE(ot.SpanContext, services.LessonScheduleRequest) error
+
+	// HandleRequestMODIFY handles a request to modify an existing livelesson, typically in response to a change to a different stage.
+	// The API typically handles some initial state management, but the scheduler backend must execute any endpoint reconfigurations specified by the lesson.
+	//
+	// This function should perform the exact same configuration logic, and adhere to the same requirements of, the configuration step during the creation process. For this
+	// reason, it might be best to contain this logic in an isolated function that can be called from HandleRequestCREATE and HandleRequestMODIFY.
+	HandleRequestMODIFY(ot.SpanContext, services.LessonScheduleRequest) error
+
+	// HandleRequestDELETE handles a request to delete an existing livelesson. This is typically done as part of the internal scheduler GC process - not invoked
+	// by an end-user.
+	//
+	// This should rely heavily on metadata provided to the back-end infrastructure provider on creation, so that ONLY the infrastructure for the
+	// specific livelesson and antidote instance can be deleted. In addition, **whenever possible**, the back-end infrastructure provider
+	// should do the heavy lifting here. For example, the Kubernetes backend creates everything in HandleRequestCREATE within a parent namespace, so that
+	// when a livelesson's resources need to be cleaned up, a single API request to Kubernetes deletes **everything**, and a failure in the Antidote service
+	// doesn't impact this process. This approach should be followed if at all possible, as opposed to going through and deleting every individual resource you created in
+	// HandleRequestCREATE.
+	HandleRequestDELETE(ot.SpanContext, services.LessonScheduleRequest) error
 }
 
-// AntidoteScheduler is an Antidote service that receives commands for things like creating new lesson instances,
-// moving existing livelessons to a different stage, deleting old lessons, etc.
+// AntidoteScheduler handles the high-level orchestration of backend tasks, including delegation of incoming events to
+// the active backend implementation and garbage collection of old/unused lesson resources.
 type AntidoteScheduler struct {
-	KubeConfig    *rest.Config
-	NC            *nats.Conn
-	Config        config.AntidoteConfig
-	Db            db.DataManager
-	HealthChecker LessonHealthChecker
-
-	// Allows us to disable GC for testing. Production code should leave this at
-	// false
-	// DisableGC bool
-
-	// Client for interacting with normal Kubernetes resources
-	Client kubernetes.Interface
-
-	// Client for creating CRD defintions
-	ClientExt kubernetesExt.Interface
-
-	// Client for creating instances of our network CRD
-	ClientCrd kubernetesCrd.Interface
-
+	Config    config.AntidoteConfig
+	Db        db.DataManager
+	NC        *nats.Conn
+	Backend   AntidoteBackend
 	BuildInfo map[string]string
 }
 
@@ -82,35 +104,21 @@ type AntidoteScheduler struct {
 // and put a results message on the "results" channel when finished (success or fail)
 func (s *AntidoteScheduler) Start() error {
 
-	// Ensure our network CRD is in place (should fail silently if already exists)
-	err := s.createNetworkCrd()
-	if err != nil {
-		return err
-	}
+	// Important that this is done first, synchronously, prior to starting GC or listening for LSRs
+	logrus.Info("Pruning orphaned lesson resources...")
+	s.Backend.PruneOrphans()
 
 	// Garbage collection
 	go func() {
 		for {
-
 			span := ot.StartSpan("scheduler_gc")
-			// Clean up any old lesson namespaces
-			llToDelete, err := s.PurgeOldLessons(span.Context())
+			err := s.Backend.PruneOldLiveLessons(span.Context())
 			if err != nil {
 				span.LogFields(log.Error(err))
 				ext.Error.Set(span, true)
 			}
 
-			// Clean up local state based on purge results
-			for i := range llToDelete {
-				err := s.Db.DeleteLiveLesson(span.Context(), llToDelete[i])
-				if err != nil {
-					span.LogFields(log.Error(err))
-					ext.Error.Set(span, true)
-				}
-			}
-
-			// Clean up old sessions
-			err = s.PurgeOldSessions(span.Context())
+			err = s.pruneOldLiveSessions(span.Context())
 			if err != nil {
 				span.LogFields(log.Error(err))
 				ext.Error.Set(span, true)
@@ -118,15 +126,13 @@ func (s *AntidoteScheduler) Start() error {
 
 			span.Finish()
 			time.Sleep(1 * time.Minute)
-
 		}
 	}()
 
 	var handlers = map[services.OperationType]interface{}{
-		services.OperationType_CREATE: s.handleRequestCREATE,
-		services.OperationType_DELETE: s.handleRequestDELETE,
-		services.OperationType_MODIFY: s.handleRequestMODIFY,
-		services.OperationType_BOOP:   s.handleRequestBOOP,
+		services.OperationType_CREATE: s.Backend.HandleRequestCREATE,
+		services.OperationType_DELETE: s.Backend.HandleRequestDELETE,
+		services.OperationType_MODIFY: s.Backend.HandleRequestMODIFY,
 	}
 
 	s.NC.Subscribe(services.LsrIncoming, func(msg *nats.Msg) {
@@ -139,13 +145,29 @@ func (s *AntidoteScheduler) Start() error {
 
 		span := ot.StartSpan("scheduler_lsr_incoming", ot.ChildOf(sc))
 		defer span.Finish()
-		span.LogEvent(fmt.Sprintf("Response msg: %v", msg))
+		span.LogKV("event", fmt.Sprintf("Response msg: %v", msg))
 
 		rem := t.Bytes()
 		var lsr services.LessonScheduleRequest
 		_ = json.Unmarshal(rem, &lsr)
 
-		go handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest))(span.Context(), lsr)
+		go func() {
+			err := handlers[lsr.Operation].(func(ot.SpanContext, services.LessonScheduleRequest) error)(span.Context(), lsr)
+			if err == nil && lsr.Operation == services.OperationType_CREATE {
+
+				// Inject span context and send LSR into NATS
+				tracer := ot.GlobalTracer()
+				var t services.TraceMsg
+				if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
+					span.LogFields(log.Error(err))
+					ext.Error.Set(span, true)
+				}
+				reqBytes, _ := json.Marshal(lsr)
+				t.Write(reqBytes)
+
+				s.NC.Publish(services.LsrCompleted, t.Bytes())
+			}
+		}()
 	})
 
 	// Wait forever
@@ -155,9 +177,11 @@ func (s *AntidoteScheduler) Start() error {
 	return nil
 }
 
-// PurgeOldSessions cleans up old LiveSessions according to the configured LiveSessionTTL
-func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
-	span := ot.StartSpan("scheduler_purgeoldsessions", ot.ChildOf(sc))
+// pruneOldLiveSessions cleans up old LiveSessions according to the configured LiveSessionTTL
+// Since this task purely works with Antidote state, and has no backend infrastructure requirements, this function can exist here,
+// outside of any particular backend implementation.
+func (s *AntidoteScheduler) pruneOldLiveSessions(sc ot.SpanContext) error {
+	span := ot.StartSpan("scheduler_pruneoldsessions", ot.ChildOf(sc))
 	defer span.Finish()
 
 	lsList, err := s.Db.ListLiveSessions(span.Context())
@@ -177,7 +201,7 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 			continue
 		}
 
-		llforls, err := s.getLiveLessonsForSession(span.Context(), ls.ID)
+		llforls, err := s.Db.GetLiveLessonsForSession(span.Context(), ls.ID)
 		if err != nil {
 			span.LogFields(log.Error(err))
 			ext.Error.Set(span, true)
@@ -202,430 +226,4 @@ func (s *AntidoteScheduler) PurgeOldSessions(sc ot.SpanContext) error {
 	}
 
 	return nil
-}
-
-func (s *AntidoteScheduler) getLiveLessonsForSession(sc ot.SpanContext, lsID string) ([]string, error) {
-	span := ot.StartSpan("scheduler_getlivelessonsforsession", ot.ChildOf(sc))
-	defer span.Finish()
-	span.SetTag("lsID", lsID)
-
-	llList, err := s.Db.ListLiveLessons(span.Context())
-	if err != nil {
-		span.LogFields(log.Error(err))
-		ext.Error.Set(span, true)
-		return nil, err
-	}
-
-	retLLIDs := []string{}
-
-	for _, ll := range llList {
-		if ll.SessionID == lsID {
-			retLLIDs = append(retLLIDs, ll.ID)
-		}
-	}
-
-	span.LogFields(
-		log.Object("llIDs", retLLIDs),
-		log.Int("llCount", len(retLLIDs)),
-	)
-
-	return retLLIDs, nil
-}
-
-func (s *AntidoteScheduler) configureStuff(sc ot.SpanContext, nsName string, ll models.LiveLesson, newRequest services.LessonScheduleRequest) error {
-	span := ot.StartSpan("scheduler_configure_stuff", ot.ChildOf(sc))
-	defer span.Finish()
-	span.SetTag("llID", ll.ID)
-	span.LogFields(log.Object("llEndpoints", ll.LiveEndpoints))
-
-	s.killAllJobs(span.Context(), nsName, "config")
-
-	wg := new(sync.WaitGroup)
-	wg.Add(len(ll.LiveEndpoints))
-	allGood := true
-	for i := range ll.LiveEndpoints {
-
-		// Ignore any endpoints that don't have a configuration option
-		if ll.LiveEndpoints[i].ConfigurationType == "" {
-			wg.Done()
-			continue
-		}
-
-		job, err := s.configureEndpoint(span.Context(), ll.LiveEndpoints[i], newRequest)
-		if err != nil {
-			span.LogFields(log.Error(err))
-			ext.Error.Set(span, true)
-			return err
-		}
-
-		go func() {
-			defer wg.Done()
-
-			oldStatusCount := map[string]int32{
-				"active":    0,
-				"succeeded": 0,
-				"failed":    0,
-			}
-			for i := 0; i < 600; i++ {
-				completed, statusCount, err := s.getJobStatus(span, job, newRequest)
-				if err != nil {
-					allGood = false
-					return
-				}
-
-				// The use of this map[string]int32 and comparing old with new using DeepEqual
-				// allows us to only log changes in status, rather than the periodic spam
-				if !reflect.DeepEqual(oldStatusCount, statusCount) {
-					span.LogFields(
-						log.String("jobName", job.Name),
-						log.Object("statusCount", statusCount),
-					)
-				}
-
-				if completed {
-					return
-				}
-				oldStatusCount = statusCount
-				time.Sleep(1 * time.Second)
-			}
-			allGood = false
-			return
-		}()
-
-	}
-
-	wg.Wait()
-
-	if !allGood {
-		return errors.New("Problem during configuration")
-	}
-
-	return nil
-}
-
-// getVolumesConfiguration returns a slice of Volumes, VolumeMounts, and init containers that should be used in all pod and job definitions.
-// This allows Syringe to pull lesson data from either Git, or from a local filesystem - the latter of which being very useful for lesson
-// development.
-func (s *AntidoteScheduler) getVolumesConfiguration(sc ot.SpanContext, lessonSlug string) ([]corev1.Volume, []corev1.VolumeMount, []corev1.Container, error) {
-	span := ot.StartSpan("scheduler_get_volumes", ot.ChildOf(sc))
-	defer span.Finish()
-
-	lesson, err := s.Db.GetLesson(span.Context(), lessonSlug)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	volumes := []corev1.Volume{}
-	volumeMounts := []corev1.VolumeMount{}
-	initContainers := []corev1.Container{}
-
-	// Init container will mount the host directory as read-only, and copy entire contents into an emptyDir volume
-	initContainers = append(initContainers, corev1.Container{
-		Name:  initContainerName,
-		Image: "bash",
-		Command: []string{
-			"bash",
-		},
-
-		// In previous versions of this platform, we used the subPath parameter of the VolumeMount to specify the actual lesson directory (i.e. lessons/my-new-lesson) to make available
-		// to the lesson endpoints at the /antidote location. This would result in something like /antidote/<lesson files> rather than /antidote/lessons/my-new-lesson/<lesson files>,
-		// which was much more convenient to access within the lessons.
-		//
-		// However, some runtimes don't appear to handle subPath well, as shown here: https://github.com/kata-containers/runtime/issues/2812.
-		//
-		// Fortunately, we don't **actually** need the subPath field to accomplish the same goal. This field seems to be mostly useful in environments where you want
-		// to use the same volume but provide different mount points to different containers or pods. In our case, all pods within a lesson should look the same, and
-		// volumes are created at a pod level using emptyDir. So, instead of using subPath in the mount, we can just copy the correct subdirectory here in the init container,
-		// and mount the whole volume in the main container. This volume will already be prepped with the relevant subdirectory.
-		Args: []string{
-			"-c",
-			fmt.Sprintf(
-				"ls -lha /antidote-ro && cp -r /antidote-ro/%s/* /antidote && adduser -D antidote && chown -R antidote:antidote /antidote && ls -lha /antidote",
-				strings.TrimPrefix(lesson.LessonDir, fmt.Sprintf("%s/", path.Clean(s.Config.CurriculumDir))),
-			),
-		},
-
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "host-volume",
-				ReadOnly:  true,
-				MountPath: "/antidote-ro",
-			},
-			{
-				Name:      "local-copy",
-				ReadOnly:  false,
-				MountPath: "/antidote",
-			},
-		},
-	})
-
-	// Add outer host volume, should be mounted read-only
-	volumes = append(volumes, corev1.Volume{
-		Name: "host-volume",
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: s.Config.CurriculumDir,
-			},
-		},
-	})
-
-	// Add inner container volume, should be mounted read-write so we can copy files into it
-	volumes = append(volumes, corev1.Volume{
-		Name: "local-copy",
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
-
-	// Finally, mount local copy volume as read-write
-	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "local-copy",
-		ReadOnly:  false,
-		MountPath: "/antidote",
-	})
-
-	return volumes, volumeMounts, initContainers, nil
-
-}
-
-func (s *AntidoteScheduler) isEpReachable(ep *models.LiveEndpoint) (bool, error) {
-
-	// rTest is used to give structure to the reachability tests we want to run.
-	// This function will first construct a slice of rTests based on information available in the
-	// LiveLesson, and then will subsequently run tests based on each rTest.
-	type rTest struct {
-		name   string
-		method string
-		host   string
-		port   int32
-	}
-
-	rTests := []rTest{}
-	var mapMutex = &sync.Mutex{}
-	reachableMap := map[string]bool{}
-	for _, rt := range rTests {
-		reachableMap[rt.name] = false
-	}
-
-	// If no presentations, add a single rTest using the first available Port.
-	// (we aren't currently testing for all Ports)
-	if len(ep.Presentations) == 0 {
-
-		if len(ep.Ports) == 0 {
-			// Should never happen due to earlier code, but good to be safe
-			return false, errors.New("Endpoint has no Ports")
-		}
-
-		rTests = append(rTests, rTest{
-			name:   ep.Name,
-			method: "tcp",
-			host:   ep.Host,
-			port:   ep.Ports[0],
-		})
-	}
-	for p := range ep.Presentations {
-		rTests = append(rTests, rTest{
-			name:   fmt.Sprintf("%s-%s", ep.Name, ep.Presentations[p].Name),
-			method: string(ep.Presentations[p].Type),
-			host:   ep.Host,
-			port:   ep.Presentations[p].Port,
-		})
-	}
-
-	// Last, iterate over the rTests and spawn goroutines for each test
-	wg := new(sync.WaitGroup)
-	wg.Add(len(rTests))
-	for _, rt := range rTests {
-		ctx := context.Background()
-
-		// Timeout for an individual test
-		ctx, _ = context.WithTimeout(ctx, 10*time.Second)
-		go func(ctx context.Context, rt rTest) {
-			defer wg.Done()
-
-			testResult := false
-
-			// Not currently doing an HTTP health check, but one could easily be added.
-			// rt.method is already being set to "http" for corresponding presentations
-			if rt.method == "ssh" {
-				testResult = s.HealthChecker.sshTest(rt.host, int(rt.port))
-			} else {
-				testResult = s.HealthChecker.tcpTest(rt.host, int(rt.port))
-			}
-
-			mapMutex.Lock()
-			defer mapMutex.Unlock()
-			reachableMap[rt.name] = testResult
-
-		}(ctx, rt)
-	}
-
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-
-	select {
-	case <-c:
-		for _, r := range reachableMap {
-			if !r {
-				return false, nil
-			}
-		}
-		return true, nil
-	case <-time.After(time.Second * 5):
-		return false, nil
-	}
-
-}
-
-// waitUntilReachable waits until an entire livelesson is reachable
-func (s *AntidoteScheduler) waitUntilReachable(sc ot.SpanContext, ll models.LiveLesson) error {
-	span := ot.StartSpan("scheduler_wait_until_reachable", ot.ChildOf(sc))
-	defer span.Finish()
-	span.SetTag("liveLessonID", ll.ID)
-	span.LogFields(log.Object("liveEndpoints", ll.LiveEndpoints))
-
-	// reachableTimeLimit controls how long we wait for each goroutine to finish
-	// as well as in general how long we wait for all of them to finish. If this is exceeded,
-	// the livelesson is marked as failed.
-	reachableTimeLimit := time.Second * 600
-
-	finishedEps := map[string]bool{}
-	wg := new(sync.WaitGroup)
-	wg.Add(len(ll.LiveEndpoints))
-	for n := range ll.LiveEndpoints {
-		ep := ll.LiveEndpoints[n]
-		ctx := context.Background()
-		ctx, _ = context.WithTimeout(ctx, reachableTimeLimit)
-
-		go func(sc ot.SpanContext, ctx context.Context, ep *models.LiveEndpoint) {
-			span := ot.StartSpan("scheduler_ep_reachable_test", ot.ChildOf(sc))
-			defer span.Finish()
-			span.SetTag("epName", ep.Name)
-			span.SetTag("epSSHCreds", fmt.Sprintf("%s:%s", ep.SSHUser, ep.SSHPassword))
-
-			defer wg.Done()
-			for {
-				epr, err := s.isEpReachable(ep)
-				if err != nil {
-					span.LogFields(log.Error(err))
-					ext.Error.Set(span, true)
-					return
-				}
-				if epr {
-					finishedEps[ep.Name] = true
-					_ = s.Db.UpdateLiveLessonTests(span.Context(), ll.ID, int32(len(finishedEps)), int32(len(ll.LiveEndpoints)))
-					span.LogEvent("Endpoint has become reachable")
-					return
-				}
-
-				select {
-				case <-time.After(1 * time.Second):
-					continue
-				case <-ctx.Done():
-					return
-				}
-			}
-		}(span.Context(), ctx, ep)
-	}
-
-	// Wait for each endpoint's goroutine to finish, either through completion,
-	// or through context cancelation due to timer expiring.
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-	select {
-	case <-c:
-		//
-	case <-time.After(reachableTimeLimit):
-		//
-	}
-
-	if len(finishedEps) != len(ll.LiveEndpoints) {
-		// Record pod logs for all failed endpoints for later troubleshooting
-		for _, ep := range ll.LiveEndpoints {
-			if _, ok := finishedEps[ep.Name]; !ok {
-				s.recordPodLogs(span.Context(), ll.ID, ep.Name, "")
-			}
-		}
-
-		err := errors.New("Timeout waiting for LiveEndpoints to become reachable")
-		span.LogFields(
-			log.Error(err),
-			log.Object("failedEps", finishedEps),
-		)
-		ext.Error.Set(span, true)
-		return err
-	}
-
-	return nil
-}
-
-// usesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
-// jupyter notebook as a lab guide in any stage.
-func usesJupyterLabGuide(lesson models.Lesson) bool {
-
-	for i := range lesson.Stages {
-		if lesson.Stages[i].GuideType == models.GuideJupyter {
-			return true
-		}
-	}
-
-	return false
-}
-
-// LessonHealthChecker describes a struct which offers a variety of reachability
-// tests for lesson endpoints.
-type LessonHealthChecker interface {
-	sshTest(string, int) bool
-	tcpTest(string, int) bool
-}
-
-// LessonHealthCheck performs network tests to determine health of endpoints within a running lesson
-type LessonHealthCheck struct{}
-
-// sshTest is an important health check to run especially for interactive endpoints,
-// so that we know the endpoint is not only online but ready to receive SSH connections
-// from the user via the Web UI
-func (lhc *LessonHealthCheck) sshTest(host string, port int) bool {
-	strPort := strconv.Itoa(int(port))
-
-	// Using made-up creds, since we only care that SSH is viable for this simple health test.
-	sshConfig := &ssh.ClientConfig{
-		User:            "foobar",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Auth: []ssh.AuthMethod{
-			ssh.Password("foobar"),
-		},
-		// TODO(mierdin): This still doesn't seem to work properly for "hung" ssh servers. Having to rely
-		// on the outer select/case timeout at the moment.
-		Timeout: time.Second * 2,
-	}
-
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, strPort), sshConfig)
-	if err != nil {
-		// For a simple health check, we only care that SSH is responding, not that auth is solid.
-		// Thus the made-up creds. If we get this message, then all is good.
-		if strings.Contains(err.Error(), "unable to authenticate") {
-			return true
-		}
-		return false
-	}
-	defer conn.Close()
-
-	return true
-}
-
-func (lhc *LessonHealthCheck) tcpTest(host string, port int) bool {
-	strPort := strconv.Itoa(int(port))
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, strPort), 2*time.Second)
-	if err != nil {
-		return false
-	}
-	defer conn.Close()
-	return true
 }

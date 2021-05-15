@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"fmt"
@@ -16,14 +16,14 @@ import (
 // Kubernetes does not allow cross-namespace secret lookups, so this allows us to store
 // secrets in a non-volatile namespace and then copy them into the volatile lesson namespace
 // at runtime.
-func (s *AntidoteScheduler) syncSecret(sc ot.SpanContext, sourceNs, destNs, secretName string) error {
-	span := ot.StartSpan("scheduler_secret_sync", ot.ChildOf(sc))
+func (k *KubernetesBackend) syncSecret(sc ot.SpanContext, sourceNs, destNs, secretName string) error {
+	span := ot.StartSpan("kubernetes_secret_sync", ot.ChildOf(sc))
 	defer span.Finish()
 	span.SetTag("sourceNs", sourceNs)
 	span.SetTag("destNs", destNs)
 	span.SetTag("secretName", secretName)
 
-	sourceSecret, err := s.Client.CoreV1().Secrets(sourceNs).Get(secretName, metav1.GetOptions{})
+	sourceSecret, err := k.Client.CoreV1().Secrets(sourceNs).Get(secretName, metav1.GetOptions{})
 	if err != nil {
 		span.LogFields(
 			log.String("message", "Failed to retrieve secret"),
@@ -33,7 +33,7 @@ func (s *AntidoteScheduler) syncSecret(sc ot.SpanContext, sourceNs, destNs, secr
 		return err
 	}
 
-	result, err := s.Client.CoreV1().Secrets(destNs).Create(&corev1.Secret{
+	result, err := k.Client.CoreV1().Secrets(destNs).Create(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sourceSecret.ObjectMeta.Name,
 			Namespace: destNs,
@@ -50,6 +50,6 @@ func (s *AntidoteScheduler) syncSecret(sc ot.SpanContext, sourceNs, destNs, secr
 		ext.Error.Set(span, true)
 		return err
 	}
-	span.LogEvent(fmt.Sprintf("Successfully copied secret %s", result.ObjectMeta.Name))
+	span.LogKV("event", fmt.Sprintf("Successfully copied secret %s", result.ObjectMeta.Name))
 	return nil
 }

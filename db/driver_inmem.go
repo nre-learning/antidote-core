@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	models "github.com/nre-learning/antidote-core/db/models"
 	ot "github.com/opentracing/opentracing-go"
@@ -431,6 +432,25 @@ func (a *ADMInMem) UpdateLiveLessonTests(sc ot.SpanContext, llID string, healthy
 	return nil
 }
 
+// UpdateLiveLessonLastActiveTime updates the last active timestamp for a livelesson to the current time.
+func (a *ADMInMem) UpdateLiveLessonLastActiveTime(sc ot.SpanContext, llID string) error {
+	span := ot.StartSpan("db_livelesson_update_lastactivetime", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("llID", llID)
+
+	a.liveLessonsMu.Lock()
+	defer a.liveLessonsMu.Unlock()
+	if _, ok := a.liveLessons[llID]; !ok {
+		err := fmt.Errorf("Livelesson %s doesn't exist; cannot update", llID)
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return err
+	}
+
+	a.liveLessons[llID].LastActiveTime = time.Now()
+	return nil
+}
+
 // DeleteLiveLesson deletes an existing LiveLesson from the in-memory data store by ID
 func (a *ADMInMem) DeleteLiveLesson(sc ot.SpanContext, id string) error {
 	span := ot.StartSpan("db_livelesson_delete", ot.ChildOf(sc))
@@ -521,4 +541,33 @@ func (a *ADMInMem) DeleteLiveSession(sc ot.SpanContext, id string) error {
 	defer a.liveSessionsMu.Unlock()
 	delete(a.liveSessions, id)
 	return nil
+}
+
+// GetLiveLessonsForSession is a helper function to make it easier to look up all livelessons for a given session ID
+func (a *ADMInMem) GetLiveLessonsForSession(sc ot.SpanContext, lsID string) ([]string, error) {
+	span := ot.StartSpan("kubernetes_getlivelessonsforsession", ot.ChildOf(sc))
+	defer span.Finish()
+	span.SetTag("lsID", lsID)
+
+	llList, err := a.ListLiveLessons(span.Context())
+	if err != nil {
+		span.LogFields(log.Error(err))
+		ext.Error.Set(span, true)
+		return nil, err
+	}
+
+	retLLIDs := []string{}
+
+	for _, ll := range llList {
+		if ll.SessionID == lsID {
+			retLLIDs = append(retLLIDs, ll.ID)
+		}
+	}
+
+	span.LogFields(
+		log.Object("llIDs", retLLIDs),
+		log.Int("llCount", len(retLLIDs)),
+	)
+
+	return retLLIDs, nil
 }

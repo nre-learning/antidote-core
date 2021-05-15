@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"encoding/json"
@@ -34,11 +34,11 @@ func TestNetworks(t *testing.T) {
 		Ipam         CniIpam     `json:"ipam,omitempty"`
 	}
 
-	schedulerSvc := createFakeScheduler()
+	k := createFakeKubernetesBackend()
 
 	t.Run("A=1", func(t *testing.T) {
 
-		network, err := schedulerSvc.createNetwork(
+		network, err := k.createNetwork(
 			span.Context(),
 			0,
 			"vqfx1-vqfx2",

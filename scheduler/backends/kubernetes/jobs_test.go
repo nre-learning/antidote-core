@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"testing"
@@ -19,8 +19,9 @@ func TestJobs(t *testing.T) {
 		LessonSlug:   "test-lesson",
 	}
 
-	s := createFakeScheduler()
-	nsName := generateNamespaceName(s.Config.InstanceID, req.LiveLessonID)
+	k := createFakeKubernetesBackend()
+
+	nsName := services.NewUULLID(k.Config.InstanceID, req.LiveLessonID).ToString()
 
 	jobName := "configjob"
 	span := ot.StartSpan("test_db")
@@ -63,21 +64,21 @@ func TestJobs(t *testing.T) {
 		},
 	}
 
-	_, err := s.Client.BatchV1().Jobs(nsName).Create(job)
+	_, err := k.Client.BatchV1().Jobs(nsName).Create(job)
 	ok(t, err)
-	result, err := s.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
+	result, err := k.Client.BatchV1().Jobs(nsName).Get(job.Name, metav1.GetOptions{})
 	ok(t, err)
 	equals(t, result.Namespace, "antidote-testing-asdf")
-	err = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+	err = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 	ok(t, err)
 
 	// A new job with no status should return false with no error
 	t.Run("", func(t *testing.T) {
-		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
-		_, err := s.Client.BatchV1().Jobs(nsName).Create(job)
+		_ = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+		_, err := k.Client.BatchV1().Jobs(nsName).Create(job)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, false, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 0}, statusCount)
@@ -85,14 +86,14 @@ func TestJobs(t *testing.T) {
 
 	// A job with at least one success should return true and no error
 	t.Run("", func(t *testing.T) {
-		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+		_ = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 		jobcopy := &batchv1.Job{}
 		copier.Copy(&jobcopy, &job)
 		jobcopy.Status.Succeeded = 1
-		_, err := s.Client.BatchV1().Jobs(nsName).Create(jobcopy)
+		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, true, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 1}, statusCount)
@@ -100,14 +101,14 @@ func TestJobs(t *testing.T) {
 
 	// A job with a number of failures that is less than the backoff limit should return false with no error
 	t.Run("", func(t *testing.T) {
-		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+		_ = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 		jobcopy := &batchv1.Job{}
 		copier.Copy(&jobcopy, &job)
 		jobcopy.Status.Failed = 2
-		_, err := s.Client.BatchV1().Jobs(nsName).Create(jobcopy)
+		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		ok(t, err)
 		equals(t, false, completed)
 		equals(t, map[string]int32{"active": 0, "failed": 2, "succeeded": 0}, statusCount)
@@ -115,14 +116,14 @@ func TestJobs(t *testing.T) {
 
 	// A job with a number of failures that is equal to or greater than the backoff limit should return true with an error
 	t.Run("", func(t *testing.T) {
-		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+		_ = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 		jobcopy := &batchv1.Job{}
 		copier.Copy(&jobcopy, &job)
 		jobcopy.Status.Failed = 3
-		_, err := s.Client.BatchV1().Jobs(nsName).Create(jobcopy)
+		_, err := k.Client.BatchV1().Jobs(nsName).Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		equals(t, true, completed)
 		assert(t, (err != nil), "")
 		equals(t, map[string]int32{"active": 0, "failed": 3, "succeeded": 0}, statusCount)
@@ -131,14 +132,14 @@ func TestJobs(t *testing.T) {
 	// A job with an improper namespace should cause a failure with all status count set to 0
 	// and a completed status of "true", just to indicate we shouldn't keep trying
 	t.Run("", func(t *testing.T) {
-		_ = s.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
+		_ = k.Client.BatchV1().Jobs(nsName).Delete(job.Name, &metav1.DeleteOptions{})
 		jobcopy := &batchv1.Job{}
 		copier.Copy(&jobcopy, &job)
 		jobcopy.Namespace = "foobar"
-		_, err := s.Client.BatchV1().Jobs("foobar").Create(jobcopy)
+		_, err := k.Client.BatchV1().Jobs("foobar").Create(jobcopy)
 		ok(t, err)
 
-		completed, statusCount, err := s.getJobStatus(span, job, req)
+		completed, statusCount, err := k.getJobStatus(span, job, req)
 		equals(t, true, completed)
 		assert(t, (err != nil), "")
 		equals(t, map[string]int32{"active": 0, "failed": 0, "succeeded": 0}, statusCount)

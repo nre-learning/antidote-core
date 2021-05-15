@@ -45,35 +45,50 @@ type AntidoteConfig struct {
 		Password string `yaml:"password"`
 	} `yaml:"stats"`
 
-	AlwaysPull  bool `yaml:"alwaysPull"`
-	AllowEgress bool `yaml:"allowEgress"`
+	AlwaysPull bool `yaml:"alwaysPull"`
 
-	SecretsNamespace string `yaml:"secretsNamespace"`
-	TLSCertName      string `yaml:"tlsCertName"`
-	PullCredName     string `yaml:"pullCredName"`
-	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	// ALL backends must default to a secure network policy, by restricting traffic outside the smallest unit necessary to
+	// make intra-lesson traffic possible. This config option can be used to instruct the backend to change this policy to allow traffic outside
+	// this boundary. For the kubernetes backend, this boundary is the namespace.
+	AllowEgress bool `yaml:"allowEgress"`
 
 	CurriculumDir     string `yaml:"curriculumDir"`
 	CurriculumVersion string `yaml:"curriculumVersion"`
 
 	EnabledServices []string `yaml:"enabledServices"`
 
-	// K8sInCluster controls whether or not the scheduler service uses an in-cluster
-	// configuration for communicating with kubernetes. Since this is the typical deployment
-	// scenario, this defaults to true.
-	//
-	// However, for development, it may be useful to use an out of cluster configuration,
-	// so you can run antidoted directly instead of packaging it in a container image and deploying
-	// to your cluster. In this case, set K8sInCluster to false, and provide the path to
-	// your kubeconfig via K8sOutOfClusterConfigPath
-	K8sInCluster              bool   `yaml:"k8sInCluster"`
-	K8sOutOfClusterConfigPath string `yaml:"k8sOutOfClusterConfigPath"`
-
 	NATSUrl string `yaml:"natsUrl"`
 
 	// ONLY meant to be used for development purposes. Statically sets session ID, and a few other things useful
 	// for development purposes.
 	DevMode bool `yaml:"devMode"`
+
+	Backend        string         `yaml:"backend"`
+	BackendConfigs BackendConfigs `yaml:"backendConfigs"`
+}
+
+// BackendConfigs holds configuration options that are specific to a particular backend. The field in BackendConfigs
+// should match the backend name it refers to, for consistency.
+type BackendConfigs struct {
+	Kubernetes KubernetesConfig `yaml:"kubernetes"`
+}
+
+type KubernetesConfig struct {
+	// InCluster controls whether or not the kubernetes backend uses an in-cluster
+	// configuration for communicating with kubernetes. Since this is the typical deployment
+	// scenario, this defaults to true.
+	//
+	// However, for development, it may be useful to use an out of cluster configuration,
+	// so you can run antidoted directly instead of packaging it in a container image and deploying
+	// to your cluster. In this case, set InCluster to false, and provide the path to
+	// your kubeconfig via OutOfClusterConfigPath
+	InCluster              bool   `yaml:"inCluster"`
+	OutOfClusterConfigPath string `yaml:"outOfClusterConfigPath"`
+
+	SecretsNamespace string `yaml:"secretsNamespace"`
+	TLSCertName      string `yaml:"tlsCertName"`
+	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	PullCredName string `yaml:"pullCredName"`
 }
 
 func LoadConfig(configFile string) (AntidoteConfig, error) {
@@ -91,19 +106,23 @@ func LoadConfig(configFile string) (AntidoteConfig, error) {
 		LiveLessonLimit:   0,
 		AlwaysPull:        false,
 		AllowEgress:       false,
-		SecretsNamespace:  "prod",
-		TLSCertName:       "tls-certificate",
-		PullCredName:      "",
 		CurriculumVersion: "latest",
 		EnabledServices: []string{
 			"scheduler",
 			"api",
 			"stats",
 		},
-		K8sInCluster:              true,
-		K8sOutOfClusterConfigPath: "",
-		NATSUrl:                   nats.DefaultURL,
-		DevMode:                   false,
+		NATSUrl: nats.DefaultURL,
+		DevMode: false,
+		BackendConfigs: BackendConfigs{
+			Kubernetes: KubernetesConfig{
+				InCluster:              true,
+				OutOfClusterConfigPath: "",
+				SecretsNamespace:       "prod",
+				TLSCertName:            "tls-certificate",
+				PullCredName:           "",
+			},
+		},
 	}
 
 	yamlDef, err := ioutil.ReadFile(configFile)

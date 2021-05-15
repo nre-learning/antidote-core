@@ -12,7 +12,7 @@ import (
 	pb "github.com/nre-learning/antidote-core/api/exp/generated"
 	db "github.com/nre-learning/antidote-core/db"
 	models "github.com/nre-learning/antidote-core/db/models"
-	"github.com/nre-learning/antidote-core/services"
+	services "github.com/nre-learning/antidote-core/services"
 	log "github.com/opentracing/opentracing-go/log"
 	codes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -43,11 +43,11 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	// x-forwarded-host gets you IP+port, FWIW.
 	forwardedFor := md["x-forwarded-for"]
 	if len(forwardedFor) == 0 {
-		span.LogEvent("Unable to determine source IP address")
+		span.LogKV("event", "Unable to determine source IP address")
 	}
 	span.SetTag("antidote_request_source_ip", forwardedFor[0])
 
-	span.LogEvent("Received LiveLesson Request")
+	span.LogKV("event", "Received LiveLesson Request")
 
 	if lp.SessionId == "" {
 		msg := "Session ID cannot be nil"
@@ -114,6 +114,12 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			return &pb.LiveLessonId{}, errors.New("Sorry, this lesson is having some problems. Please try again later")
 		}
 
+		err = s.Db.UpdateLiveLessonLastActiveTime(span.Context(), existingLL.ID)
+		if err != nil {
+			span.LogFields(log.Error(err))
+			ext.Error.Set(span, true)
+		}
+
 		// If the incoming requested LessonStage is different from the current livelesson state,
 		// tell the scheduler to change the state
 		if existingLL.CurrentStage != lp.LessonStage {
@@ -128,7 +134,7 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			_ = s.Db.UpdateLiveLessonStage(span.Context(), existingLL.ID, lp.LessonStage)
 			_ = s.Db.UpdateLiveLessonGuide(span.Context(), existingLL.ID, string(lesson.Stages[lp.LessonStage].GuideType), lesson.Stages[lp.LessonStage].GuideContents)
 
-			span.LogEvent("Sending LiveLesson MODIFY request to scheduler")
+			span.LogKV("event", "Sending LiveLesson MODIFY request to scheduler")
 			req := services.LessonScheduleRequest{
 				Operation:     services.OperationType_MODIFY,
 				Stage:         lp.LessonStage,
@@ -148,25 +154,6 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 			t.Write(reqBytes)
 			s.NC.Publish(services.LsrIncoming, t.Bytes())
 
-		} else {
-
-			// Nothing to do but the user did interact with this lesson so we should boop it.
-			req := services.LessonScheduleRequest{
-				Operation:     services.OperationType_BOOP,
-				LiveLessonID:  existingLL.ID,
-				LessonSlug:    lp.LessonSlug,
-				LiveSessionID: lp.SessionId,
-			}
-
-			// Inject span context and send LSR into NATS
-			var t services.TraceMsg
-			tracer := ot.GlobalTracer()
-			if err := tracer.Inject(span.Context(), ot.Binary, &t); err != nil {
-				span.LogFields(log.Error(err))
-			}
-			reqBytes, _ := json.Marshal(req)
-			t.Write(reqBytes)
-			s.NC.Publish(services.LsrIncoming, t.Bytes())
 		}
 
 		return &pb.LiveLessonId{Id: existingLL.ID}, nil
@@ -196,9 +183,8 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 	newID := db.RandomID(10)
 
 	// We need to know the nsName ahead of time because we're calculating HEP domain in the
-	// initializeLiveEndpoints function now. **MAKE SURE** that this formatting matches the
-	// generateNamespaceName in the scheduler service.
-	nsName := fmt.Sprintf("%s-%s", s.Config.InstanceID, newID)
+	// initializeLiveEndpoints function now.
+	nsName := services.NewUULLID(s.Config.InstanceID, newID).ToString()
 
 	liveEndpoints, err := s.initializeLiveEndpoints(span, nsName, lesson)
 	if err != nil {
@@ -216,12 +202,12 @@ func (s *AntidoteAPI) RequestLiveLesson(ctx context.Context, lp *pb.LiveLessonRe
 
 		// The front-end will only use this if GuideType is jupyter, but since it will not change, it makes
 		// sense to just set it here.
-		// TODO(mierdin): This needs to be coordinated with the creation of the jupyter ingress in requests.go
-		GuideDomain:   fmt.Sprintf("%s-jupyterlabguide-web.%s", nsName, s.Config.HEPSDomain),
-		LiveEndpoints: liveEndpoints,
-		CurrentStage:  lp.LessonStage,
-		Status:        models.Status_INITIALIZED,
-		CreatedTime:   time.Now(),
+		GuideDomain:    fmt.Sprintf("%s-jupyterlabguide-web.%s", nsName, s.Config.HEPSDomain),
+		LiveEndpoints:  liveEndpoints,
+		CurrentStage:   lp.LessonStage,
+		Status:         models.Status_INITIALIZED,
+		CreatedTime:    time.Now(),
+		LastActiveTime: time.Now(),
 	}
 
 	if newLL.GuideType == "markdown" {

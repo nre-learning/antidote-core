@@ -1,4 +1,4 @@
-package scheduler
+package kubernetes
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
-	span := ot.StartSpan("scheduler_ingress_create", ot.ChildOf(sc))
+func (k *KubernetesBackend) createIngress(sc ot.SpanContext, nsName string, ep *models.LiveEndpoint, p *models.LivePresentation) (*v1beta1.Ingress, error) {
+	span := ot.StartSpan("kubernetes_ingress_create", ot.ChildOf(sc))
 	span.SetTag("epName", ep.Name)
 	span.SetTag("nsName", nsName)
 	defer span.Finish()
@@ -25,7 +25,7 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 
 	// temporary but functional hack to disable SSL redirection for selfmedicate
 	// (doesn't currently use HTTPS)
-	if s.Config.HEPSDomain == "antidote-local" || s.Config.HEPSDomain == "localhost" {
+	if k.Config.HEPSDomain == "antidote-local" || k.Config.HEPSDomain == "localhost" {
 		redir = "false"
 	}
 
@@ -76,7 +76,7 @@ func (s *AntidoteScheduler) createIngress(sc ot.SpanContext, nsName string, ep *
 			},
 		},
 	}
-	result, err := s.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
+	result, err := k.Client.ExtensionsV1beta1().Ingresses(nsName).Create(&newIngress)
 	if err != nil {
 		span.LogFields(log.Error(err))
 		ext.Error.Set(span, true)

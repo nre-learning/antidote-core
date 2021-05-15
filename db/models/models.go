@@ -15,3 +15,16 @@ type CurriculumResource interface {
 var _ CurriculumResource = (*Lesson)(nil)
 
 // var _ CurriculumResource = (*Collection)(nil)
+
+// UsesJupyterLabGuide is a helper function that lets us know if a lesson def uses a
+// jupyter notebook as a lab guide in any stage.
+func UsesJupyterLabGuide(lesson Lesson) bool {
+
+	for i := range lesson.Stages {
+		if lesson.Stages[i].GuideType == GuideJupyter {
+			return true
+		}
+	}
+
+	return false
+}

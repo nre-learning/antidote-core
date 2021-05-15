@@ -3,22 +3,19 @@ package main
 import (
 	"os"
 
-	crdclient "github.com/nre-learning/antidote-core/pkg/client/clientset/versioned"
-	services "github.com/nre-learning/antidote-core/services"
 	ot "github.com/opentracing/opentracing-go"
+
+	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-	kubernetesExt "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	kubernetes "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
-	nats "github.com/nats-io/nats.go"
 	api "github.com/nre-learning/antidote-core/api/exp"
 	config "github.com/nre-learning/antidote-core/config"
 	db "github.com/nre-learning/antidote-core/db"
 	ingestors "github.com/nre-learning/antidote-core/db/ingestors"
-	"github.com/nre-learning/antidote-core/scheduler"
+	scheduler "github.com/nre-learning/antidote-core/scheduler"
+	kb "github.com/nre-learning/antidote-core/scheduler/backends/kubernetes"
+	services "github.com/nre-learning/antidote-core/services"
 	stats "github.com/nre-learning/antidote-core/stats"
 )
 
@@ -75,49 +72,23 @@ func main() {
 
 		if config.IsServiceEnabled("scheduler") {
 
-			var kubeConfig *rest.Config
-			if !config.K8sInCluster {
-				kubeConfig, err = clientcmd.BuildConfigFromFlags("", config.K8sOutOfClusterConfigPath)
-				if err != nil {
-					log.Fatalf("Problem using external k8s configuration %s - %v", config.K8sOutOfClusterConfigPath, err)
-				}
-			} else {
-				kubeConfig, err = rest.InClusterConfig()
-				if err != nil {
-					log.Fatalf("Problem using in-cluster k8s configuration - %v", err)
-				}
-			}
-			cs, err := kubernetes.NewForConfig(kubeConfig) // Client for working with standard kubernetes resources
-			if err != nil {
-				log.Fatalf("Unable to create new kubernetes client - %v", err)
-			}
-			csExt, err := kubernetesExt.NewForConfig(kubeConfig) // Client for creating new CRD definitions
-			if err != nil {
-				log.Fatalf("Unable to create new kubernetes ext client - %v", err)
-			}
-			clientCrd, err := crdclient.NewForConfig(kubeConfig) // Client for creating instances of the network CRD
-			if err != nil {
-				log.Fatalf("Unable to create new kubernetes crd client - %v", err)
-			}
-
-			// Start scheduler
 			scheduler := scheduler.AntidoteScheduler{
-				KubeConfig:    kubeConfig,
-				Client:        cs,
-				ClientExt:     csExt,
-				ClientCrd:     clientCrd,
-				NC:            nc,
-				Config:        config,
-				Db:            adb,
-				BuildInfo:     buildInfo,
-				HealthChecker: &scheduler.LessonHealthCheck{},
+				Config:    config,
+				BuildInfo: buildInfo,
+				Db:        adb,
+				NC:        nc,
 			}
 
-			// In case we're restarting from a previous instance, we want to make sure we clean up any
-			// orphaned k8s namespaces by killing any with our ID. This should be done synchronously
-			// before the scheduler or the API is started.
-			log.Info("Pruning orphaned namespaces...")
-			scheduler.PruneOrphanedNamespaces()
+			switch config.Backend {
+			case "kubernetes":
+				k, err := kb.NewKubernetesBackend(config, adb, buildInfo)
+				if err != nil {
+					log.Fatal(err)
+				}
+				scheduler.Backend = k
+			default:
+				log.Fatalf("Unsupported backend '%s'.", config.Backend)
+			}
 
 			go func() {
 				err = scheduler.Start()
