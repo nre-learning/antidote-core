@@ -23,8 +23,8 @@ type Image struct {
 	// Kata will forward sysctl calls, so this is mainly targeted at untrusted images that need to forward https://github.com/kata-containers/runtime/issues/185
 	EnableForwarding bool `json:"EnableForwarding" yaml:"enableForwarding" jsonschema:"description=Enable IP (v4 and v6) forwarding for this image at runtime"`
 
-	// Used to allow authors to know which interfaces are available, and in which order they'll be connected
-	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"minItems=1"`
+	// Used to specify names for additional network interfaces (not including "eth0")
+	NetworkInterfaces []string `json:"NetworkInterfaces" yaml:"networkInterfaces" jsonschema:"minItems=0"`
 
 	SSHUser     string `json:"SSHUser" yaml:"sshUser" jsonschema:"minLength=1,description=Username for SSH connections"`
 	SSHPassword string `json:"SSHPassword" yaml:"sshPassword" jsonschema:"minLength=1,Password for SSH Connections"`

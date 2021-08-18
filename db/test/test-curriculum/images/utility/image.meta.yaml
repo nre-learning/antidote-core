@@ -9,4 +9,4 @@ sshPassword: antidotepassword
 configUser: antidote
 configPassword: antidotepassword
 networkInterfaces:
-  - 'eth0'
+  - 'net1'

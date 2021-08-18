@@ -2,7 +2,7 @@ slug: utility
 description: A utility image
 privileged: false
 networkInterfaces:
-  - 'eth0'
+  - 'net1'
 sshUser: antidote
 flavor: untrusted
 sshPassword: antidotepassword

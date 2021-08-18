@@ -83,5 +83,12 @@ func validateImage(image *models.Image) error {
 		return errBasicValidation
 	}
 
+	for i := range image.NetworkInterfaces {
+		if image.NetworkInterfaces[i] == "eth0" {
+			log.Error("No presentations configured, and no additionalPorts specified")
+			return errEth0NotAllowed
+		}
+	}
+
 	return nil
 }

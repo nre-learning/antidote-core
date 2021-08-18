@@ -20,4 +20,7 @@ var (
 	errDuplicatePresentation    = errors.New("Duplicate presentations detected")
 	errBadConnection            = errors.New("Malformed connection")
 	errMissingLessonGuide       = errors.New("Couldn't find/read lesson guide")
+
+	// Images-Specific Errors
+	errEth0NotAllowed = errors.New("Not allowed to include 'eth0' in NetworkInterfaces field of images")
 )

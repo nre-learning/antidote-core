@@ -46,7 +46,15 @@ func TestNoNetworkInterfaces(t *testing.T) {
 	i.NetworkInterfaces = []string{}
 	err := validateImage(&i)
 
-	assert(t, (err == errBasicValidation), "Expected errBasicValidation")
+	assert(t, (err == nil), "Expected no error; the NetworkInterfaces field is optional")
+}
+
+func TestInvalidNetworkInterface(t *testing.T) {
+	i := getValidImage()
+	i.NetworkInterfaces = []string{"eth0", "net1"}
+	err := validateImage(&i)
+
+	assert(t, (err == errEth0NotAllowed), "Expected errEth0NotAllowed")
 }
 
 func TestNoSSHUser(t *testing.T) {
