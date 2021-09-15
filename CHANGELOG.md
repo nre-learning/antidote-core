@@ -4,7 +4,7 @@
 
 - Refactored scheduler for Pluggable Backends [#212](https://github.com/nre-learning/antidote-core/pull/212)
 - Adding developer mode [#209](https://github.com/nre-learning/antidote-core/pull/209)
-- Add ability to configure additional network interface names in imag meta [#214](https://github.com/nre-learning/antidote-core/pull/214)
+- Add ability to configure additional network interface names in image meta [#214](https://github.com/nre-learning/antidote-core/pull/214)
 
 ## v0.7.0 - December 14, 2020
 
