@@ -54,6 +54,10 @@ func ReadImages(cfg config.AntidoteConfig) ([]*models.Image, error) {
 			log.Errorf("Failed to import %s: %s", file, err)
 		}
 
+		if image.NetworkInterfaces == nil {
+			image.NetworkInterfaces = []string{}
+		}
+
 		err = validateImage(&image)
 		if err != nil {
 			log.Errorf("Image '%s' failed to validate", image.Slug)
@@ -85,7 +89,7 @@ func validateImage(image *models.Image) error {
 
 	for i := range image.NetworkInterfaces {
 		if image.NetworkInterfaces[i] == "eth0" {
-			log.Error("No presentations configured, and no additionalPorts specified")
+			log.Error("Not allowed to specify eth0 in networkInterfaces list")
 			return errEth0NotAllowed
 		}
 	}
