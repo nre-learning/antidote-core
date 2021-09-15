@@ -31,12 +31,31 @@ func (k *KubernetesBackend) createPod(sc ot.SpanContext, ep *models.LiveEndpoint
 	span.SetTag("nsName", nsName)
 
 	type networkAnnotation struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
+		Interface string `json:"interface"`
+	}
+
+	image, err := k.Db.GetImage(sc, ep.Image)
+	if err != nil {
+		log.Error(err)
+		return nil, err
 	}
 
 	netAnnotations := []networkAnnotation{}
 	for n := range networks {
-		netAnnotations = append(netAnnotations, networkAnnotation{Name: networks[n]})
+
+		// default to the `netX` format used by multus
+		ifName := fmt.Sprintf("net%d", n)
+
+		// Override if there is an available interface listed in the image definition
+		if len(image.NetworkInterfaces) > n {
+			ifName = image.NetworkInterfaces[n]
+		}
+
+		netAnnotations = append(netAnnotations, networkAnnotation{
+			Name:      networks[n],
+			Interface: ifName,
+		})
 	}
 
 	netAnnotationsJSON, err := json.Marshal(netAnnotations)
