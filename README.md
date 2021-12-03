@@ -1,3 +1,6 @@
+| :exclamation:  NOTE - this project has been archived. Please see [this blog post](https://nrelabs.io/2021/12/goodbye-for-now/) for more details.  :exclamation:  |
+|-----------------------------------------|
+
 # Antidote-Core
 
 ![Go](https://github.com/nre-learning/antidote-core/workflows/Go/badge.svg)
